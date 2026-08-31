@@ -22,11 +22,12 @@ const families = [
   ["Attack Surface Mapping","entrypoints, identities, assets and trust boundaries"]
 ];
 
+const universal = `npx skills@latest add omarmohelal/SecHelix --skill sechelix`;
 const installSnippets = {
-  claude: `# project-local Claude Code skill\nmkdir -p .claude/skills/sechelix\ncp -R skills/sechelix/* .claude/skills/sechelix/\n\n# then ask Claude:\n# Run a SecHelix audit on this authorized repository.`,
-  codex: `# keep the portable bundle in your repository\ncp -R skills/sechelix .codex/skills/sechelix\n\n# or upload/package skills/sechelix as a SKILL.md skill\n# in an OpenAI skills-capable workflow.`,
-  glm: `# Z.AI documents GLM running inside supported coding tools.\n# Example: GLM through Claude Code -> use the Claude adapter.\n\nmkdir -p .claude/skills/sechelix\ncp -R skills/sechelix/* .claude/skills/sechelix/\n\n# The host supplies tools; GLM supplies the model.`,
-  generic: `# portable Agent Skills bundle\ncp -R skills/sechelix .agents/skills/sechelix\n\n# If your agent has no native loader, point it to:\n# skills/sechelix/SKILL.md\n# and the repository root SKILL.md.`
+  claude: `${universal}\n\n# then ask Claude:\n# Run a SecHelix audit on this authorized repository.`,
+  codex: `${universal}\n\n# The repo also ships .codex/skills/sechelix/.`,
+  glm: `# Run GLM inside a skills-capable coding host, then install SecHelix\n# through that host. Example with the open skills CLI:\n${universal}\n\n# The host supplies tools; GLM supplies the model.`,
+  generic: `${universal}\n\n# Portable source of truth:\n# skills/sechelix/SKILL.md`
 };
 
 function renderCoverage(query = "") {
@@ -47,18 +48,8 @@ function setInstall(tab) {
 
 function initReveal() {
   const els = [...document.querySelectorAll(".reveal")];
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    els.forEach((el) => el.classList.add("visible"));
-    return;
-  }
-  const io = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add("visible");
-        io.unobserve(entry.target);
-      }
-    });
-  }, { threshold: 0.12 });
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) { els.forEach((el) => el.classList.add("visible")); return; }
+  const io = new IntersectionObserver((entries) => entries.forEach((entry) => { if (entry.isIntersecting) { entry.target.classList.add("visible"); io.unobserve(entry.target); } }), { threshold: 0.12 });
   els.forEach((el) => io.observe(el));
 }
 
@@ -68,34 +59,20 @@ function initTerminal() {
   const phrases = ["verify --finding SHX-042", "gate report.json", "audit ./service --mode local"];
   let p = 0, i = 0, deleting = false;
   const tick = () => {
-    const text = phrases[p];
-    target.textContent = text.slice(0, i);
-    if (!deleting && i < text.length) i++;
-    else if (!deleting) deleting = true;
-    else if (i > 0) i--;
-    else { deleting = false; p = (p + 1) % phrases.length; }
-    const delay = deleting ? 38 : i === text.length ? 900 : 62;
-    setTimeout(tick, delay);
+    const text = phrases[p]; target.textContent = text.slice(0, i);
+    if (!deleting && i < text.length) i++; else if (!deleting) deleting = true; else if (i > 0) i--; else { deleting = false; p = (p + 1) % phrases.length; }
+    setTimeout(tick, deleting ? 38 : i === text.length ? 900 : 62);
   };
   tick();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  renderCoverage();
-  setInstall("claude");
-  initReveal();
-  initTerminal();
-
+  renderCoverage(); setInstall("claude"); initReveal(); initTerminal();
   document.querySelector("#coverageSearch")?.addEventListener("input", (e) => renderCoverage(e.target.value));
   document.querySelectorAll(".tab").forEach((btn) => btn.addEventListener("click", () => setInstall(btn.dataset.tab)));
   document.querySelector("#copyInstall")?.addEventListener("click", async (e) => {
     const text = document.querySelector("#installCode code")?.textContent || "";
-    try {
-      await navigator.clipboard.writeText(text);
-      e.currentTarget.textContent = "Copied";
-      setTimeout(() => e.currentTarget.textContent = "Copy", 1200);
-    } catch {
-      e.currentTarget.textContent = "Select & copy";
-    }
+    try { await navigator.clipboard.writeText(text); e.currentTarget.textContent = "Copied"; setTimeout(() => e.currentTarget.textContent = "Copy", 1200); }
+    catch { e.currentTarget.textContent = "Select & copy"; }
   });
 });
