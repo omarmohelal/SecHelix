@@ -1,0 +1,147 @@
+{
+  "architecture": {
+    "summary": "A local multi-tenant store with API, worker, and fixture database boundaries.",
+    "trust_boundaries": [
+      "buyer to API",
+      "seller to tenant data",
+      "API to worker"
+    ]
+  },
+  "blocked_checks": [
+    {
+      "id": "SHX-CLOUD-L21-DEMO",
+      "integrity_critical": false,
+      "reason": "Cloud account was out of scope.",
+      "status": "BLOCKED_BY_ENVIRONMENT"
+    }
+  ],
+  "coverage": {
+    "applicable": 87,
+    "blocked": 1,
+    "integrity_critical_unknown": 0,
+    "not_applicable": 438,
+    "unknown": 20
+  },
+  "findings": [
+    {
+      "api_key": "[REDACTED]",
+      "attacker_control": "The caller could reach the listing endpoint while the seller lookup returned no identity.",
+      "boundary_failure": "Missing identity produced an unscoped query instead of failing closed.",
+      "confidence": "HIGH",
+      "fix": "Reject a missing seller subject before constructing the query.",
+      "id": "SHX-AUTHZ-L02-DEMO",
+      "impact": "A seller could read listing metadata belonging to other tenants.",
+      "independent_verification": {
+        "evidence": [
+          "local two-seller fixture reproduced the boundary failure"
+        ],
+        "status": "VERIFIED",
+        "verified_at": "2026-08-31T00:00:00Z",
+        "verifier_id": "independent-verifier-demo"
+      },
+      "locations": [
+        {
+          "line": 24,
+          "path": "demo/routes/listings.py"
+        }
+      ],
+      "prerequisites": [
+        "authenticated seller",
+        "missing seller lookup fixture"
+      ],
+      "reachability": "The route passed the missing identifier into the query builder.",
+      "references": [
+        "CWE-862"
+      ],
+      "regression": {
+        "assertion": "missing seller identity returns 403 and no rows",
+        "command": "python -m unittest tests.test_demo_authz",
+        "result": "PASS"
+      },
+      "reproduction": "Use the local seller-without-profile fixture and assert the old handler returns cross-tenant rows.",
+      "residual_risk": "Sibling background jobs require separate applicability review.",
+      "resolution": "FIXED",
+      "root_cause": "The canonical authorization helper treated a missing subject as an absent filter.",
+      "severity": "HIGH",
+      "status": "VERIFIED",
+      "surface": "GET /seller/listings",
+      "title": "Missing seller identity previously widened a listing query"
+    },
+    {
+      "attacker_control": "Request identifiers are partially caller influenced.",
+      "boundary_failure": "The local log retention window exceeds the documented fixture requirement.",
+      "confidence": "MEDIUM",
+      "fix": "Set an explicit fixture retention duration.",
+      "id": "SHX-LOG-L20-DEMO",
+      "impact": "Local-only correlation data persists longer than intended.",
+      "independent_verification": {
+        "evidence": [],
+        "status": "NOT_REQUIRED"
+      },
+      "reachability": "Identifiers are written by the local diagnostic middleware.",
+      "references": [
+        "CWE-532"
+      ],
+      "regression": "Assert fixture logs expire after the configured duration.",
+      "reproduction": "Run one local request and inspect the isolated fixture log.",
+      "residual_risk": "Production logging was out of scope.",
+      "resolution": "OPEN",
+      "root_cause": "The fixture cleanup job uses the default retention period.",
+      "severity": "MEDIUM",
+      "status": "VERIFIED",
+      "surface": "local diagnostic log",
+      "title": "Verbose local diagnostics retain request identifiers"
+    }
+  ],
+  "generated_at": "2026-08-31T00:00:00Z",
+  "rejected_findings": [
+    {
+      "id": "SHX-SSRF-L04-DEMO",
+      "reason": "The URL reaches a local allowlisted provider mock only.",
+      "status": "FALSE_POSITIVE"
+    }
+  ],
+  "release_recommendation": "PASS",
+  "report_id": "SHX-REPORT-DEMO-001",
+  "role_object_action_matrix": [
+    {
+      "actions": [
+        "read",
+        "update"
+      ],
+      "object": "own listing",
+      "role": "seller"
+    },
+    {
+      "actions": [],
+      "object": "other seller listing",
+      "role": "seller"
+    }
+  ],
+  "schema_version": "1.0.0",
+  "scope": {
+    "deployment_state": "READY",
+    "in_scope": [
+      "demo-store repository",
+      "local fixture database"
+    ],
+    "mode": "LOCAL",
+    "out_of_scope": [
+      "production providers"
+    ],
+    "project": "demo-store",
+    "restrictions": [
+      "non-destructive fixtures only"
+    ]
+  },
+  "tools": [
+    {
+      "name": "targeted-source-review",
+      "version": "repository-native"
+    },
+    {
+      "name": "local-regression",
+      "version": "fixture"
+    }
+  ]
+}

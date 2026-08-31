@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0.0",
+  "name": "SecHelix strict release policy",
+  "blocking_severities": ["CRITICAL", "HIGH", "MEDIUM"],
+  "require_independent_verification_for": ["CRITICAL", "HIGH"],
+  "require_regression_for": ["CRITICAL", "HIGH", "MEDIUM"],
+  "allow_accepted_risk": false,
+  "accepted_risk_required_fields": ["reason", "approver", "approved_at", "expires_at"],
+  "integrity_critical_unknown_outcome": "BLOCKED",
+  "required_tools": [],
+  "forbidden_deployment_states": ["MIGRATION_DRIFT", "ROLLBACK_UNAVAILABLE"],
+  "severity_overrides": {}
+}

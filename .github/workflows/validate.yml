@@ -12,12 +12,14 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
       - name: Validate structured catalog
         run: python scripts/validate_catalog.py
+      - name: Validate canonical skill and adapters
+        run: python scripts/validate_skill.py
       - name: Validate canonical skill basics
         shell: python
         run: |
@@ -67,3 +69,13 @@ jobs:
               assert not re.search(pat, cfg, re.I), f'potential secret material in support-config.js: {pat}'
           assert 'Do not use opBNB' in cfg
           print('OK: site + public support configuration')
+      - name: Check public/private source boundary
+        run: python scripts/check_private_site_leakage.py
+      - name: Check tracked files for high-confidence secrets
+        run: python scripts/check_no_secrets.py
+      - name: Check local documentation links
+        run: python scripts/check_local_links.py
+      - name: Check installation snippets
+        run: python scripts/check_install_snippets.py
+      - name: Run report, gate, eval, and QA tests
+        run: python -m unittest discover -s tests -p 'test_*.py' -v

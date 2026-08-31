@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "properties": {
+        "releaseRecommendation": "PASS"
+      },
+      "results": [
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "demo/routes/listings.py"
+                },
+                "region": {
+                  "startLine": 24
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Missing seller identity previously widened a listing query — status VERIFIED"
+          },
+          "properties": {
+            "independentVerification": {
+              "evidence": [
+                "local two-seller fixture reproduced the boundary failure"
+              ],
+              "status": "VERIFIED",
+              "verified_at": "2026-08-31T00:00:00Z",
+              "verifier_id": "independent-verifier-demo"
+            },
+            "resolution": "FIXED",
+            "status": "VERIFIED",
+            "surface": "GET /seller/listings"
+          },
+          "ruleId": "SHX-AUTHZ-L02-DEMO"
+        },
+        {
+          "level": "warning",
+          "message": {
+            "text": "Verbose local diagnostics retain request identifiers — status VERIFIED"
+          },
+          "properties": {
+            "independentVerification": {
+              "evidence": [],
+              "status": "NOT_REQUIRED"
+            },
+            "resolution": "OPEN",
+            "status": "VERIFIED",
+            "surface": "local diagnostic log"
+          },
+          "ruleId": "SHX-LOG-L20-DEMO"
+        }
+      ],
+      "tool": {
+        "driver": {
+          "informationUri": "https://github.com/omarmohelal/SecHelix",
+          "name": "SecHelix",
+          "rules": [
+            {
+              "id": "SHX-AUTHZ-L02-DEMO",
+              "name": "Missing-seller-identity-previously-widened-a-listing-query",
+              "properties": {
+                "confidence": "HIGH",
+                "security-severity": "HIGH"
+              },
+              "shortDescription": {
+                "text": "Missing seller identity previously widened a listing query"
+              }
+            },
+            {
+              "id": "SHX-LOG-L20-DEMO",
+              "name": "Verbose-local-diagnostics-retain-request-identifiers",
+              "properties": {
+                "confidence": "MEDIUM",
+                "security-severity": "MEDIUM"
+              },
+              "shortDescription": {
+                "text": "Verbose local diagnostics retain request identifiers"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "version": "2.1.0"
+}

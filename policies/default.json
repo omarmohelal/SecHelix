@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0.0",
+  "name": "SecHelix default release policy",
+  "blocking_severities": ["CRITICAL", "HIGH"],
+  "require_independent_verification_for": ["CRITICAL", "HIGH"],
+  "require_regression_for": ["CRITICAL", "HIGH"],
+  "allow_accepted_risk": false,
+  "accepted_risk_required_fields": ["reason", "approver", "approved_at", "expires_at"],
+  "integrity_critical_unknown_outcome": "INCOMPLETE",
+  "required_tools": [],
+  "forbidden_deployment_states": [],
+  "severity_overrides": {}
+}

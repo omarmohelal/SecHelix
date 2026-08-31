@@ -1,0 +1,20 @@
+{
+  "id": "EVAL-AUTHZ-001",
+  "family": "Authorization / BOLA / BFLA",
+  "task": "Determine whether a caller can read an invoice owned by another tenant and identify the controlling invariant.",
+  "provenance": "Synthetic SecHelix fixture; no external target.",
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "invoice.py",
+      "source": "def get_invoice(actor, invoice_id, store):\n    invoice = store[invoice_id]\n    return invoice\n"
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "invoice.py",
+      "source": "def get_invoice(actor, invoice_id, store):\n    invoice = store[invoice_id]\n    if not actor or invoice['tenant_id'] != actor['tenant_id']:\n        raise PermissionError('forbidden')\n    return invoice\n"
+    }
+  }
+}

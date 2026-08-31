@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0.0",
+  "measurement_status": "NOT_MEASURED",
+  "measured_at": null,
+  "run": {
+    "model": "NOT_MEASURED",
+    "provider": "NOT_MEASURED",
+    "runner": "NOT_MEASURED",
+    "fixture_count": "NOT_MEASURED",
+    "case_count": "NOT_MEASURED",
+    "time_seconds": "NOT_MEASURED",
+    "input_tokens": "NOT_MEASURED",
+    "output_tokens": "NOT_MEASURED",
+    "cost": "NOT_MEASURED"
+  },
+  "counts": {
+    "true_positive": "NOT_MEASURED",
+    "false_positive": "NOT_MEASURED",
+    "true_negative": "NOT_MEASURED",
+    "false_negative": "NOT_MEASURED"
+  },
+  "metrics": {
+    "precision": "NOT_MEASURED",
+    "recall": "NOT_MEASURED",
+    "verified_precision": "NOT_MEASURED",
+    "false_positive_rate": "NOT_MEASURED",
+    "duplicate_root_cause_rate": "NOT_MEASURED"
+  },
+  "scanner_contribution": "NOT_MEASURED"
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sechelix.dev/schemas/eval-metrics-1.0.0.json",
+  "title": "SecHelix evaluation result",
+  "type": "object",
+  "required": ["schema_version", "measurement_status", "run", "counts", "metrics", "scanner_contribution"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "measurement_status": {"enum": ["NOT_MEASURED", "MEASURED"]},
+    "measured_at": {"type": ["string", "null"]},
+    "run": {"type": "object"},
+    "counts": {"type": "object"},
+    "metrics": {
+      "type": "object",
+      "required": ["precision", "recall", "verified_precision", "false_positive_rate", "duplicate_root_cause_rate"],
+      "additionalProperties": {"oneOf": [{"type": "number", "minimum": 0, "maximum": 1}, {"const": "NOT_MEASURED"}]}
+    },
+    "scanner_contribution": {"oneOf": [{"type": "object"}, {"const": "NOT_MEASURED"}]}
+  },
+  "additionalProperties": false
+}

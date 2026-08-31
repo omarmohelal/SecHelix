@@ -24,14 +24,26 @@ SecHelix should earn trust with evals, not marketing claims.
 5. Separate static detection from runtime proof.
 6. Record blocked checks instead of treating them as passes.
 
-## Planned benchmark packs
+## Included benchmark packs
 
-- multi-tenant authorization;
-- refunds/payouts/inventory;
-- webhook/exact-once races;
+- authorization/BOLA/BFLA;
+- business logic;
+- race/idempotency;
 - SSRF and URL-fetch boundaries;
 - stored/second-order injection;
-- session and step-up auth;
+- file parsing;
 - Agent/MCP/tool authorization;
-- supply-chain and CI;
-- browser/server bundle boundaries.
+- supply chain.
+
+Each pack has a synthetic vulnerable case and a clean sibling under `evals/fixtures/`.
+The repository runner exports cases without expected labels and scores a complete
+external prediction packet only after review.
+
+## Current results
+
+**NOT_MEASURED.** No model, provider, or scanner result is published yet. The
+machine-readable placeholder is `evals/results/not-measured.json`; every metric
+remains the literal string `NOT_MEASURED` rather than a fabricated number or a
+misleading zero.
+
+Run instructions and the result schema are documented in `evals/README.md`.

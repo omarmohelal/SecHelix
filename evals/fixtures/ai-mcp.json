@@ -1,0 +1,20 @@
+{
+  "id": "EVAL-AI-001",
+  "family": "AI / Agent / MCP",
+  "task": "Review whether untrusted document content can select and execute an agent tool with ambient authority.",
+  "provenance": "Synthetic SecHelix fixture; tools are inert local abstractions.",
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "agent.py",
+      "source": "def handle_document(document, tools):\n    instruction = document['suggested_tool']\n    return tools[instruction['name']](**instruction['arguments'])\n"
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "agent.py",
+      "source": "ALLOWED_READ_ONLY = {'lookup_public_record'}\n\ndef handle_document(document, tools, operator):\n    instruction = document['suggested_tool']\n    if instruction['name'] not in ALLOWED_READ_ONLY or not operator.confirm(instruction):\n        raise PermissionError('tool use not authorized')\n    return tools[instruction['name']](**instruction['arguments'])\n"
+    }
+  }
+}

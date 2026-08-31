@@ -1,0 +1,20 @@
+{
+  "id": "EVAL-RACE-001",
+  "family": "Race / Idempotency",
+  "task": "Determine whether retry or concurrency can duplicate the external side effect.",
+  "provenance": "Synthetic SecHelix fixture using a local provider abstraction.",
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "payment.py",
+      "source": "def charge(request, provider, db):\n    if db.was_processed(request.id):\n        return db.result(request.id)\n    result = provider.charge(request.amount)\n    db.mark_processed(request.id, result)\n    return result\n"
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "payment.py",
+      "source": "def charge(request, provider, db):\n    with db.idempotency_lock(request.id) as claim:\n        if claim.completed:\n            return claim.result\n        result = provider.charge(request.amount, idempotency_key=request.id)\n        claim.complete(result)\n        return result\n"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "EVAL-SSRF-001",
+  "family": "SSRF / URL Fetching",
+  "task": "Review whether caller-controlled URLs can reach non-approved hosts or schemes.",
+  "provenance": "Synthetic SecHelix fixture; no request is executed by the eval runner.",
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "preview.py",
+      "source": "from urllib.request import urlopen\n\ndef preview(url):\n    return urlopen(url, timeout=2).read(4096)\n"
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "preview.py",
+      "source": "from urllib.parse import urlparse\n\ndef preview(url, approved_fetcher):\n    parsed = urlparse(url)\n    if parsed.scheme != 'https' or parsed.hostname not in {'assets.example.test'}:\n        raise ValueError('unapproved destination')\n    return approved_fetcher.fetch(parsed.geturl(), block_private_networks=True)\n"
+    }
+  }
+}

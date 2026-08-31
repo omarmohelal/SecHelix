@@ -1,0 +1,20 @@
+{
+  "id": "EVAL-SUPPLY-001",
+  "family": "Supply Chain",
+  "task": "Review whether an installer authenticates the fetched artifact before execution.",
+  "provenance": "Synthetic SecHelix fixture; URLs and digests are placeholders and are never fetched.",
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "installer.py",
+      "source": "def install(client, runner):\n    artifact = client.get('https://downloads.example.test/tool-latest.bin')\n    runner.execute(artifact)\n"
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "installer.py",
+      "source": "def install(client, runner, trusted_manifest):\n    artifact = client.get(trusted_manifest.versioned_url)\n    if artifact.sha256() != trusted_manifest.sha256:\n        raise ValueError('artifact integrity failure')\n    runner.execute(artifact)\n"
+    }
+  }
+}

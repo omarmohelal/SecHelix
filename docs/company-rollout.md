@@ -82,3 +82,34 @@ A mature rollout should show at least one of:
 - stronger regression coverage;
 - clearer security ownership/invariants;
 - more reliable release evidence.
+
+## VNext operating artifacts
+
+The repository now provides public, generic examples for the operational layer:
+
+- [`../policies/`](../policies/) — default, strict, and example organization gate policy packs;
+- [`audit-and-retention.md`](audit-and-retention.md) — append-only audit event and evidence-retention guidance;
+- [`private-policy-packs.md`](private-policy-packs.md) — separation and review rules for company-specific policy;
+- [`signed-evidence-bundles.md`](signed-evidence-bundles.md) — a design for manifests and signatures, not a claim that signing is already deployed;
+- [`ci-integration.md`](ci-integration.md) — fail-closed CI examples and outcome handling.
+
+Public examples contain no real company identities, assets, trust boundaries, or
+risk approvals. Copy them into a private repository before adding organization
+details. Access to the private pack should be narrower than access to the
+application source when it exposes incident history, sensitive architecture, or
+accepted-risk rationale.
+
+## Minimum production ownership
+
+A company rollout should name owners for:
+
+1. scope and authorization;
+2. policy-pack review;
+3. independent verification;
+4. risk acceptance and expiration;
+5. evidence retention and deletion;
+6. release-gate operation;
+7. signing identity and verification, if evidence bundles are signed.
+
+Do not let the same unattended model both assert an important finding and
+approve its verification or risk acceptance.

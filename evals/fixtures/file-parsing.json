@@ -1,0 +1,20 @@
+{
+  "id": "EVAL-FILE-001",
+  "family": "File / Parser",
+  "task": "Determine whether archive members can escape the intended extraction directory.",
+  "provenance": "Synthetic SecHelix fixture; no archive or payload is included.",
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "archive.py",
+      "source": "def unpack(archive, destination):\n    archive.extractall(destination)\n"
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "archive.py",
+      "source": "def unpack(archive, destination):\n    root = destination.resolve()\n    for member in archive.infolist():\n        target = (root / member.filename).resolve()\n        if root not in target.parents:\n            raise ValueError('archive member escapes destination')\n    archive.extractall(root)\n"
+    }
+  }
+}

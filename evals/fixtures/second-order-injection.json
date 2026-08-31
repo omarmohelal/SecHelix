@@ -1,0 +1,20 @@
+{
+  "id": "EVAL-INJ-001",
+  "family": "Second-order Injection",
+  "task": "Trace whether a stored label later becomes SQL structure rather than a bound value.",
+  "provenance": "Synthetic SecHelix fixture; database execution is not included.",
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "search.py",
+      "source": "def saved_search(db, profile):\n    label = profile['saved_label']\n    return db.execute(\"SELECT * FROM items WHERE label = '%s'\" % label)\n"
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "search.py",
+      "source": "def saved_search(db, profile):\n    label = profile['saved_label']\n    return db.execute('SELECT * FROM items WHERE label = ?', (label,))\n"
+    }
+  }
+}

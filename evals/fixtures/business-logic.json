@@ -1,0 +1,20 @@
+{
+  "id": "EVAL-BIZ-001",
+  "family": "Business Logic",
+  "task": "Review whether a single-use discount can be applied more than once without relying on UI state.",
+  "provenance": "Synthetic SecHelix fixture; monetary values are isolated examples.",
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "discount.py",
+      "source": "def apply_discount(order, code):\n    if code['active']:\n        order['total'] -= code['amount']\n    return order\n"
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "discount.py",
+      "source": "def apply_discount(order, code):\n    if not code['active'] or code['id'] in order['redeemed_codes']:\n        raise ValueError('not redeemable')\n    order['total'] -= code['amount']\n    order['redeemed_codes'].add(code['id'])\n    return order\n"
+    }
+  }
+}
