@@ -47,7 +47,7 @@ SecHelix should earn trust through evals before adding complexity.
 
 ## v3.0 alpha — contract-first orchestration foundation — current
 
-- eight versioned JSON contracts;
+- ten versioned JSON contracts, including community extension manifests and registry state;
 - deterministic four-state applicability;
 - explicit 546-ID catalog and frozen manifest;
 - 17 specialist roles;
@@ -55,6 +55,7 @@ SecHelix should earn trust through evals before adding complexity.
 - canonical derived reports and policy gates;
 - self-contained skills distribution;
 - private product-site source separation.
+- curated community extension lifecycle with contract, safety, fixture, and maintainer gates.
 
 Benchmark rows remain `NOT_MEASURED`; the alpha does not claim a winning model,
 provider, or scanner.

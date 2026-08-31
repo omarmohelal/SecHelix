@@ -113,3 +113,19 @@ Pro registries require `REACTBITS_LICENSE_KEY` and a valid developer license. No
 | React Bits Pro | `BLOCKED_BY_LICENSE` | Paid entitlement and private key configuration have not been proven. |
 | Magic UI Pro | `BLOCKED_BY_LICENSE` | Public MCP is sufficient; paid source is unnecessary and redistribution-limited. |
 
+## Alpha.2 design decisions from the ten-source review
+
+The private site applies ideas, not bulk component imports:
+
+| Source | Alpha.2 influence | Implementation choice |
+|---|---|---|
+| shadcn/ui | composable accessible primitives | Kept the existing Radix-based Button, Dialog, Input, Sheet, Tabs, Badge, and Accordion layer; added no parallel runtime. |
+| Magic UI | restrained border beam and code/file presentation | Reused the existing CSS border beam only on the evidence workbench; added a static manifest/code surface with reduced-motion coverage. |
+| Aceternity | asymmetric bento storytelling | Composed the Extension Forge as an unequal manifest/pipeline grid rather than importing a paid block. |
+| Radix UI | focus, keyboard, dialog, and tab behavior | Workbench states use tab semantics; command navigation uses the existing accessible Dialog/Input primitives. |
+| Tremor | honest KPI and benchmark presentation | Preserved `NOT_MEASURED` metrics and compact status bands instead of decorative charts or invented trends. |
+| HyperUI | concise CTA and step layouts | Tightened contribution actions and the five-stage lifecycle into scan-friendly sections. |
+| COSS | command palette ergonomics | Added a searchable keyboard-opened navigation dialog with grouped product/contributor destinations. |
+| Mantine | Spotlight and AppShell information architecture | Added global `⌘/Ctrl+K` and `/` navigation without adopting the Mantine runtime. |
+| Preline | stepper and documentation patterns | Built the proposal → contract → proof → review → promotion pipeline and a dedicated contributor route. |
+| React Bits | selective visual energy | Kept motion to bounded beam/status transitions; rejected shader, cursor, and perpetual background effects for performance and clarity. |

@@ -60,3 +60,15 @@ Organizations can add policy packs without changing the open core:
 - environment-specific safe-test rules.
 
 Future hosted/enterprise tooling should orchestrate these policies without changing the portable skill format.
+
+## Community extension boundary
+
+Public adapters and packs enter through `extensions/registry.json`. A submitted
+manifest declares all requested authority and is structurally limited to safe
+defaults. Registration does not execute or install code automatically; it creates a
+reviewable identity and lifecycle record. `COMMUNITY`, `INCUBATING`, and `OFFICIAL`
+are distribution trust channels, not evidence confidence levels.
+
+Promotion requires a separate maintainer review record with fixture proof. An
+extension can contribute observations or policy, but it cannot redefine the
+canonical authorization, evidence, verification, or severity contracts.

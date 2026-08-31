@@ -22,6 +22,8 @@ SCHEMAS = {
     "evidence": "evidence-v1.schema.json",
     "finding": "finding-v1.schema.json",
     "report": "report-v1.schema.json",
+    "extension-manifest": "extension-manifest-v1.schema.json",
+    "extension-registry": "extension-registry-v1.schema.json",
 }
 
 
@@ -231,3 +233,32 @@ def _validate_report(data: dict[str, Any], errors: list[str], **_: Any) -> None:
         unknown = sorted(set(finding["evidence_ids"]) - evidence_set)
         if unknown:
             errors.append(f"$.findings[{index}].evidence_ids: report is missing referenced evidence {unknown}")
+
+
+def _validate_extension_manifest(data: dict[str, Any], errors: list[str], **_: Any) -> None:
+    """Enforce invariants that a contributor must not be able to self-promote around."""
+
+    if data["lifecycle"] != "COMMUNITY":
+        errors.append("$.lifecycle: submitted manifests must start in COMMUNITY")
+    entrypoints = data["entrypoints"]
+    for index, entrypoint in enumerate(entrypoints):
+        path = Path(entrypoint)
+        if path.is_absolute() or ".." in path.parts:
+            errors.append(f"$.entrypoints[{index}]: must be a repository-relative path without '..'")
+    fixtures = data["tests"]["fixtures"]
+    for index, fixture in enumerate(fixtures):
+        path = Path(fixture)
+        if path.is_absolute() or ".." in path.parts:
+            errors.append(f"$.tests.fixtures[{index}]: must be a repository-relative path without '..'")
+
+
+def _validate_extension_registry(data: dict[str, Any], errors: list[str], **_: Any) -> None:
+    ids = [item["id"] for item in data["extensions"]]
+    for duplicate in _duplicates(ids):
+        errors.append(f"$.extensions: duplicate extension id {duplicate!r}")
+    for index, item in enumerate(data["extensions"]):
+        if not item["manifest"].startswith("extensions/community/"):
+            errors.append(f"$.extensions[{index}].manifest: must live under extensions/community/")
+        review = item.get("review")
+        if item["lifecycle"] in {"INCUBATING", "OFFICIAL"} and not review:
+            errors.append(f"$.extensions[{index}].review: promoted extensions require a maintainer review record")

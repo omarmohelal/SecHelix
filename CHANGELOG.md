@@ -2,6 +2,27 @@
 
 All notable changes to SecHelix are documented here.
 
+## [3.0.0-alpha.2] - 2026-09-01
+
+### Community extension forge
+
+- Added a curated extension registry for adapters, catalog/eval/policy packs,
+  reporters, specialists, and integrations.
+- Added versioned manifest and registry contracts with explicit authority,
+  safe-default, evidence, fixture, and lifecycle requirements.
+- Prevented community manifests from self-promoting to official status; promotion
+  requires a separate maintainer review record and fixture proof.
+- Added extension validation to CI, a starter manifest, contributor documentation,
+  tests, and a dedicated GitHub proposal form.
+- The release candidate passes 78 Python core/adapter tests plus catalog, skill,
+  link, secret, install, and private-source-boundary checks.
+
+### Product experience
+
+- Reworked the private VNext product site around an interactive evidence workbench,
+  a command palette, an honest measurement ledger, and a visible extension review
+  pipeline.
+
 ## [3.0.0-alpha.1] - 2026-08-31
 
 ### VNext engine

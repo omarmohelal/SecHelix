@@ -1,0 +1,6 @@
+{
+  "schema_version": "1.0",
+  "project": "SecHelix",
+  "policy": "Community submissions are untrusted metadata until contract checks, safety review, fixture proof, and a maintainer lifecycle decision complete.",
+  "extensions": []
+}

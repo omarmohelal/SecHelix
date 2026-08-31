@@ -1,0 +1,49 @@
+name: Community extension proposal
+description: Propose an adapter, pack, reporter, specialist, or integration
+title: "[extension] "
+labels: ["extension", "community"]
+body:
+  - type: dropdown
+    id: type
+    attributes:
+      label: Extension type
+      options: [Adapter, Catalog pack, Eval pack, Policy pack, Reporter, Specialist, Integration]
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and users
+      description: What evidence, workflow, or coverage gap does this solve, and for whom?
+    validations:
+      required: true
+  - type: textarea
+    id: authority
+    attributes:
+      label: Required authority
+      description: Declare network, filesystem, subprocess, secret, and external-service access.
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety boundaries
+      description: State the default mode, data handling, forbidden actions, and production behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: fixtures
+    attributes:
+      label: Fixture proof
+      description: Describe deterministic positive/negative or vulnerable/clean fixtures and expected contracts.
+    validations:
+      required: true
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Submission agreement
+      options:
+        - label: I understand new submissions begin in the COMMUNITY lifecycle.
+          required: true
+        - label: I will not include real credentials, customer data, destructive exploits, or unauthorized targets.
+          required: true

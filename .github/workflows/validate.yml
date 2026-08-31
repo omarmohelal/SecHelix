@@ -20,6 +20,8 @@ jobs:
         run: python scripts/validate_catalog.py
       - name: Validate canonical skill and adapters
         run: python scripts/validate_skill.py
+      - name: Validate community extension registry
+        run: python scripts/validate_extensions.py
       - name: Validate canonical skill basics
         shell: python
         run: |

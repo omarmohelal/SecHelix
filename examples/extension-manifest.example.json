@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.0",
+  "id": "example-evidence-adapter",
+  "name": "Example evidence adapter",
+  "version": "0.1.0",
+  "summary": "Example-only manifest showing the minimum contract for a bounded evidence adapter.",
+  "extension_type": "ADAPTER",
+  "lifecycle": "COMMUNITY",
+  "compatibility": {
+    "sechelix": ">=3.0.0-alpha.2 <4"
+  },
+  "entrypoints": [
+    "src/adapter.py"
+  ],
+  "capabilities": [
+    "normalize_evidence"
+  ],
+  "permissions": {
+    "network": "NONE",
+    "filesystem": "READ_SCOPED",
+    "subprocess": "NONE",
+    "secrets": []
+  },
+  "safety": {
+    "default_mode": "STATIC",
+    "destructive_actions": false,
+    "production_mutation": false,
+    "evidence_contract": true,
+    "data_handling": "Reads only contributor-owned fixtures and emits redacted evidence-v1 records."
+  },
+  "author": {
+    "handle": "your-github-handle",
+    "url": "https://github.com/your-github-handle"
+  },
+  "repository": "https://github.com/your-github-handle/example-evidence-adapter",
+  "license": "Apache-2.0",
+  "documentation": "https://github.com/your-github-handle/example-evidence-adapter#readme",
+  "tests": {
+    "command": "python -m unittest discover -s tests -v",
+    "fixtures": [
+      "tests/fixtures/synthetic-input.json"
+    ],
+    "expected_contract": "evidence-v1"
+  },
+  "risk_notes": [
+    "Treat all upstream fields as untrusted and preserve raw provenance without trusting severity."
+  ]
+}

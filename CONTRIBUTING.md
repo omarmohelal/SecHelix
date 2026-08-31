@@ -32,11 +32,30 @@ Before opening a PR:
 
 ```bash
 python scripts/validate_catalog.py
+python scripts/validate_extensions.py
 ```
 
 If your change affects reports/gates, run the relevant example gate as well.
 
 Keep vendor adapters thin. The root `SKILL.md` is canonical; do not fork methodology into several model-specific copies.
+
+## Building an extension
+
+Community extensions can add an adapter, catalog pack, eval pack, policy pack,
+reporter, specialist, or integration without forking the SecHelix core.
+
+1. Open the [community extension proposal](https://github.com/omarmohelal/SecHelix/issues/new?template=extension.yml).
+2. Copy `examples/extension-manifest.example.json` to
+   `extensions/community/<extension-id>/extension.json`.
+3. Add implementation, documentation, and deterministic synthetic fixtures.
+4. Add the manifest to `extensions/registry.json` as `COMMUNITY`.
+5. Run the extension validator and test suite before opening the pull request.
+
+Every manifest must declare its network, filesystem, subprocess, and secret access.
+New submissions cannot mark themselves `OFFICIAL`; promotion is a separate
+maintainer decision after safety review and fixture proof.
+
+Read [the complete extension program](docs/EXTENSIONS.md).
 
 ## Security research contributions
 

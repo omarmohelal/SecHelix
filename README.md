@@ -11,7 +11,7 @@
   <a href="https://skills.sh/omarmohelal/SecHelix"><img src="https://img.shields.io/badge/skills.sh-SecHelix-6ee7b7?style=flat-square" alt="skills.sh"/></a>
   <a href="https://github.com/omarmohelal/SecHelix/actions"><img src="https://img.shields.io/github/actions/workflow/status/omarmohelal/SecHelix/validate.yml?branch=main&style=flat-square&label=validate" alt="validation"/></a>
   <a href="SKILL.md"><img src="https://img.shields.io/badge/security%20hypotheses-546-7dd3fc?style=flat-square" alt="546 hypotheses"/></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-3.0.0--alpha.1-9b8cff?style=flat-square" alt="3.0.0 alpha 1"/></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-3.0.0--alpha.2-9b8cff?style=flat-square" alt="3.0.0 alpha 2"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-a78bfa?style=flat-square" alt="Apache-2.0"/></a>
   <a href="site/support.html"><img src="https://img.shields.io/badge/support-crypto-facc15?style=flat-square" alt="Support SecHelix"/></a>
 </p>
@@ -59,12 +59,11 @@ The product site source is private; these selected, source-free screenshots are
 published intentionally so the public framework has an honest visual preview.
 
 <p align="center">
-  <img src="assets/vnext-preview/home-1440x900.jpg" alt="SecHelix VNext evidence-first home page" width="100%" />
+  <img src="assets/vnext-preview/home-alpha2.jpg" alt="SecHelix VNext alpha 2 interactive evidence workbench" width="100%" />
 </p>
 
 <p align="center">
-  <img src="assets/vnext-preview/home-390x844.jpg" alt="SecHelix VNext mobile home page" width="31%" />
-  <img src="assets/vnext-preview/support-1440x900.jpg" alt="SecHelix VNext audited support address and QR flow" width="64%" />
+  <img src="assets/vnext-preview/extension-forge-alpha2.jpg" alt="SecHelix community extension manifest and review pipeline" width="100%" />
 </p>
 
 ## Install in 30 seconds
@@ -348,6 +347,17 @@ Contributions are welcome, especially:
 - documentation improvements.
 
 Security checks should be proposed as **testable hypotheses**, not slogans.
+
+### Build on SecHelix
+
+The curated extension program accepts community adapters, catalog/eval/policy
+packs, reporters, specialists, and integrations. Submissions carry a versioned
+manifest with declared permissions, safe defaults, deterministic fixtures, and an
+evidence-contract target. They enter the `COMMUNITY` channel; only maintainers can
+promote proven work to `INCUBATING` or `OFFICIAL` in a separate review.
+
+[Read the extension program →](docs/EXTENSIONS.md) ·
+[Propose an extension →](https://github.com/omarmohelal/SecHelix/issues/new?template=extension.yml)
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md).
 
