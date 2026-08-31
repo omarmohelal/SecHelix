@@ -1,0 +1,1 @@
+{"template-id":"demo-header","info":{"name":"Demonstration header observation","severity":"critical","tags":["header"]},"type":"http","host":"http://127.0.0.1:3000","matched-at":"http://127.0.0.1:3000/","extracted-results":["NUCLEI_FIXTURE_SECRET_789"],"request":"omitted fixture request","response":"NUCLEI_FIXTURE_SECRET_789","timestamp":"2099-01-01T00:00:00Z"}

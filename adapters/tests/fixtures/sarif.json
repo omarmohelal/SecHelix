@@ -1,0 +1,15 @@
+{
+  "version": "2.1.0",
+  "runs": [{
+    "tool": {"driver": {"name": "Example SARIF Scanner", "version": "3.2"}},
+    "results": [{
+      "ruleId": "EXAMPLE-001",
+      "level": "error",
+      "message": {"text": "Potential unsafe operation"},
+      "locations": [{"physicalLocation": {
+        "artifactLocation": {"uri": "src/example.ts"},
+        "region": {"startLine": 7, "startColumn": 2}
+      }}]
+    }]
+  }]
+}

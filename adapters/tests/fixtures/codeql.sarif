@@ -1,0 +1,15 @@
+{
+  "version": "2.1.0",
+  "runs": [{
+    "tool": {"driver": {"name": "CodeQL", "semanticVersion": "2.20.0"}},
+    "results": [{
+      "ruleId": "js/sql-injection",
+      "level": "error",
+      "message": {"text": "Query may depend on user input"},
+      "locations": [{"physicalLocation": {
+        "artifactLocation": {"uri": "api/search.ts"},
+        "region": {"startLine": 42}
+      }}]
+    }]
+  }]
+}

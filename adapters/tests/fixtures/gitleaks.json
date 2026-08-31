@@ -1,0 +1,13 @@
+[
+  {
+    "Description": "Generic API key",
+    "StartLine": 8,
+    "StartColumn": 12,
+    "Match": "GITLEAKS_FIXTURE_SECRET_456",
+    "Secret": "GITLEAKS_FIXTURE_SECRET_456",
+    "File": "config/example.env",
+    "Commit": "0123456789abcdef",
+    "RuleID": "generic-api-key",
+    "Fingerprint": "fixture-fingerprint"
+  }
+]

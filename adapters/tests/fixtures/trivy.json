@@ -1,0 +1,24 @@
+{
+  "SchemaVersion": 2,
+  "Results": [{
+    "Target": "package-lock.json",
+    "Vulnerabilities": [{
+      "VulnerabilityID": "CVE-2099-0002",
+      "PkgName": "demo-package",
+      "InstalledVersion": "1.0.0",
+      "FixedVersion": "1.0.1",
+      "Title": "Demonstration vulnerability",
+      "Severity": "CRITICAL"
+    }],
+    "Secrets": [{
+      "RuleID": "private-key",
+      "Category": "AsymmetricPrivateKey",
+      "Title": "Private key",
+      "Severity": "CRITICAL",
+      "StartLine": 3,
+      "EndLine": 5,
+      "Match": "TRIVY_FIXTURE_SECRET_123",
+      "Code": {"Lines": [{"Number": 3, "Content": "TRIVY_FIXTURE_SECRET_123"}]}
+    }]
+  }]
+}

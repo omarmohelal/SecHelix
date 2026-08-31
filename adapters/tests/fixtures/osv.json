@@ -1,0 +1,15 @@
+{
+  "results": [{
+    "source": {"path": "package-lock.json"},
+    "packages": [{
+      "package": {"name": "demo-package", "version": "1.0.0"},
+      "vulnerabilities": [{
+        "id": "GHSA-DEMO-0001",
+        "summary": "Demonstration advisory",
+        "aliases": ["CVE-2099-0001"],
+        "database_specific": {"severity": "CRITICAL"},
+        "severity": [{"type": "CVSS_V3", "score": "CVSS:3.1/AV:N/AC:L"}]
+      }]
+    }]
+  }]
+}

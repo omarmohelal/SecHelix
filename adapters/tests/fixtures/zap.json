@@ -1,0 +1,16 @@
+{
+  "@version": "2.15.0",
+  "site": [{
+    "@name": "http://127.0.0.1:3000",
+    "alerts": [{
+      "pluginid": "10021",
+      "alert": "Missing anti-clickjacking header",
+      "riskcode": "3",
+      "riskdesc": "High (Medium)",
+      "confidence": "2",
+      "desc": "A response did not contain a frame restriction.",
+      "solution": "Review framing requirements.",
+      "instances": [{"uri": "http://127.0.0.1:3000/", "method": "GET"}]
+    }]
+  }]
+}

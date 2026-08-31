@@ -1,0 +1,20 @@
+{
+  "auditReportVersion": 2,
+  "vulnerabilities": {
+    "demo-package": {
+      "name": "demo-package",
+      "severity": "critical",
+      "isDirect": true,
+      "via": [{
+        "source": 999001,
+        "name": "demo-package",
+        "title": "Demonstration audit advisory",
+        "url": "https://example.invalid/advisory/999001",
+        "severity": "critical",
+        "range": "<1.0.1"
+      }],
+      "nodes": ["node_modules/demo-package"],
+      "fixAvailable": true
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "suites": [{
+    "title": "authorization evidence",
+    "file": "tests/authz.spec.ts",
+    "specs": [{
+      "title": "user B cannot read user A record",
+      "file": "tests/authz.spec.ts",
+      "line": 27,
+      "column": 3,
+      "tests": [{
+        "projectName": "chromium",
+        "expectedStatus": "passed",
+        "results": [{
+          "status": "failed",
+          "duration": 125,
+          "error": {"message": "Expected 403 but received 200"}
+        }]
+      }]
+    }]
+  }]
+}

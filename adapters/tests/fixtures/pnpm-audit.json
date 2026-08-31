@@ -1,0 +1,13 @@
+{
+  "advisories": {
+    "999002": {
+      "id": 999002,
+      "module_name": "pnpm-demo",
+      "title": "Demonstration pnpm advisory",
+      "severity": "high",
+      "vulnerable_versions": "<=2.0.0",
+      "recommendation": "Upgrade after independent verification",
+      "github_advisory_id": "GHSA-PNPM-DEMO"
+    }
+  }
+}
