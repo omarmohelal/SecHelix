@@ -6,6 +6,7 @@ from scripts.check_install_snippets import check as check_install
 from scripts.check_local_links import check_file
 from scripts.check_no_secrets import scan_text
 from scripts.check_private_site_leakage import find_violations
+from scripts.sync_portable_skill import DEST as PORTABLE_SKILL
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,6 +36,19 @@ class RepositoryCheckTests(unittest.TestCase):
 
     def test_install_snippets_are_current(self):
         self.assertEqual(check_install(ROOT), [])
+
+    def test_portable_skill_is_self_contained(self):
+        text = (PORTABLE_SKILL / "SKILL.md").read_text(encoding="utf-8")
+        self.assertNotIn("../../", text)
+        for path in (
+            "catalog/checks.json",
+            "agents/independent-verifier.md",
+            "schemas/report-v1.schema.json",
+            "adapters/cli.py",
+            "reports/report_renderer.py",
+            "scripts/security_gate.py",
+        ):
+            self.assertTrue((PORTABLE_SKILL / path).is_file(), path)
 
 
 if __name__ == "__main__":

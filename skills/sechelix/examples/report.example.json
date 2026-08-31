@@ -1,0 +1,93 @@
+{
+  "schema_version": "1.0.0",
+  "report_id": "SHX-REPORT-DEMO-001",
+  "generated_at": "2026-08-31T00:00:00Z",
+  "scope": {
+    "project": "demo-store",
+    "mode": "LOCAL",
+    "deployment_state": "READY",
+    "in_scope": ["demo-store repository", "local fixture database"],
+    "out_of_scope": ["production providers"],
+    "restrictions": ["non-destructive fixtures only"]
+  },
+  "architecture": {
+    "summary": "A local multi-tenant store with API, worker, and fixture database boundaries.",
+    "trust_boundaries": ["buyer to API", "seller to tenant data", "API to worker"]
+  },
+  "role_object_action_matrix": [
+    {"role": "seller", "object": "own listing", "actions": ["read", "update"]},
+    {"role": "seller", "object": "other seller listing", "actions": []}
+  ],
+  "coverage": {
+    "applicable": 87,
+    "not_applicable": 438,
+    "unknown": 20,
+    "blocked": 1,
+    "integrity_critical_unknown": 0
+  },
+  "tools": [
+    {"name": "targeted-source-review", "version": "repository-native"},
+    {"name": "local-regression", "version": "fixture"}
+  ],
+  "findings": [
+    {
+      "id": "SHX-AUTHZ-L02-DEMO",
+      "title": "Missing seller identity previously widened a listing query",
+      "severity": "HIGH",
+      "confidence": "HIGH",
+      "status": "VERIFIED",
+      "resolution": "FIXED",
+      "surface": "GET /seller/listings",
+      "prerequisites": ["authenticated seller", "missing seller lookup fixture"],
+      "attacker_control": "The caller could reach the listing endpoint while the seller lookup returned no identity.",
+      "reachability": "The route passed the missing identifier into the query builder.",
+      "boundary_failure": "Missing identity produced an unscoped query instead of failing closed.",
+      "reproduction": "Use the local seller-without-profile fixture and assert the old handler returns cross-tenant rows.",
+      "impact": "A seller could read listing metadata belonging to other tenants.",
+      "root_cause": "The canonical authorization helper treated a missing subject as an absent filter.",
+      "independent_verification": {
+        "status": "VERIFIED",
+        "verifier_id": "independent-verifier-demo",
+        "verified_at": "2026-08-31T00:00:00Z",
+        "evidence": ["local two-seller fixture reproduced the boundary failure"]
+      },
+      "fix": "Reject a missing seller subject before constructing the query.",
+      "regression": {
+        "command": "python -m unittest tests.test_demo_authz",
+        "result": "PASS",
+        "assertion": "missing seller identity returns 403 and no rows"
+      },
+      "residual_risk": "Sibling background jobs require separate applicability review.",
+      "references": ["CWE-862"],
+      "locations": [{"path": "demo/routes/listings.py", "line": 24}],
+      "api_key": "[REDACTED]"
+    },
+    {
+      "id": "SHX-LOG-L20-DEMO",
+      "title": "Verbose local diagnostics retain request identifiers",
+      "severity": "MEDIUM",
+      "confidence": "MEDIUM",
+      "status": "VERIFIED",
+      "resolution": "OPEN",
+      "surface": "local diagnostic log",
+      "attacker_control": "Request identifiers are partially caller influenced.",
+      "reachability": "Identifiers are written by the local diagnostic middleware.",
+      "boundary_failure": "The local log retention window exceeds the documented fixture requirement.",
+      "reproduction": "Run one local request and inspect the isolated fixture log.",
+      "impact": "Local-only correlation data persists longer than intended.",
+      "root_cause": "The fixture cleanup job uses the default retention period.",
+      "independent_verification": {"status": "NOT_REQUIRED", "evidence": []},
+      "fix": "Set an explicit fixture retention duration.",
+      "regression": "Assert fixture logs expire after the configured duration.",
+      "residual_risk": "Production logging was out of scope.",
+      "references": ["CWE-532"]
+    }
+  ],
+  "rejected_findings": [
+    {"id": "SHX-SSRF-L04-DEMO", "status": "FALSE_POSITIVE", "reason": "The URL reaches a local allowlisted provider mock only."}
+  ],
+  "blocked_checks": [
+    {"id": "SHX-CLOUD-L21-DEMO", "status": "BLOCKED_BY_ENVIRONMENT", "integrity_critical": false, "reason": "Cloud account was out of scope."}
+  ],
+  "release_recommendation": "PASS"
+}

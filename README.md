@@ -11,6 +11,7 @@
   <a href="https://skills.sh/omarmohelal/SecHelix"><img src="https://img.shields.io/badge/skills.sh-SecHelix-6ee7b7?style=flat-square" alt="skills.sh"/></a>
   <a href="https://github.com/omarmohelal/SecHelix/actions"><img src="https://img.shields.io/github/actions/workflow/status/omarmohelal/SecHelix/validate.yml?branch=main&style=flat-square&label=validate" alt="validation"/></a>
   <a href="SKILL.md"><img src="https://img.shields.io/badge/security%20hypotheses-546-7dd3fc?style=flat-square" alt="546 hypotheses"/></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-3.0.0--alpha.1-9b8cff?style=flat-square" alt="3.0.0 alpha 1"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-a78bfa?style=flat-square" alt="Apache-2.0"/></a>
   <a href="site/support.html"><img src="https://img.shields.io/badge/support-crypto-facc15?style=flat-square" alt="Support SecHelix"/></a>
 </p>
@@ -39,6 +40,32 @@ It is intentionally not “an AI scanner with 500 payloads.” Instead, it coord
 > Two models agreeing is not independent proof.
 
 A finding becomes trusted only when the evidence supports attacker control, reachability, a failed security boundary, a safe reproduction, concrete impact, root cause, and regression proof.
+
+### What ships in VNext
+
+| Surface | Current state |
+|---|---|
+| Coverage | **546 explicit, stable hypothesis IDs** across 21 families and 26 lenses |
+| Specialist mesh | **17 model-neutral role profiles**, including an independent verifier |
+| Contracts | 8 JSON Schema Draft 2020-12 contracts for scope through report |
+| Evidence adapters | Semgrep, CodeQL/SARIF, OSV, Gitleaks, Trivy, npm/pnpm audit, Playwright, ZAP, Nuclei |
+| Reports | Markdown, redacted JSON, SARIF 2.1.0, escaped standalone HTML |
+| Release truth | `PASS`, `PASS_WITH_KNOWN_RISK`, `BLOCKED`, or fail-closed `INCOMPLETE` |
+| Evals | Eight vulnerable/clean fixture families; public aggregate results are **NOT_MEASURED** |
+
+### VNext product preview
+
+The product site source is private; these selected, source-free screenshots are
+published intentionally so the public framework has an honest visual preview.
+
+<p align="center">
+  <img src="assets/vnext-preview/home-1440x900.jpg" alt="SecHelix VNext evidence-first home page" width="100%" />
+</p>
+
+<p align="center">
+  <img src="assets/vnext-preview/home-390x844.jpg" alt="SecHelix VNext mobile home page" width="31%" />
+  <img src="assets/vnext-preview/support-1440x900.jpg" alt="SecHelix VNext audited support address and QR flow" width="64%" />
+</p>
 
 ## Install in 30 seconds
 
@@ -184,7 +211,7 @@ The catalog contains **546 structured security hypotheses across 21 families**.
 | Cloud / configuration | Privacy / logging | AI / Agent / MCP |
 | Operational security | Release security | Attack-surface mapping |
 
-SecHelix marks each hypothesis `APPLICABLE`, `NOT_APPLICABLE`, or `UNKNOWN_NEEDS_EVIDENCE`. It does **not** spray every check at every target.
+SecHelix marks each hypothesis `APPLICABLE`, `NOT_APPLICABLE`, `UNKNOWN`, or `BLOCKED`. Missing evidence is never treated as absence, and an unauthorized scope is blocked rather than mislabeled inapplicable. It does **not** spray every check at every target.
 
 ## Where SecHelix is different
 
@@ -231,18 +258,23 @@ See [SECURITY.md](SECURITY.md).
 ```text
 SecHelix/
 ├── SKILL.md                    # canonical methodology
-├── skills/sechelix/            # portable Agent Skills bundle
+├── skills/sechelix/            # self-contained portable Agent Skills bundle
 ├── .claude/skills/sechelix/    # Claude Code adapter
 ├── .codex/skills/sechelix/     # Codex adapter
 ├── agents/                     # specialist reviewer profiles
-├── catalog/                    # structured security hypotheses
+├── catalog/                    # 546 explicit structured hypotheses
+├── schemas/                    # versioned JSON contracts
+├── sechelix_core/              # applicability, graph, catalog, contract core
+├── adapters/                   # normalized tool evidence adapters
+├── reports/                    # Markdown/JSON/SARIF/HTML renderer
+├── policies/                   # public release-gate policy examples
 ├── references/                 # methodology + standards + tooling
 ├── scripts/                    # validation + release gates
 ├── examples/                   # scope + report examples
-├── evals/                      # benchmark direction
+├── evals/                      # paired fixtures + NOT_MEASURED baseline
 ├── docs/                       # rollout + design docs
-├── site/                       # landing page + support page
-└── .github/                    # CI + Pages + contribution templates
+├── site/                       # historical public static preview
+└── .github/                    # pinned CI + contribution templates
 ```
 
 ## Company rollout
@@ -261,12 +293,16 @@ See [docs/company-rollout.md](docs/company-rollout.md) and [COMMERCIAL.md](COMME
 ## Validation
 
 ```bash
+python -m unittest discover -s tests -v
+python -m unittest discover -s adapters/tests -v
 python scripts/validate_catalog.py
 python scripts/validate_skill.py
-python scripts/security_gate.py --help
+python scripts/check_no_secrets.py
+python scripts/check_private_site_leakage.py
+npx skills@latest add . --list
 ```
 
-The repository validates catalog identity, skill structure, adapters, and public-release invariants in GitHub Actions.
+The repository validates catalog identity, the standalone install bundle, schemas, adapters, reporting, policy gates, secrets, private-site separation, and public-release invariants in GitHub Actions.
 
 ## Trophy case
 
@@ -278,18 +314,15 @@ See [TROPHY_CASE.md](TROPHY_CASE.md).
 
 ## Roadmap
 
-Near-term:
+Implemented in the VNext alpha:
 
-- SARIF normalization
-- Semgrep / CodeQL adapters
-- OSV / Trivy / Gitleaks evidence adapters
-- browser verification packs
-- vulnerable + clean eval fixtures
-- model-role benchmarks
-- false-positive benchmark
-- signed evidence bundles
-- organization policy packs
-- optional multi-provider orchestration
+- deterministic applicability and attack-surface graph contracts;
+- SARIF, Semgrep, CodeQL, OSV, Trivy, Gitleaks, package-audit, browser, ZAP, and Nuclei adapters;
+- paired vulnerable/clean eval fixtures with blind export and honest `NOT_MEASURED` results;
+- canonical Markdown/JSON/SARIF/HTML reports and fail-closed policy gates;
+- signed evidence-bundle, audit/retention, CI, and private-policy-pack designs.
+
+Next work is calibration: reproducible benchmark runs, model/provider scorecards, more fixtures, and design-partner evidence. No capability ranking is claimed before measurement.
 
 See [ROADMAP.md](ROADMAP.md).
 
@@ -299,7 +332,9 @@ SecHelix is open source. Donations help fund model/API evals, intentionally vuln
 
 **Official crypto addresses live only in the repository and the official SecHelix domain. Always verify the asset and network before sending.**
 
-[Open the support page →](site/support.html)
+[Open the public support page →](site/support.html)
+
+The product-grade VNext website is maintained in a separate private repository; this public repository contains only the framework, its historical static preview, and intentionally selected non-source assets. No website deployment is performed by this release work.
 
 ## Contributing
 

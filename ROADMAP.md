@@ -13,7 +13,7 @@ SecHelix should earn trust through evals before adding complexity.
 - crypto-ready support page;
 - GitHub validation + Pages workflows.
 
-## v2.2 — evidence adapters
+## v2.2 — evidence adapters — complete
 
 - SARIF normalizer;
 - Semgrep adapter;
@@ -24,7 +24,7 @@ SecHelix should earn trust through evals before adding complexity.
 - browser evidence schema;
 - scanner-source confidence metadata.
 
-## v2.3 — eval lab
+## v2.3 — eval lab foundation — complete
 
 - intentionally vulnerable fixtures;
 - patched/control fixtures;
@@ -35,7 +35,7 @@ SecHelix should earn trust through evals before adding complexity.
 - false-positive benchmark;
 - model-role comparison harness.
 
-## v2.4 — report and CI ecosystem
+## v2.4 — report and CI ecosystem — complete
 
 - stable JSON report schema;
 - SARIF export;
@@ -45,7 +45,21 @@ SecHelix should earn trust through evals before adding complexity.
 - severity/company-policy gates;
 - historical comparison.
 
-## v3 — orchestration platform (optional)
+## v3.0 alpha — contract-first orchestration foundation — current
+
+- eight versioned JSON contracts;
+- deterministic four-state applicability;
+- explicit 546-ID catalog and frozen manifest;
+- 17 specialist roles;
+- safe adapter profiles;
+- canonical derived reports and policy gates;
+- self-contained skills distribution;
+- private product-site source separation.
+
+Benchmark rows remain `NOT_MEASURED`; the alpha does not claim a winning model,
+provider, or scanner.
+
+## v3.x — orchestration platform (optional)
 
 - multi-provider model mesh;
 - budget/rate controls;

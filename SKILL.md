@@ -27,6 +27,25 @@ SecHelix is a portable AppSec review workflow for **authorized** systems. Treat 
 
 If the user does not specify a mode, start with `STATIC`, then ask/derive whether `LOCAL` is available before dynamic testing.
 
+## VNext runtime contract
+
+When the repository runtime is available, use its versioned contracts rather
+than inventing parallel report shapes:
+
+- eight JSON Schema Draft 2020-12 contracts cover scope, attack surface,
+  applicability input/output, evidence, findings, reports, and catalog entries;
+- all 546 catalog hypotheses have explicit, stable IDs from the frozen manifest;
+- applicability has exactly four outcomes: `APPLICABLE`, `NOT_APPLICABLE`,
+  `UNKNOWN`, and `BLOCKED`;
+- reports derive Markdown, redacted JSON, SARIF 2.1.0, and escaped standalone
+  HTML from one canonical JSON source;
+- release gates fail closed to `INCOMPLETE` for malformed or missing evidence;
+- public benchmark results remain `NOT_MEASURED` until a reproducible run emits
+  signed inputs, configuration, and outputs.
+
+Never coerce `UNKNOWN` or `BLOCKED` into `NOT_APPLICABLE`. Never turn
+`LIKELY_BUT_UNPROVEN` into `VERIFIED` to satisfy a release gate.
+
 ## Phase 0 — establish scope
 
 Create a short scope record before hunting:
@@ -333,8 +352,26 @@ Also report:
 - `references/sources.md` — standards and source references.
 - `catalog/checks.json` — structured hypothesis catalog.
 - `agents/` — specialist reviewer profiles.
+- `schemas/` — versioned scope, evidence, finding, and report contracts.
+- `adapters/` — normalized Semgrep, CodeQL/SARIF, OSV, Gitleaks, Trivy,
+  npm/pnpm audit, Playwright, ZAP, and Nuclei evidence adapters.
+- `reports/` — canonical Markdown/JSON/SARIF/HTML report renderer.
+- `policies/` — public release-gate policy examples; keep real organization
+  policy packs private.
 - `examples/` — scope and report examples.
 - `scripts/security_gate.py` — report/release gate.
+- `scripts/applicability.py` — deterministic applicability decision helper.
+- `scripts/attack_surface.py` — attack-surface and Mermaid graph helper.
 - `scripts/validate_catalog.py` — catalog validation.
+
+Typical repository-runtime commands:
+
+```bash
+python scripts/attack_surface.py --help
+python scripts/applicability.py --help
+python -m adapters.cli --help
+python -m reports.report_renderer examples/report.example.json --format markdown
+python scripts/security_gate.py examples/report.example.json --policy policies/default.json
+```
 
 Remember: the objective is not to generate the most findings. It is to find the important flaws, reject noise, repair root causes, and leave proof that the system is safer.

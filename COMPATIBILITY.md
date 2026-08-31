@@ -4,13 +4,18 @@ SecHelix separates **format compatibility** from **model compatibility**.
 
 The canonical workflow is plain `SKILL.md` + Markdown/JSON/Python resources and follows the open Agent Skills format. A model does not need a SecHelix-specific API; it needs a coding-agent host that can load the skill or the equivalent files.
 
+`skills/sechelix/` is self-contained: it includes the methodology, 546-item
+catalog, role profiles, schemas, safe adapters, report renderer, and public
+policy examples. It has no repository-parent references. The canonical skills
+CLI command was cold-installed with copy semantics during the VNext release QA.
+
 ## Support matrix
 
 | Environment | Integration | Status | Notes |
 |---|---|---|---|
 | Claude Code | `.claude/skills/sechelix/SKILL.md` | Documented | Claude Code documents Agent Skills and project-local `.claude/skills/`. |
-| OpenAI skills | portable `skills/sechelix/` / skill ZIP | Documented | OpenAI documents portable `SKILL.md` skills and a Skills API that accepts skill files/ZIP bundles. |
-| Codex workflows | `.codex/skills/sechelix/` + portable bundle | Supported adapter | Keep methodology vendor-neutral; validate host-specific discovery in CI/evals as Codex tooling evolves. |
+| OpenAI skills | portable `skills/sechelix/` / skill ZIP | Verified bundle | Self-contained bundle; host/API availability still depends on the installed OpenAI surface. |
+| Codex workflows | `.codex/skills/sechelix/` + portable bundle | Cold-install verified | Official skills CLI discovery and copied installation verified on 2026-08-31. |
 | GitHub Copilot / VS Code agent environments | `.github/skills/sechelix/` | Portable adapter | Agent Skills adoption is documented by the ecosystem; exact feature support varies by host/version. |
 | Generic Agent Skills clients | `.agents/skills/sechelix/` or `skills/sechelix/` | Portable | Uses only open-format fields in the canonical skill. |
 | Z.AI / GLM via Claude Code | install as Claude skill | Documented host path | Z.AI documents GLM Coding Plan running inside Claude Code; therefore Claude's skill loader remains the host. |

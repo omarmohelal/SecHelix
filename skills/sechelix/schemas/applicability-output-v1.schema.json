@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sechelix.dev/schemas/applicability-output-v1.schema.json",
+  "title": "SecHelix applicability engine output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "catalog_version", "scope_id", "engine", "authorized", "summary", "decisions"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "catalog_version": {"type": "string", "pattern": "^2\\.[0-9]+$"},
+    "scope_id": {"type": "string", "pattern": "^SCOPE-[A-Z0-9][A-Z0-9._-]{2,63}$"},
+    "engine": {"const": "sechelix-deterministic-applicability-v1"},
+    "authorized": {"type": "boolean"},
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["APPLICABLE", "NOT_APPLICABLE", "UNKNOWN", "BLOCKED", "TOTAL"],
+      "properties": {
+        "APPLICABLE": {"type": "integer", "minimum": 0},
+        "NOT_APPLICABLE": {"type": "integer", "minimum": 0},
+        "UNKNOWN": {"type": "integer", "minimum": 0},
+        "BLOCKED": {"type": "integer", "minimum": 0},
+        "TOTAL": {"const": 546}
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "minItems": 546,
+      "maxItems": 546,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["hypothesis_id", "status", "reason_code", "reason", "capability_states", "evidence_ids"],
+        "properties": {
+          "hypothesis_id": {"type": "string", "pattern": "^SHX-[A-Z][A-Z0-9]{1,11}-L[0-9]{2}$"},
+          "status": {"enum": ["APPLICABLE", "NOT_APPLICABLE", "UNKNOWN", "BLOCKED"]},
+          "reason_code": {"enum": ["SCOPE_NOT_AUTHORIZED", "EXPLICIT_BLOCK", "CAPABILITY_PRESENT", "CAPABILITY_ABSENT", "CAPABILITY_UNKNOWN", "CAPABILITY_BLOCKED"]},
+          "reason": {"type": "string", "minLength": 1},
+          "capability_states": {
+            "type": "object",
+            "patternProperties": {"^[a-z][a-z0-9_]{1,63}$": {"enum": ["PRESENT", "ABSENT", "UNKNOWN", "BLOCKED", "UNDECLARED"]}},
+            "additionalProperties": false
+          },
+          "evidence_ids": {"type": "array", "items": {"type": "string", "pattern": "^EV-[A-Z0-9][A-Z0-9._-]{2,95}$"}, "uniqueItems": true}
+        }
+      }
+    }
+  }
+}

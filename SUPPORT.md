@@ -14,13 +14,18 @@ The highest-value early support is adoption evidence:
 
 ## 2. Crypto support
 
-The website contains a crypto-ready support page. No wallet addresses are hardcoded in the public repository yet.
+The public support configuration contains maintainer-provided **public receive
+addresses only**, with explicit asset/network labels. Public receive addresses
+are not secrets, but supporters must verify the exact asset and network against
+the repository before sending.
 
 Two recommended approaches:
 
 ### Direct public addresses
 
-Publish one or two low-fee, commonly supported addresses (for example a stablecoin network and one major asset). Public donation addresses are not secrets. Keep the list small and clearly label the network to reduce user mistakes.
+The current configuration spans a small audited set of assets/networks. Any
+change must preserve the network warning, copy controls, and repository-source
+verification path. Never silently replace an address.
 
 ### Donation provider widget/link
 

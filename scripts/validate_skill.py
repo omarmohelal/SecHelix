@@ -16,6 +16,20 @@ ADAPTERS = (
     ".github/skills/sechelix/SKILL.md",
 )
 
+PORTABLE_REQUIRED = (
+    "README.md",
+    "catalog/checks.json",
+    "catalog/hypothesis-ids.txt",
+    "agents/independent-verifier.md",
+    "schemas/scope-v1.schema.json",
+    "schemas/report-v1.schema.json",
+    "sechelix_core/applicability.py",
+    "adapters/cli.py",
+    "reports/report_renderer.py",
+    "scripts/security_gate.py",
+    "policies/default.json",
+)
+
 
 def validate_skill_file(path: Path) -> list[str]:
     errors = []
@@ -43,6 +57,13 @@ def main() -> int:
         errors.append("SKILL.md must remain under 500 lines")
     for relative in ADAPTERS:
         errors.extend(validate_skill_file(ROOT / relative))
+    portable = ROOT / "skills" / "sechelix"
+    portable_text = (portable / "SKILL.md").read_text(encoding="utf-8")
+    if "../../" in portable_text or "../SKILL.md" in portable_text:
+        errors.append("portable skill must not depend on repository-parent paths")
+    for relative in PORTABLE_REQUIRED:
+        if not (portable / relative).is_file():
+            errors.append(f"portable skill missing runtime resource: {relative}")
     if errors:
         print("SecHelix skill INVALID")
         for error in errors:

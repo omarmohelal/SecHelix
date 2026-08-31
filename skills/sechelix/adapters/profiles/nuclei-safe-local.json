@@ -1,0 +1,10 @@
+{
+  "engine": "nuclei",
+  "mode": "local",
+  "target_policy": "loopback-only",
+  "template_policy": "explicit-local-file-allowlist",
+  "rate_limit": 5,
+  "concurrency": 1,
+  "retries": 0,
+  "disabled_capabilities": ["dast", "fuzz", "headless", "code", "remote-templates"]
+}

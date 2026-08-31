@@ -2,6 +2,39 @@
 
 All notable changes to SecHelix are documented here.
 
+## [3.0.0-alpha.1] - 2026-08-31
+
+### VNext engine
+
+- Materialized all 546 catalog entries as explicit, stable hypothesis IDs across
+  21 families and 26 verification lenses.
+- Added eight JSON Schema Draft 2020-12 contracts and deterministic
+  applicability/attack-surface helpers with fail-closed authorization handling.
+- Expanded the model-neutral specialist mesh to 17 role profiles.
+- Added normalized adapters for Semgrep, CodeQL/SARIF, OSV, Gitleaks, Trivy,
+  npm/pnpm audit, Playwright, ZAP, and Nuclei with bounded safe profiles.
+- Added canonical Markdown, redacted JSON, SARIF 2.1.0, and escaped HTML report
+  rendering plus configurable organization policy gates.
+- Added eight paired vulnerable/clean eval fixture families, blind export, and an
+  explicit `NOT_MEASURED` aggregate baseline.
+- Added signed evidence-bundle, audit/retention, CI, private-policy-pack, and
+  domain-launch designs.
+
+### Distribution and separation
+
+- Made `skills/sechelix/` a self-contained runtime bundle and added cold-install
+  validation through the official skills CLI.
+- Added public checks that reject private website source paths and source maps.
+- Kept the product-grade VNext website in a separate private repository; this
+  public tree contains no private website source.
+
+### Verification
+
+- 73 Python unit/adapter tests pass in the release candidate.
+- Catalog, schemas, local links, install snippets, secret scanning, public/private
+  separation, and skill surfaces validate.
+- Benchmark capability claims remain `NOT_MEASURED` until reproducible runs exist.
+
 ## [2.2.0] - 2026-08-31
 
 ### Public launch polish
