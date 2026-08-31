@@ -1,0 +1,43 @@
+name: Security hypothesis proposal
+description: Propose a new evidence-backed SecHelix check
+title: "[check] "
+labels: ["enhancement", "security-hypothesis"]
+body:
+  - type: input
+    id: family
+    attributes:
+      label: Security family
+      placeholder: Authorization / Business logic / Race conditions / ...
+    validations:
+      required: true
+  - type: textarea
+    id: hypothesis
+    attributes:
+      label: Testable hypothesis
+      description: State what can go wrong as a falsifiable claim, not a slogan.
+    validations:
+      required: true
+  - type: textarea
+    id: applicability
+    attributes:
+      label: Applicability
+      description: When should this check run, and when is it not applicable?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence required
+      description: What would prove or refute the issue?
+    validations:
+      required: true
+  - type: textarea
+    id: falsepositives
+    attributes:
+      label: False-positive traps
+    validations:
+      required: true
+  - type: textarea
+    id: safeproof
+    attributes:
+      label: Safe verification approach
