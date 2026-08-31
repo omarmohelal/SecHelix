@@ -16,7 +16,7 @@ PYTHON_SCRIPT = re.compile(r"\bpython(?:3)?\s+((?:\.?\.?/)?[A-Za-z0-9_.\-/]+\.py
 
 def check(root: Path) -> list[str]:
     findings = []
-    required = (root / "README.md", root / "site" / "app.js")
+    required = (root / "README.md",)
     for path in required:
         if not path.is_file():
             findings.append(f"required install surface missing: {path.relative_to(root)}")

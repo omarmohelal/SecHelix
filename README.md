@@ -13,7 +13,7 @@
   <a href="SKILL.md"><img src="https://img.shields.io/badge/security%20hypotheses-546-7dd3fc?style=flat-square" alt="546 hypotheses"/></a>
   <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-3.0.0--alpha.2-9b8cff?style=flat-square" alt="3.0.0 alpha 2"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-a78bfa?style=flat-square" alt="Apache-2.0"/></a>
-  <a href="site/support.html"><img src="https://img.shields.io/badge/support-crypto-facc15?style=flat-square" alt="Support SecHelix"/></a>
+  <a href="https://sechelix-vnext.magnoumx.chatgpt.site/support"><img src="https://img.shields.io/badge/support-crypto-facc15?style=flat-square" alt="Support SecHelix"/></a>
 </p>
 
 <p align="center">
@@ -23,7 +23,8 @@
   <a href="#model-mesh">Model mesh</a> ·
   <a href="#company-rollout">Companies</a> ·
   <a href="ROADMAP.md">Roadmap</a> ·
-  <a href="site/support.html">Support</a>
+  <a href="https://sechelix-vnext.magnoumx.chatgpt.site">Website</a> ·
+  <a href="https://sechelix-vnext.magnoumx.chatgpt.site/support">Support</a>
 </p>
 
 ---
@@ -55,8 +56,9 @@ A finding becomes trusted only when the evidence supports attacker control, reac
 
 ### VNext product preview
 
-The product site source is private; these selected, source-free screenshots are
-published intentionally so the public framework has an honest visual preview.
+The product site authoring source is private; these selected, source-free
+screenshots are published intentionally so the public framework has an honest
+visual preview. [Open the current VNext site →](https://sechelix-vnext.magnoumx.chatgpt.site)
 
 <p align="center">
   <img src="assets/vnext-preview/home-alpha2.jpg" alt="SecHelix VNext alpha 2 interactive evidence workbench" width="100%" />
@@ -273,7 +275,7 @@ SecHelix/
 ├── extensions/                 # curated community extension registry
 ├── evals/                      # paired fixtures + NOT_MEASURED baseline
 ├── docs/                       # rollout + design docs
-├── site/                       # historical public static preview
+├── assets/vnext-preview/       # selected source-free product screenshots
 └── .github/                    # pinned CI + contribution templates
 ```
 
@@ -333,9 +335,14 @@ SecHelix is open source. Donations help fund model/API evals, intentionally vuln
 
 **Official crypto addresses live only in the repository and the official SecHelix domain. Always verify the asset and network before sending.**
 
-[Open the public support page →](site/support.html)
+[Open the public support page →](https://sechelix-vnext.magnoumx.chatgpt.site/support)
 
-The product-grade VNext website is maintained in a separate private repository; this public repository contains only the framework, its historical static preview, and intentionally selected non-source assets. No website deployment is performed by this release work.
+The product-grade VNext website is maintained and built from a separate private
+repository. This public repository contains the framework, intentionally
+selected non-source previews, and a tiny GitHub Pages handoff—never the website
+authoring source or source maps. As with every web application, the HTML, CSS,
+and JavaScript delivered to a browser remain inspectable; the protected boundary
+is the TypeScript/component source, build configuration, and source maps.
 
 ## Contributing
 

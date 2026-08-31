@@ -11,6 +11,7 @@ from typing import Iterable, Sequence
 
 ROOT = Path(__file__).resolve().parents[1]
 PROHIBITED_SEGMENTS = {
+    "site",
     "sechelix-site-private",
     "private-site",
     "vnext-site",

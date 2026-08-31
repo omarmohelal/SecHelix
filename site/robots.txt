@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://omarmohelal.github.io/SecHelix/sitemap.xml

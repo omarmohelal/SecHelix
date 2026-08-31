@@ -9,7 +9,7 @@ SecHelix is a portable, evidence-first AppSec skill/methodology for authorized c
 - `SKILL.md` owns the methodology.
 - `catalog/checks.json` owns the coverage model.
 - vendor adapters must stay thin.
-- the static site must not invent security claims that are not backed by repository evidence/evals.
+- public product copy must not invent security claims that are not backed by repository evidence/evals.
 
 ## Before changing security semantics
 
@@ -38,4 +38,7 @@ When report/gate logic changes, validate example reports as well.
 
 ## Website
 
-`site/` is static and dependency-light by design. Keep motion subtle and respect `prefers-reduced-motion`. Keep the support page safe when donation configuration is empty.
+The VNext authoring source lives in the separate private website repository.
+This public repository may contain only selected preview assets and the
+source-free GitHub Pages handoff generator. Never add compiled bundles, source
+maps, wallet configuration, or private website source under `site/`.

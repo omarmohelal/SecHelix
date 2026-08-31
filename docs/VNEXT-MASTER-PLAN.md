@@ -9,7 +9,7 @@ This plan is the coordination contract for VNext. It records the public-reposito
 ## Non-negotiable source boundary
 
 - The open-source SecHelix framework remains in this repository.
-- The existing `site/` directory is already-public historical source. VNext will not rewrite it into the new marketing site.
+- The former public `site/` authoring source is removed. VNext is built only from the separate private website repository.
 - The VNext site must live in a separate sibling workspace and may point only to a **private** Git remote. If a private remote cannot be created, the site remains local-only with `DO-NOT-PUSH.md`.
 - Public SecHelix may receive selected screenshots, public documentation, installation instructions, and a future live-domain link. It must not receive private site source, source maps exposing that source, paid UI source that cannot be redistributed, credentials, API keys, private keys, seed phrases, or commercial design assets.
 - VNext site deployment and domain purchase are out of scope until the operator approves a host/domain decision.
@@ -32,7 +32,7 @@ The audited baseline contains 57 tracked files and no package manifest, lockfile
 | `docs/` | Getting started, funding, company rollout, benchmark methodology | Good direction; no VNext plan, model mesh, domain checklist, actual benchmark lab, or closeout |
 | `references/` | Methodology, tooling, and standards prose | Strong philosophy; not yet executable contracts |
 | `examples/` | One scope YAML | No canonical finding/report/evidence/graph examples |
-| `site/` | Dependency-light historical static site deployed through GitHub Pages | Already public; freeze as historical material and keep VNext elsewhere |
+| GitHub Pages | Source-free handoff to the protected VNext deployment | Keep only the handoff generator and selected preview assets public |
 | Governance | Apache-2.0, security policy, contributing, code of conduct, roadmap | Solid public baseline |
 
 Baseline validation passes:
@@ -49,7 +49,7 @@ That statement means 546 structured **hypothesis slots**, not 546 verified vulne
 - Default branch: `main`; no branch protection or rulesets were observed.
 - No local/remote Git tags and no GitHub Release.
 - GitHub description, homepage, and topics are empty.
-- GitHub Pages serves the historical site at `https://omarmohelal.github.io/SecHelix/`.
+- GitHub Pages forwards `https://omarmohelal.github.io/SecHelix/` to the current protected VNext deployment.
 - The advertised `https://skills.sh/omarmohelal/SecHelix` page returned 404 during the audit.
 - README advertises `scripts/validate_skill.py`, but that file is absent.
 - README lists `evals/`, but that directory is absent.
@@ -228,4 +228,3 @@ This direction deliberately spends visual boldness on verification, the core Sec
 5. Build and validate the private/local site without deploying it.
 6. Reconcile all public claims, distribution instructions, screenshots, and metadata.
 7. Prepare `3.0.0-alpha.1` as the next release candidate; do not publish/tag until cold-install, CI, private-source audit, and operator approval pass.
-

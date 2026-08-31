@@ -17,8 +17,8 @@ class RepositoryCheckTests(unittest.TestCase):
         violations = find_violations(["SecHelix-Site-Private/src/app.tsx", "assets/private.js.map"])
         self.assertEqual(len(violations), 2)
 
-    def test_historical_public_site_is_allowed(self):
-        self.assertEqual(find_violations(["site/index.html", "site/app.js"]), [])
+    def test_public_site_source_paths_are_rejected(self):
+        self.assertEqual(len(find_violations(["site/index.html", "site/app.js"])), 2)
 
     def test_secret_scanner_detects_high_confidence_tokens(self):
         sample = "ghp_" + ("a" * 28)

@@ -1,10 +1,14 @@
 # Funding / crypto support
 
-The SecHelix website ships with a support page whose configuration is intentionally empty by default.
+The SecHelix VNext website ships with a support page whose public receive
+addresses are maintained in the private website repository. The public
+framework repository intentionally contains no website or wallet configuration.
 
 ## Option A — direct crypto addresses
 
-Edit `site/support-config.js` and add only **public receiving addresses**.
+Maintainers should add only **public receiving addresses** to the private
+website configuration, verify the rendered asset/network pair and QR value
+locally, then publish through the protected website pipeline.
 
 Example:
 
@@ -39,10 +43,11 @@ Recommended integration sequence:
 2. set the payout wallet(s);
 3. create a dedicated API key/payment or donation link for SecHelix;
 4. test with a small amount;
-5. put the **public donation URL** into `providerUrl` in `site/support-config.js`;
+5. put the **public donation URL** into the private website deployment configuration;
 6. keep private credentials/webhook secrets outside the static site and repository.
 
-The static SecHelix site intentionally uses a provider **link** first rather than embedding secret-bearing backend logic.
+The SecHelix website intentionally uses a provider **link** first rather than
+embedding secret-bearing backend logic.
 
 ## Card-to-crypto goal
 
