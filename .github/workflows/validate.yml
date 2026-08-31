@@ -1,0 +1,60 @@
+name: Validate SecHelix
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate structured catalog
+        run: python scripts/validate_catalog.py
+      - name: Validate canonical skill basics
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          p = Path('SKILL.md')
+          text = p.read_text(encoding='utf-8')
+          assert text.startswith('---\n'), 'SKILL.md must start with YAML frontmatter'
+          front = text.split('---', 2)[1]
+          name = re.search(r'^name:\s*(.+)$', front, re.M)
+          desc = re.search(r'^description:\s*(.+)$', front, re.M)
+          assert name and name.group(1).strip() == 'sechelix'
+          assert desc and 0 < len(desc.group(1).strip()) <= 1024
+          assert len(text.splitlines()) < 500, 'Keep SKILL.md under 500 lines'
+          print('OK: canonical skill frontmatter and size')
+      - name: Ensure adapter mirrors exist
+        shell: python
+        run: |
+          from pathlib import Path
+          required = [
+            'skills/sechelix/SKILL.md',
+            '.claude/skills/sechelix/SKILL.md',
+            '.codex/skills/sechelix/SKILL.md',
+            '.agents/skills/sechelix/SKILL.md',
+            '.github/skills/sechelix/SKILL.md',
+          ]
+          missing = [p for p in required if not Path(p).is_file()]
+          assert not missing, f'missing adapters: {missing}'
+          print('OK: adapter mirrors present')
+      - name: Static site sanity
+        shell: python
+        run: |
+          from pathlib import Path
+          index = Path('site/index.html').read_text(encoding='utf-8')
+          assert '<title>SecHelix' in index
+          assert 'styles.css' in index and 'app.js' in index
+          assert Path('site/styles.css').is_file()
+          assert Path('site/app.js').is_file()
+          assert Path('site/assets/logo.svg').is_file()
+          print('OK: site files present')
