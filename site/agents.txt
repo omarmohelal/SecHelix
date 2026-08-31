@@ -1,0 +1,4 @@
+# SecHelix agent discovery
+# Project: https://github.com/omarmohelal/SecHelix
+# Replace the GitHub Pages hostname with the custom domain after launch.
+Skills: https://omarmohelal.github.io/SecHelix/skills/sechelix/SKILL.md
