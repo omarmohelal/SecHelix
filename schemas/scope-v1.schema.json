@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sechelix.dev/schemas/scope-v1.schema.json",
+  "title": "SecHelix authorized scope record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "scope_id",
+    "project",
+    "authorization",
+    "mode",
+    "in_scope",
+    "out_of_scope",
+    "allowed_tools",
+    "stop_conditions"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "scope_id": {"type": "string", "pattern": "^SCOPE-[A-Z0-9][A-Z0-9._-]{2,63}$"},
+    "project": {"type": "string", "minLength": 1, "maxLength": 200},
+    "owner": {"type": "string", "minLength": 1, "maxLength": 200},
+    "authorization": {"$ref": "#/$defs/authorization"},
+    "mode": {"enum": ["STATIC", "LOCAL", "STAGING", "PRODUCTION_SAFE"]},
+    "in_scope": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/target"}
+    },
+    "out_of_scope": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "test_identities": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/identity"}
+    },
+    "external_providers": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/provider"}
+    },
+    "sensitive_assets": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "side_effects": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/side_effect"}
+    },
+    "production_restrictions": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "allowed_tools": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "allowed_actions": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "stop_conditions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "created_at": {"type": "string", "format": "date-time"},
+    "notes": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+  "$defs": {
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["confirmed", "basis", "statement", "authorized_by"],
+      "properties": {
+        "confirmed": {"type": "boolean"},
+        "basis": {"enum": ["OWNER", "EXPLICIT_PERMISSION", "CONTROLLED_FIXTURE", "UNCONFIRMED"]},
+        "statement": {"type": "string", "minLength": 1, "maxLength": 1000},
+        "authorized_by": {"type": "string", "minLength": 1, "maxLength": 200},
+        "confirmed_at": {"type": "string", "format": "date-time"},
+        "expires_at": {"type": "string", "format": "date-time"},
+        "evidence_reference": {"type": "string", "minLength": 1, "maxLength": 500}
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "name", "locator", "environment", "authorized"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^TGT-[A-Z0-9][A-Z0-9._-]{1,63}$"},
+        "type": {"enum": ["REPOSITORY", "SERVICE", "HOST", "API", "DATABASE", "CLOUD_ACCOUNT", "CI_PROJECT", "LOCAL_FIXTURE", "OTHER"]},
+        "name": {"type": "string", "minLength": 1, "maxLength": 200},
+        "locator": {"type": "string", "minLength": 1, "maxLength": 1000},
+        "environment": {"enum": ["SOURCE", "LOCAL", "TEST", "STAGING", "PRODUCTION", "OTHER"]},
+        "authorized": {"type": "boolean"},
+        "allowed_actions": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "restrictions": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "role", "fixture_only"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^IDN-[A-Z0-9][A-Z0-9._-]{1,63}$"},
+        "role": {"type": "string", "minLength": 1, "maxLength": 100},
+        "fixture_only": {"type": "boolean"},
+        "restrictions": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "real_side_effects_allowed"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "real_side_effects_allowed": {"type": "boolean"},
+        "mock_or_fixture": {"type": "string", "minLength": 1},
+        "restrictions": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "side_effect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "allowed", "restriction"],
+      "properties": {
+        "category": {"enum": ["MONEY", "IDENTITY", "INVENTORY", "AUTHORIZATION", "CUSTOMER_DATA", "EXTERNAL_PROVIDER", "OTHER"]},
+        "allowed": {"type": "boolean"},
+        "restriction": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

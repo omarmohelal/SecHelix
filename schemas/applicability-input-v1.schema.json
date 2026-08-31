@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sechelix.dev/schemas/applicability-input-v1.schema.json",
+  "title": "SecHelix applicability engine input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "scope", "architecture"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "scope": {"$ref": "scope-v1.schema.json"},
+    "architecture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capabilities"],
+      "properties": {
+        "graph_id": {"type": "string", "pattern": "^GRAPH-[A-Z0-9][A-Z0-9._-]{2,63}$"},
+        "capabilities": {
+          "type": "object",
+          "patternProperties": {
+            "^[a-z][a-z0-9_]{1,63}$": {"$ref": "#/$defs/capability"}
+          },
+          "additionalProperties": false
+        },
+        "evidence_ids": {"type": "array", "items": {"type": "string", "pattern": "^EV-[A-Z0-9][A-Z0-9._-]{2,95}$"}, "uniqueItems": true},
+        "unknowns": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      }
+    },
+    "blocked_hypotheses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["hypothesis_id", "reason"],
+        "properties": {
+          "hypothesis_id": {"type": "string", "pattern": "^SHX-[A-Z][A-Z0-9]{1,11}-L[0-9]{2}$"},
+          "reason": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "reason"],
+      "properties": {
+        "state": {"enum": ["PRESENT", "ABSENT", "UNKNOWN", "BLOCKED"]},
+        "reason": {"type": "string", "minLength": 1},
+        "evidence_ids": {"type": "array", "items": {"type": "string", "pattern": "^EV-[A-Z0-9][A-Z0-9._-]{2,95}$"}, "uniqueItems": true}
+      }
+    }
+  }
+}

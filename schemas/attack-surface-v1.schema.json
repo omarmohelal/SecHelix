@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sechelix.dev/schemas/attack-surface-v1.schema.json",
+  "title": "SecHelix attack-surface graph",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "graph_id", "scope_id", "nodes", "edges", "boundaries", "role_object_actions", "unknowns"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "graph_id": {"type": "string", "pattern": "^GRAPH-[A-Z0-9][A-Z0-9._-]{2,63}$"},
+    "scope_id": {"type": "string", "pattern": "^SCOPE-[A-Z0-9][A-Z0-9._-]{2,63}$"},
+    "title": {"type": "string", "minLength": 1},
+    "nodes": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/node"}},
+    "edges": {"type": "array", "items": {"$ref": "#/$defs/edge"}},
+    "boundaries": {"type": "array", "items": {"$ref": "#/$defs/boundary"}},
+    "role_object_actions": {"type": "array", "items": {"$ref": "#/$defs/role_object_action"}},
+    "unknowns": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "assumptions": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+  },
+  "$defs": {
+    "evidence_ids": {"type": "array", "items": {"type": "string", "pattern": "^EV-[A-Z0-9][A-Z0-9._-]{2,95}$"}, "uniqueItems": true},
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "label", "evidence_ids"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^N-[A-Z0-9][A-Z0-9._-]{1,63}$"},
+        "type": {"enum": ["ENTRYPOINT", "IDENTITY", "ASSET", "STORE", "SERVICE", "PROVIDER", "CONTROL", "STATE_MACHINE", "TOOL", "ENVIRONMENT"]},
+        "label": {"type": "string", "minLength": 1, "maxLength": 200},
+        "description": {"type": "string", "minLength": 1, "maxLength": 1000},
+        "sensitivity": {"enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED", "UNKNOWN"]},
+        "evidence_ids": {"$ref": "#/$defs/evidence_ids"},
+        "metadata": {"type": "object"}
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "from", "to", "type", "label", "evidence_ids"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^E-[A-Z0-9][A-Z0-9._-]{1,63}$"},
+        "from": {"type": "string", "pattern": "^N-[A-Z0-9][A-Z0-9._-]{1,63}$"},
+        "to": {"type": "string", "pattern": "^N-[A-Z0-9][A-Z0-9._-]{1,63}$"},
+        "type": {"enum": ["CALLS", "READS", "WRITES", "AUTHENTICATES", "AUTHORIZES", "TRUSTS", "CROSSES", "EMITS", "CONSUMES", "TRANSITIONS", "EXPOSES", "USES"]},
+        "label": {"type": "string", "minLength": 1, "maxLength": 200},
+        "privileged": {"type": "boolean"},
+        "evidence_ids": {"$ref": "#/$defs/evidence_ids"}
+      }
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "node_ids", "evidence_ids"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^B-[A-Z0-9][A-Z0-9._-]{1,63}$"},
+        "label": {"type": "string", "minLength": 1, "maxLength": 200},
+        "node_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^N-[A-Z0-9][A-Z0-9._-]{1,63}$"}, "uniqueItems": true},
+        "evidence_ids": {"$ref": "#/$defs/evidence_ids"}
+      }
+    },
+    "role_object_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "object", "action", "decision", "enforcement_nodes", "evidence_ids"],
+      "properties": {
+        "role": {"type": "string", "minLength": 1},
+        "object": {"type": "string", "minLength": 1},
+        "action": {"type": "string", "minLength": 1},
+        "decision": {"enum": ["ALLOW", "DENY", "CONDITIONAL", "UNKNOWN"]},
+        "condition": {"type": "string", "minLength": 1},
+        "enforcement_nodes": {"type": "array", "items": {"type": "string", "pattern": "^N-[A-Z0-9][A-Z0-9._-]{1,63}$"}, "uniqueItems": true},
+        "evidence_ids": {"$ref": "#/$defs/evidence_ids"}
+      }
+    }
+  }
+}

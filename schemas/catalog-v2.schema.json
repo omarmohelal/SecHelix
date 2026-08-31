@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sechelix.dev/schemas/catalog-v2.schema.json",
+  "title": "SecHelix explicit hypothesis catalog v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project", "representation", "description", "families", "lenses", "hypotheses", "hypothesis_count", "selection_rule"],
+  "properties": {
+    "schema_version": {"type": "string", "pattern": "^2\\.[0-9]+$"},
+    "project": {"const": "SecHelix"},
+    "representation": {"const": "explicit_hypotheses"},
+    "description": {"type": "string", "minLength": 1},
+    "families": {"type": "array", "minItems": 21, "maxItems": 21, "items": {"$ref": "#/$defs/family"}},
+    "lenses": {"type": "array", "minItems": 26, "maxItems": 26, "items": {"$ref": "#/$defs/lens"}},
+    "hypotheses": {"type": "array", "minItems": 546, "maxItems": 546, "items": {"$ref": "#/$defs/hypothesis"}},
+    "hypothesis_count": {"const": 546},
+    "selection_rule": {"type": "string", "minLength": 1},
+    "claim_policy": {"type": "string", "minLength": 1}
+  },
+  "$defs": {
+    "reference": {"type": "string", "pattern": "^https://"},
+    "mapping": {"type": "string", "pattern": "^[A-Z][A-Z0-9._:/-]{1,127}$"},
+    "family": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "focus", "capability_tags", "priority", "integrity_critical", "mappings", "references"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[A-Z][A-Z0-9]{1,11}$"},
+        "name": {"type": "string", "minLength": 1},
+        "focus": {"type": "string", "minLength": 1},
+        "capability_tags": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}$"}, "uniqueItems": true},
+        "priority": {"type": "integer", "minimum": 1, "maximum": 5},
+        "integrity_critical": {"type": "boolean"},
+        "mappings": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/mapping"}, "uniqueItems": true},
+        "references": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/reference"}, "uniqueItems": true}
+      }
+    },
+    "lens": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "question", "evidence_requirements", "false_positive_traps", "safe_test_guidance"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^L[0-9]{2}$"},
+        "name": {"type": "string", "minLength": 1},
+        "question": {"type": "string", "minLength": 1},
+        "evidence_requirements": {"type": "array", "minItems": 2, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "false_positive_traps": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "safe_test_guidance": {"type": "string", "minLength": 1}
+      }
+    },
+    "hypothesis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "family_id", "lens_id", "title", "hypothesis", "claim_status", "applicability", "evidence_requirements", "false_positive_traps", "safe_test_guidance", "priority", "integrity_critical", "mappings", "references"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^SHX-[A-Z][A-Z0-9]{1,11}-L[0-9]{2}$"},
+        "family_id": {"type": "string", "pattern": "^[A-Z][A-Z0-9]{1,11}$"},
+        "lens_id": {"type": "string", "pattern": "^L[0-9]{2}$"},
+        "title": {"type": "string", "minLength": 1},
+        "hypothesis": {"type": "string", "minLength": 1},
+        "claim_status": {"const": "HYPOTHESIS"},
+        "applicability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["capability_tags", "rule"],
+          "properties": {
+            "capability_tags": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}$"}, "uniqueItems": true},
+            "rule": {"const": "ANY_CAPABILITY_PRESENT"}
+          }
+        },
+        "evidence_requirements": {"type": "array", "minItems": 2, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "false_positive_traps": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "safe_test_guidance": {"type": "string", "minLength": 1},
+        "priority": {"type": "integer", "minimum": 1, "maximum": 5},
+        "integrity_critical": {"type": "boolean"},
+        "mappings": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/mapping"}, "uniqueItems": true},
+        "references": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/reference"}, "uniqueItems": true}
+      }
+    }
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sechelix.dev/schemas/finding-v1.schema.json",
+  "title": "SecHelix candidate or verified finding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "finding_id", "title", "status", "severity", "confidence", "catalog_hypothesis_ids", "affected_surface", "evidence_ids", "evidence_chain", "verification", "resolution"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "finding_id": {"type": "string", "pattern": "^SHX-F-[A-Z0-9][A-Z0-9._-]{2,63}$"},
+    "title": {"type": "string", "minLength": 1, "maxLength": 300},
+    "status": {"enum": ["HYPOTHESIS", "VERIFIED", "LIKELY_BUT_UNPROVEN", "FALSE_POSITIVE", "DUPLICATE_ROOT_CAUSE", "BLOCKED_BY_ENVIRONMENT"]},
+    "severity": {"enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO", "UNASSIGNED"]},
+    "confidence": {"enum": ["HIGH", "MEDIUM", "LOW", "NOT_ASSESSED"]},
+    "catalog_hypothesis_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^SHX-[A-Z][A-Z0-9]{1,11}-L[0-9]{2}$"}, "uniqueItems": true},
+    "affected_surface": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "mappings": {"type": "array", "items": {"type": "string", "pattern": "^[A-Z][A-Z0-9._:/-]{1,127}$"}, "uniqueItems": true},
+    "evidence_ids": {"type": "array", "items": {"type": "string", "pattern": "^EV-[A-Z0-9][A-Z0-9._-]{2,95}$"}, "uniqueItems": true},
+    "evidence_chain": {"$ref": "#/$defs/evidence_chain"},
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["independent", "outcome", "evidence_ids", "refutation_attempt"],
+      "properties": {
+        "independent": {"type": "boolean"},
+        "verifier": {"type": "string", "minLength": 1},
+        "outcome": {"enum": ["NOT_RUN", "VERIFIED", "LIKELY_BUT_UNPROVEN", "FALSE_POSITIVE", "DUPLICATE_ROOT_CAUSE", "BLOCKED_BY_ENVIRONMENT"]},
+        "evidence_ids": {"type": "array", "items": {"type": "string", "pattern": "^EV-[A-Z0-9][A-Z0-9._-]{2,95}$"}, "uniqueItems": true},
+        "refutation_attempt": {"type": "string", "minLength": 1}
+      }
+    },
+    "remediation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root_cause_fix", "evidence_ids"],
+      "properties": {
+        "root_cause_fix": {"type": "string", "minLength": 1},
+        "evidence_ids": {"type": "array", "items": {"type": "string", "pattern": "^EV-[A-Z0-9][A-Z0-9._-]{2,95}$"}, "uniqueItems": true}
+      }
+    },
+    "regression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "command", "assertion", "evidence_ids"],
+      "properties": {
+        "status": {"enum": ["NOT_RUN", "PASS", "FAIL", "NOT_PRACTICAL"]},
+        "command": {"type": "string", "minLength": 1},
+        "assertion": {"type": "string", "minLength": 1},
+        "evidence_ids": {"type": "array", "items": {"type": "string", "pattern": "^EV-[A-Z0-9][A-Z0-9._-]{2,95}$"}, "uniqueItems": true}
+      }
+    },
+    "resolution": {"enum": ["OPEN", "FIXED", "ACCEPTED_RISK", "FALSE_POSITIVE", "DUPLICATE_ROOT_CAUSE", "DEFERRED"]},
+    "residual_risk": {"type": "string", "minLength": 1}
+  },
+  "$defs": {
+    "chain_link": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["established", "statement", "evidence_ids"],
+      "properties": {
+        "established": {"type": "boolean"},
+        "statement": {"type": "string", "minLength": 1},
+        "evidence_ids": {"type": "array", "items": {"type": "string", "pattern": "^EV-[A-Z0-9][A-Z0-9._-]{2,95}$"}, "uniqueItems": true}
+      }
+    },
+    "evidence_chain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attacker_control", "reachability", "boundary_failure", "safe_reproduction", "impact", "preconditions", "root_cause"],
+      "properties": {
+        "attacker_control": {"$ref": "#/$defs/chain_link"},
+        "reachability": {"$ref": "#/$defs/chain_link"},
+        "boundary_failure": {"$ref": "#/$defs/chain_link"},
+        "safe_reproduction": {"$ref": "#/$defs/chain_link"},
+        "impact": {"$ref": "#/$defs/chain_link"},
+        "preconditions": {"$ref": "#/$defs/chain_link"},
+        "root_cause": {"$ref": "#/$defs/chain_link"}
+      }
+    }
+  }
+}

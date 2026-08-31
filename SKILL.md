@@ -66,9 +66,12 @@ Produce a `role × object × action` matrix for every authorization-sensitive do
 
 Use `catalog/checks.json` when available. Do not run all checks mechanically. Mark each hypothesis:
 
-- `APPLICABLE`
-- `NOT_APPLICABLE` with reason
-- `UNKNOWN_NEEDS_EVIDENCE`
+- `APPLICABLE` — at least one required architecture capability is evidenced as present;
+- `NOT_APPLICABLE` — every required capability is explicitly evidenced as absent;
+- `UNKNOWN` — capability evidence is missing or unresolved (the executable replacement for the earlier `UNKNOWN_NEEDS_EVIDENCE` label);
+- `BLOCKED` — authorization, environment, access, or another declared constraint prevents a legitimate decision.
+
+Use the deterministic applicability engine and retain its reason code, capability states, and evidence references. Missing evidence must never be treated as absence. An unconfirmed or partly unauthorized scope blocks execution; it does not make checks inapplicable.
 
 Prioritize by potential impact and reachability:
 
