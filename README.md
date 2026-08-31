@@ -47,7 +47,7 @@ A finding becomes trusted only when the evidence supports attacker control, reac
 |---|---|
 | Coverage | **546 explicit, stable hypothesis IDs** across 21 families and 26 lenses |
 | Specialist mesh | **17 model-neutral role profiles**, including an independent verifier |
-| Contracts | 8 JSON Schema Draft 2020-12 contracts for scope through report |
+| Contracts | **10 JSON Schema Draft 2020-12 contracts** for scope through report plus extension manifests and registry state |
 | Evidence adapters | Semgrep, CodeQL/SARIF, OSV, Gitleaks, Trivy, npm/pnpm audit, Playwright, ZAP, Nuclei |
 | Reports | Markdown, redacted JSON, SARIF 2.1.0, escaped standalone HTML |
 | Release truth | `PASS`, `PASS_WITH_KNOWN_RISK`, `BLOCKED`, or fail-closed `INCOMPLETE` |
@@ -270,6 +270,7 @@ SecHelix/
 ├── references/                 # methodology + standards + tooling
 ├── scripts/                    # validation + release gates
 ├── examples/                   # scope + report examples
+├── extensions/                 # curated community extension registry
 ├── evals/                      # paired fixtures + NOT_MEASURED baseline
 ├── docs/                       # rollout + design docs
 ├── site/                       # historical public static preview
@@ -295,6 +296,7 @@ See [docs/company-rollout.md](docs/company-rollout.md) and [COMMERCIAL.md](COMME
 python -m unittest discover -s tests -v
 python -m unittest discover -s adapters/tests -v
 python scripts/validate_catalog.py
+python scripts/validate_extensions.py
 python scripts/validate_skill.py
 python scripts/check_no_secrets.py
 python scripts/check_private_site_leakage.py
