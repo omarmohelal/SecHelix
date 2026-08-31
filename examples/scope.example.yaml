@@ -1,0 +1,31 @@
+project: demo-store
+mode: LOCAL
+owner: demo-team
+in_scope:
+  repositories:
+    - demo-store
+  hosts:
+    - http://localhost:3000
+  identities:
+    - owner
+    - admin
+    - seller-a
+    - seller-b
+    - buyer
+out_of_scope:
+  - third-party production providers
+  - destructive payment/refund execution
+sensitive_assets:
+  - sessions
+  - seller inventory
+  - customer messages
+  - payout state
+  - API credentials
+allowed_dynamic_testing:
+  - local browser automation
+  - local database fixtures
+  - bounded concurrency tests on fixtures
+stop_conditions:
+  - unexpected external provider call
+  - production hostname detected
+  - real customer data detected
