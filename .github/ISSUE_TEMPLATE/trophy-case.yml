@@ -1,0 +1,39 @@
+name: Trophy case submission
+description: Submit a public, attributable security result found with SecHelix
+title: "[trophy] "
+labels: ["trophy-case"]
+body:
+  - type: markdown
+    attributes:
+      value: "Only public evidence. Do not submit secrets, private reports, customer data, or weaponized exploit material."
+  - type: input
+    id: project
+    attributes:
+      label: Public project
+    validations:
+      required: true
+  - type: input
+    id: reference
+    attributes:
+      label: Public advisory / issue / PR / fix URL
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: SecHelix version / commit
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: What did SecHelix help find?
+    validations:
+      required: true
+  - type: checkboxes
+    id: permission
+    attributes:
+      label: Attribution
+      options:
+        - label: This result may be publicly referenced in the SecHelix trophy case.
+          required: true
