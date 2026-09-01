@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0",
+  "lesson_id": "LC-CWE-77",
+  "title": "Command construction from untrusted input, including model-selected actions",
+  "updated_at": "2026-09-01T00:00:00Z",
+  "domains": ["web", "api", "ai-agent"],
+  "summary": "Command injection becomes plausible when data the caller influences is assembled into something an interpreter parses as structure rather than as a value. In agent systems the caller is often a language model, and the interpreter is a tool dispatcher, a shell, or a query builder reached through a tool. Verification must establish which interpreter parses the value, whether any part of the command is built by concatenation, what authority the executing process holds, and whether the untrusted value reaches the interpreter at all, rather than treating any dynamic command as an automatic finding.",
+  "detection_signals": [
+    "A command, query, or tool invocation is assembled by string concatenation, formatting, or template substitution from a value the caller, a retrieved document, or a model response can influence.",
+    "A dispatcher executes an action selected by a name that arrives in data, such as a model-emitted tool name or a field inside a processed document, without checking it against an allowlist that was fixed before the request.",
+    "A shell is involved anywhere on the path, including a wrapper script, a helper that joins arguments for logging and then executes the joined string, or a legacy branch retained beside a safe argv path."
+  ],
+  "safe_local_tests": [
+    "Reproduce the construction in an isolated local fixture with the interpreter replaced by a recorder, then assert on the exact structure that would have executed rather than on the process exit code.",
+    "For an agent path, stub every tool to record its call and return fixed data, run the same task twice with only the untrusted content differing, and compare the two call logs.",
+    "Repeat any model-mediated run several times and record how often the action occurs, because a single refusal is not a control and a single success is not a reliability claim."
+  ],
+  "false_positive_traps": [
+    "A value that appears in a command may be server-derived from an identifier the caller supplied, in which case the caller never controls the string that reaches the interpreter.",
+    "A dispatcher that enforces an allowlist fixed before the request refuses an unlisted action regardless of what the model emits, so a model naming a dangerous action is narration rather than execution.",
+    "A quoting or escaping helper can be correct for the interpreter it was written for, so claiming a bypass requires evidence from that parser rather than from the presence of concatenation."
+  ],
+  "remediation_patterns": [
+    "Pass untrusted values as data to a structured interface: bound parameters, an argument vector executed without a shell, or an identifier mapped to a server-side action.",
+    "Bind the set of permitted actions before the request begins and enforce it where the action executes, checking the resolved action rather than the name that was requested.",
+    "Keep untrusted content in a channel that is structurally distinct from the instructions the system acts on, so provenance survives to the point where authority is decided."
+  ],
+  "regression_proof": [
+    "A test proves that a payload which previously altered command structure is now carried as an inert value while the legitimate operation still succeeds.",
+    "For agent paths, the test asserts on a recorded tool-call log produced with untrusted content present, so the assertion is about the dispatcher's contract and not about one model's response."
+  ],
+  "mapping_node_ids": [
+    "CWE-77",
+    "CWE-78",
+    "CAPEC-248",
+    "OWASP-TOP10-2021-A03",
+    "OWASP-ASVS-5.0.0-V1.2.5",
+    "OWASP-LLM-2025-LLM05",
+    "SHX-FAMILY-INJ",
+    "SHX-FAMILY-AI"
+  ],
+  "source_ids": ["mitre-cwe", "mitre-capec", "owasp-top-10", "owasp-asvs", "owasp-llm-top-10"]
+}

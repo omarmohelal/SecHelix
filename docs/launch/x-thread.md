@@ -172,8 +172,8 @@ detail, quote from here rather than improvising.
   did not author the fixtures, using blind exported cases.
 - The harness baseline at `evals/results/baseline-keyword-v1.json` is **explicitly not a SecHelix
   score** (`is_sechelix_result: false`). It is a naive regex keyword matcher run to prove the scoring
-  harness works and that the fixtures resist pattern matching: precision 0.512 / recall 0.636 on a
-  balanced 33/33 split, i.e. chance level. That is a **fixture-difficulty** statement, not a
+  harness works and that the fixtures resist pattern matching: precision 0.511 / recall 0.632 on a
+  balanced 38/38 split, i.e. chance level. That is a **fixture-difficulty** statement, not a
   performance claim. Do not tweet the numbers without that clause attached.
 - The case study is **one** small ~600 LOC app with no authentication and no server-side state. It
   measures nothing about general performance.

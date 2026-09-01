@@ -37,13 +37,13 @@ on the suite.
 
 | Metric | Value |
 | --- | --- |
-| Precision | **0.500** |
-| Detection recall | **0.526** |
-| False-positive rate | **0.526** |
-| False-positive rejection rate | **0.474** |
-| Counts | TP 10 · FP 10 · TN 9 · FN 9 |
+| Precision | **0.511** |
+| Detection recall | **0.632** |
+| False-positive rate | **0.605** |
+| False-positive rejection rate | **0.395** |
+| Counts | TP 24 · FP 23 · TN 15 · FN 14 |
 
-On a balanced 33/33 split this is **chance**. That is the desired result: it is evidence that the
+On a balanced 38/38 split this is **chance**. That is the desired result: it is evidence that the
 fixtures cannot be solved by pattern matching, which the evaluation protocol explicitly requires
 ("non-trivial enough that a keyword match alone cannot solve it").
 
@@ -134,7 +134,7 @@ and must not be published.
   and weak on production code.
 - **Single-file per case.** Real vulnerabilities often span modules; these do not.
 - **Python-heavy**, with one JavaScript case. Language coverage is narrow.
-- **Balanced 33/33 split** does not reflect real base rates, where clean code vastly outnumbers
+- **Balanced 38/38 split** does not reflect real base rates, where clean code vastly outnumbers
   vulnerable code. Precision on this suite will overstate precision in the field.
 - **Author bias.** The fixtures encode one team's idea of what is hard.
 

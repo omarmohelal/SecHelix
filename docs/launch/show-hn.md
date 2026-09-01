@@ -109,9 +109,9 @@ false claim of remediation. A green typecheck is not proof that a built applicat
 - 546 structured security hypotheses = exactly 21 families x 26 verification lenses
 - 17 model-neutral specialist role profiles, including an independent verifier
 - 15 JSON Schema Draft 2020-12 contracts
-- 12 Gold Check Packs
-- 33 paired eval fixtures = 66 cases across 10 families
-- Knowledge graph: 73 nodes, 96 edges, 7 lesson cards
+- 18 Gold Check Packs
+- 38 paired eval fixtures = 76 cases across 10 families
+- Knowledge graph: 76 nodes, 100 edges, 11 lesson cards
 - Four applicability outcomes: `APPLICABLE` / `NOT_APPLICABLE` / `UNKNOWN` / `BLOCKED`. Missing
   evidence is never treated as absence.
 - Release gate returns `PASS` / `PASS_WITH_KNOWN_RISK` / `BLOCKED` / fail-closed `INCOMPLETE`.
@@ -132,7 +132,7 @@ Release 3.0.0-alpha.4 (alpha). Apache-2.0.
 - There is a harness baseline at `evals/results/baseline-keyword-v1.json`, and it is **explicitly
   not a SecHelix score** (`is_sechelix_result: false`). It is a naive regex keyword matcher run
   against the fixtures to prove the scoring harness works and that the fixtures cannot be solved by
-  pattern matching. It scored precision 0.512 / recall 0.636 on a balanced 33/33 split — chance level.
+  pattern matching. It scored precision 0.511 / recall 0.632 on a balanced 38/38 split — chance level.
   That is a statement about **fixture difficulty**, not about SecHelix performance.
 - The case study is **one** small ~600 LOC app with no authentication and no server-side state. It
   measures nothing about general performance.

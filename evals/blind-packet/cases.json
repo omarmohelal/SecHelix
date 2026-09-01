@@ -49,12 +49,36 @@
       "task": "Decide whether a transcode worker can execute caller-influenced shell syntax."
     },
     {
+      "case_id": "CASE-0F830A7691E26A34",
+      "family": "AI / Agent / MCP",
+      "filename": "command_tool.py",
+      "language": "python",
+      "source": "\"\"\"Repository inspection tool exposed to the agent.\"\"\"\n\nimport re\nimport subprocess\n\nTIMEOUT_SECONDS = 30\nMAX_OUTPUT = 4000\n\n# The model picks an operation, never a command line. Every flag below is a\n# literal of this module, so no option can originate in model output.\nOPERATIONS = {\n    \"log\": [\"git\", \"--no-pager\", \"log\", \"--max-count=50\", \"--format=%H %s\"],\n    \"show\": [\"git\", \"--no-pager\", \"show\", \"--stat\"],\n    \"grep\": [\"rg\", \"--no-config\", \"--fixed-strings\", \"--max-count=200\"],\n}\nOPERAND = re.compile(\"[A-Za-z0-9._/-]{1,120}\")\nCHILD_ENV = {\"PATH\": \"/usr/bin:/bin\", \"LC_ALL\": \"C\"}\n\n\ndef run_command(step, workdir):\n    base = OPERATIONS.get(step.get(\"operation\"))\n    if base is None:\n        raise PermissionError(\"operation is not available\")\n    operand = str(step.get(\"operand\", \"\"))\n    if not OPERAND.fullmatch(operand):\n        raise ValueError(\"operand is not a plain identifier\")\n    # The single model-supplied value goes after \"--\", so a leading dash cannot\n    # be read as an option by a binary that treats some options as programs.\n    argv = [*base, \"--\", operand]\n    completed = subprocess.run(\n        argv,\n        cwd=workdir,\n        shell=False,\n        capture_output=True,\n        timeout=TIMEOUT_SECONDS,\n        check=False,\n        text=True,\n        # A minimal environment: no inherited config, hook, or pager variable.\n        env=CHILD_ENV,\n    )\n    return {\"returncode\": completed.returncode, \"stdout\": completed.stdout[:MAX_OUTPUT]}\n",
+      "task": "Decide whether an agent-selected command can reach execution as something other than data."
+    },
+    {
       "case_id": "CASE-103F6D4C75EC9636",
       "family": "Authentication / Sessions",
       "filename": "password_reset.py",
       "language": "python",
       "source": "\"\"\"Password reset completion.\"\"\"\n\nimport hashlib\nimport hmac\nimport secrets\nimport time\n\nTOKEN_TTL_SECONDS = 900\n\n\ndef _fingerprint(raw_token):\n    return hashlib.sha256(raw_token.encode(\"utf-8\")).hexdigest()\n\n\nclass PasswordResetService:\n    def __init__(self, accounts, tokens, sessions, mailer):\n        self._accounts = accounts\n        self._tokens = tokens\n        self._sessions = sessions\n        self._mailer = mailer\n\n    def request_reset(self, email):\n        account = self._accounts.find_by_email(email)\n        # Respond identically whether or not the address is registered.\n        if account is not None:\n            raw = secrets.token_urlsafe(32)\n            self._tokens.put({\n                \"fingerprint\": _fingerprint(raw),\n                \"user_id\": account[\"id\"],\n                \"created_at\": time.time(),\n                \"used\": False,\n            })\n            self._mailer.send_reset(account[\"email\"], raw)\n        return {\"status\": \"sent\"}\n\n    def complete_reset(self, email, raw_token, new_password):\n        record = self._tokens.get(_fingerprint(raw_token))\n        if record is None or record[\"used\"]:\n            raise PermissionError(\"invalid reset token\")\n        if time.time() - record[\"created_at\"] > TOKEN_TTL_SECONDS:\n            raise PermissionError(\"expired reset token\")\n\n        # The subject comes from the token, never from the request body.\n        account = self._accounts.get(record[\"user_id\"])\n        if account is None:\n            raise LookupError(\"unknown account\")\n        if not hmac.compare_digest(account[\"email\"].lower(), str(email).lower()):\n            raise PermissionError(\"token does not belong to this account\")\n\n        self._tokens.mark_used(record[\"fingerprint\"])\n        self._accounts.set_password(account[\"id\"], new_password)\n        # A credential change invalidates everything issued before it.\n        self._sessions.revoke_all_for_user(account[\"id\"])\n        return {\"status\": \"reset\", \"user_id\": account[\"id\"]}\n",
       "task": "Decide whether a password reset flow lets a caller take over another account."
+    },
+    {
+      "case_id": "CASE-1BFD3048E49762D7",
+      "family": "AI / Agent / MCP",
+      "filename": "context_builder.py",
+      "language": "python",
+      "source": "\"\"\"Assemble the model context for one agent step.\"\"\"\n\nFENCE = \"<<<UNTRUSTED>>>\"\n\n\ndef _block(label, text):\n    # Untrusted material is labelled and delimited so the model can tell it\n    # apart from the operator's instructions.\n    return f\"{FENCE} BEGIN {label}\\n{text}\\n{FENCE} END {label}\"\n\n\ndef build_context(operator_prompt, user_message, tool_results):\n    sections = [operator_prompt, _block(\"user_message\", user_message)]\n    for result in tool_results:\n        sections.append(_block(f\"tool_result:{result['tool']}\", str(result[\"content\"])))\n    return [{\"role\": \"system\", \"content\": \"\\n\\n\".join(sections)}]\n",
+      "task": "Decide whether a tool result can reach the model inside the operator's channel."
+    },
+    {
+      "case_id": "CASE-1DA1A8B268F201A7",
+      "family": "AI / Agent / MCP",
+      "filename": "agent_memory.py",
+      "language": "python",
+      "source": "\"\"\"Durable per-user agent memory.\"\"\"\n\nOPERATOR = \"OPERATOR\"\nTHIRD_PARTY = \"THIRD_PARTY\"\n\n\nclass MemoryStore:\n    def __init__(self, rows, clock):\n        self._rows = rows\n        self._clock = clock\n\n    def remember(self, user_id, text, origins):\n        # Provenance is where the content came from, not who last wrote it\n        # down: a summary of third-party text is still third-party text.\n        origins = sorted(set(origins))\n        self._rows.insert({\n            \"user_id\": user_id,\n            \"text\": text,\n            \"origin\": OPERATOR if origins == [OPERATOR] else THIRD_PARTY,\n            \"derived_from\": origins,\n            \"created_at\": self._clock.now(),\n        })\n\n    def operator_preferences(self, user_id):\n        return [\n            row[\"text\"]\n            for row in self._rows.for_user(user_id)\n            if row[\"origin\"] == OPERATOR\n        ]\n\n    def recalled_notes(self, user_id):\n        return [\n            {\n                \"text\": row[\"text\"],\n                \"origin\": row[\"origin\"],\n                \"derived_from\": row[\"derived_from\"],\n            }\n            for row in self._rows.for_user(user_id)\n        ]\n\n\ndef close_session(session, memory, model):\n    summary = model.summarize(session.transcript)\n    for fact in summary[\"durable_facts\"]:\n        # origins_for maps a fact back to the transcript segments it was drawn\n        # from, so a fact touching a retrieved chunk stays labelled as such.\n        memory.remember(session.user_id, fact[\"text\"], session.origins_for(fact))\n\n\ndef build_context(user_id, memory, operator_prompt, model):\n    preferences = \"\\n\".join(memory.operator_preferences(user_id))\n    return model.build_prompt(\n        system=operator_prompt + \"\\n\\nStanding preferences:\\n\" + preferences,\n        untrusted={\"recalled_notes\": memory.recalled_notes(user_id)},\n    )\n",
+      "task": "Decide whether content from an untrusted source can become a durable trusted instruction."
     },
     {
       "case_id": "CASE-1F16B5530F0FE7C2",
@@ -81,6 +105,14 @@
       "task": "Decide whether a cache entry can reach an unsafe decoder without authentication."
     },
     {
+      "case_id": "CASE-25EEB6C18869C279",
+      "family": "AI / Agent / MCP",
+      "filename": "confirmation_gate.py",
+      "language": "python",
+      "source": "\"\"\"Out-of-band confirmation for privileged agent actions.\"\"\"\n\nimport hashlib\nimport json\nimport secrets\n\nAPPROVAL_TTL_SECONDS = 300\nPRIVILEGED_TOOLS = {\"send_email\", \"delete_records\", \"issue_refund\"}\n\n\ndef action_digest(run_id, tool, args):\n    canonical = json.dumps(\n        {\"run_id\": run_id, \"tool\": tool, \"args\": args},\n        sort_keys=True,\n        separators=(\",\", \":\"),\n        default=str,\n    )\n    return hashlib.sha256(canonical.encode(\"utf-8\")).hexdigest()\n\n\nclass ConfirmationGate:\n    \"\"\"The operator answers in a channel the agent run cannot write to.\"\"\"\n\n    def __init__(self, approvals, notifier, clock):\n        self._approvals = approvals\n        self._notifier = notifier\n        self._clock = clock\n\n    def propose(self, run_id, step, operator_id):\n        token = secrets.token_urlsafe(32)\n        # The proposal itself is stored, not a reference to a live step.\n        self._approvals.put(token, {\n            \"run_id\": run_id,\n            \"tool\": step[\"tool\"],\n            \"args\": step[\"args\"],\n            \"digest\": action_digest(run_id, step[\"tool\"], step[\"args\"]),\n            \"operator_id\": operator_id,\n            \"issued_at\": self._clock.now(),\n        })\n        self._notifier.ask(operator_id, step[\"tool\"], step[\"args\"], token)\n        return token\n\n    def execute(self, run_id, token, tools):\n        # Consumed on read, so one answer authorizes exactly one call.\n        record = self._approvals.consume(token)\n        if record is None or not record.get(\"approved\"):\n            raise PermissionError(\"action was not approved\")\n        if record[\"run_id\"] != run_id:\n            raise PermissionError(\"approval belongs to another run\")\n        if self._clock.now() - record[\"issued_at\"] > APPROVAL_TTL_SECONDS:\n            raise PermissionError(\"approval expired\")\n        if record[\"digest\"] != action_digest(run_id, record[\"tool\"], record[\"args\"]):\n            raise PermissionError(\"approved action was altered in storage\")\n        # What executes is the stored proposal the operator saw. Nothing the run\n        # emits after the answer can change the tool or the arguments.\n        return tools[record[\"tool\"]](record[\"args\"])\n\n\ndef run_privileged_step(gate, run_id, step, token, tools):\n    if step[\"tool\"] not in PRIVILEGED_TOOLS:\n        return tools[step[\"tool\"]](step[\"args\"])\n    return gate.execute(run_id, token, tools)\n",
+      "task": "Decide whether a human confirmation binds the action that finally executes."
+    },
+    {
       "case_id": "CASE-29F0117036C82418",
       "family": "Business Logic / Payments",
       "filename": "refunds.py",
@@ -95,6 +127,14 @@
       "language": "python",
       "source": "def get_invoice(actor, invoice_id, store):\n    invoice = store[invoice_id]\n    return invoice\n",
       "task": "Determine whether a caller can read an invoice owned by another tenant and identify the controlling invariant."
+    },
+    {
+      "case_id": "CASE-30B36723E0A4B41B",
+      "family": "AI / Agent / MCP",
+      "filename": "confirmation_gate.py",
+      "language": "python",
+      "source": "\"\"\"Out-of-band confirmation for privileged agent actions.\"\"\"\n\nimport secrets\n\nAPPROVAL_TTL_SECONDS = 300\nPRIVILEGED_TOOLS = {\"send_email\", \"delete_records\", \"issue_refund\"}\n\n\nclass ConfirmationGate:\n    \"\"\"The operator answers in a channel the agent run cannot write to.\"\"\"\n\n    def __init__(self, approvals, notifier, clock):\n        self._approvals = approvals\n        self._notifier = notifier\n        self._clock = clock\n\n    def request(self, run_id, step, operator_id):\n        token = secrets.token_urlsafe(32)\n        self._approvals.put(token, {\n            \"run_id\": run_id,\n            \"tool\": step[\"tool\"],\n            \"operator_id\": operator_id,\n            \"issued_at\": self._clock.now(),\n        })\n        # The operator sees the tool and the arguments before answering.\n        self._notifier.ask(operator_id, step[\"tool\"], step[\"args\"], token)\n        return token\n\n    def execute(self, run_id, step, token, tools):\n        record = self._approvals.get(token)\n        if record is None or not record.get(\"approved\"):\n            raise PermissionError(\"action was not approved\")\n        if record[\"run_id\"] != run_id:\n            raise PermissionError(\"approval belongs to another run\")\n        if record[\"tool\"] != step[\"tool\"]:\n            raise PermissionError(\"approval was for a different tool\")\n        if self._clock.now() - record[\"issued_at\"] > APPROVAL_TTL_SECONDS:\n            raise PermissionError(\"approval expired\")\n        return tools[step[\"tool\"]](step[\"args\"])\n\n\ndef run_privileged_step(gate, run_id, step, token, tools):\n    if step[\"tool\"] not in PRIVILEGED_TOOLS:\n        return tools[step[\"tool\"]](step[\"args\"])\n    return gate.execute(run_id, step, token, tools)\n",
+      "task": "Decide whether a human confirmation binds the action that finally executes."
     },
     {
       "case_id": "CASE-39B591434A8C7AEE",
@@ -119,6 +159,22 @@
       "language": "python",
       "source": "\"\"\"Session handling.\"\"\"\n\nimport secrets\n\n\nclass SessionStore:\n    def __init__(self):\n        self._sessions = {}\n\n    def create_anonymous(self):\n        sid = secrets.token_urlsafe(32)\n        self._sessions[sid] = {\"user_id\": None, \"roles\": []}\n        return sid\n\n    def get(self, sid):\n        return self._sessions.get(sid)\n\n    def login(self, sid, user):\n        if sid not in self._sessions:\n            raise LookupError(\"no session\")\n        # Rotate on privilege change: the old identifier never becomes authenticated.\n        self._sessions.pop(sid, None)\n        new_sid = secrets.token_urlsafe(32)\n        self._sessions[new_sid] = {\"user_id\": user[\"id\"], \"roles\": user[\"roles\"]}\n        return new_sid\n\n    def logout(self, sid):\n        self._sessions.pop(sid, None)\n",
       "task": "Decide whether the session lifecycle allows a pre-authentication identifier to survive privilege change."
+    },
+    {
+      "case_id": "CASE-48058C29C4AC442F",
+      "family": "AI / Agent / MCP",
+      "filename": "agent_memory.py",
+      "language": "python",
+      "source": "\"\"\"Durable per-user agent memory.\"\"\"\n\nFIRST_PARTY = \"FIRST_PARTY\"\nTHIRD_PARTY = \"THIRD_PARTY\"\n\n\nclass MemoryStore:\n    def __init__(self, rows, clock):\n        self._rows = rows\n        self._clock = clock\n\n    def remember(self, user_id, text, author):\n        self._rows.insert({\n            \"user_id\": user_id,\n            \"text\": text,\n            \"author\": author,\n            # Text the assistant wrote is a conclusion this system reached\n            # rather than raw third-party content, so it is stored trusted.\n            \"trust\": FIRST_PARTY if author == \"assistant\" else THIRD_PARTY,\n            \"created_at\": self._clock.now(),\n        })\n\n    def standing_preferences(self, user_id):\n        return [\n            row[\"text\"]\n            for row in self._rows.for_user(user_id)\n            if row[\"trust\"] == FIRST_PARTY\n        ]\n\n\ndef close_session(session, memory, model):\n    summary = model.summarize(session.transcript)\n    for fact in summary[\"durable_facts\"]:\n        memory.remember(session.user_id, fact[\"text\"], author=\"assistant\")\n\n\ndef build_context(user_id, memory, operator_prompt, model):\n    preferences = \"\\n\".join(memory.standing_preferences(user_id))\n    return model.build_prompt(\n        system=operator_prompt + \"\\n\\nStanding preferences:\\n\" + preferences,\n    )\n",
+      "task": "Decide whether content from an untrusted source can become a durable trusted instruction."
+    },
+    {
+      "case_id": "CASE-493EEA14CAA3FA1C",
+      "family": "AI / Agent / MCP",
+      "filename": "tool_router.py",
+      "language": "python",
+      "source": "\"\"\"MCP host tool router.\"\"\"\n\n\nclass ToolRouter:\n    \"\"\"Presents the tools of every connected server as one namespace.\"\"\"\n\n    def __init__(self, servers):\n        self._index = {}\n        for server in servers:\n            self.register(server)\n\n    def register(self, server):\n        for tool in server.list_tools():\n            # A server that reconnects re-registers its tools, so the index\n            # always reflects what each server currently offers.\n            self._index[tool[\"name\"]] = (server, tool)\n\n    def dispatch(self, step, allowed_tools):\n        name = step[\"tool\"]\n        if name not in allowed_tools:\n            raise PermissionError(f\"{name} is not permitted in this run\")\n        server, tool = self._index[name]\n        return server.call_tool(tool[\"name\"], step[\"args\"])\n\n\ndef run_step(step, router, run_config):\n    # The run's authority is fixed before the loop starts.\n    return router.dispatch(step, run_config[\"allowed_tools\"])\n",
+      "task": "Decide whether a per-run tool allowlist binds the tool that actually executes."
     },
     {
       "case_id": "CASE-49AA953CB9897DFB",
@@ -337,6 +393,14 @@
       "task": "Decide whether a generic graph entry point reaches objects the typed query would refuse."
     },
     {
+      "case_id": "CASE-B5044E1607CEEE0A",
+      "family": "AI / Agent / MCP",
+      "filename": "context_builder.py",
+      "language": "python",
+      "source": "\"\"\"Assemble the model context for one agent step.\"\"\"\n\n\ndef build_context(operator_prompt, user_message, tool_results):\n    # The system role carries only text this deployment owns. Nothing produced\n    # or fetched during the run is appended to it.\n    messages = [{\"role\": \"system\", \"content\": operator_prompt}]\n    messages.append({\n        \"role\": \"user\",\n        \"content\": [{\"type\": \"text\", \"text\": user_message}],\n    })\n    for result in tool_results:\n        # A result is a typed block in its own message, bound to the call it\n        # answers and carrying its origin. It is transported as a field of the\n        # request, so no byte sequence inside it can move it to another role.\n        messages.append({\n            \"role\": \"user\",\n            \"content\": [{\n                \"type\": \"tool_result\",\n                \"tool_use_id\": result[\"tool_use_id\"],\n                \"origin\": result[\"origin\"],\n                \"content\": result[\"content\"],\n            }],\n        })\n    return messages\n",
+      "task": "Decide whether a tool result can reach the model inside the operator's channel."
+    },
+    {
       "case_id": "CASE-BA7D892ADFC1268D",
       "family": "Files / Uploads / Parsers",
       "filename": "archive.py",
@@ -449,6 +513,14 @@
       "task": "Decide whether the session lifecycle allows a pre-authentication identifier to survive privilege change."
     },
     {
+      "case_id": "CASE-DD0D06059DBA7922",
+      "family": "AI / Agent / MCP",
+      "filename": "command_tool.py",
+      "language": "python",
+      "source": "\"\"\"Repository inspection tool exposed to the agent.\"\"\"\n\nimport subprocess\n\nALLOWED_BINARIES = {\"git\", \"rg\", \"sed\"}\nTIMEOUT_SECONDS = 30\nMAX_OUTPUT = 4000\n\n\ndef run_command(step, workdir):\n    \"\"\"Run a command the model composed.\n\n    The argument vector goes straight to exec with no shell, so quoting, pipes,\n    and semicolons inside the arguments are inert.\n    \"\"\"\n    argv = [str(part) for part in step[\"argv\"]]\n    if not argv:\n        raise ValueError(\"empty command\")\n    if argv[0] not in ALLOWED_BINARIES:\n        raise PermissionError(f\"{argv[0]} is not an allowed binary\")\n    completed = subprocess.run(\n        argv,\n        cwd=workdir,\n        shell=False,\n        capture_output=True,\n        timeout=TIMEOUT_SECONDS,\n        check=False,\n        text=True,\n    )\n    return {\"returncode\": completed.returncode, \"stdout\": completed.stdout[:MAX_OUTPUT]}\n",
+      "task": "Decide whether an agent-selected command can reach execution as something other than data."
+    },
+    {
       "case_id": "CASE-DD62D97BD9FF8D5D",
       "family": "Business Logic / Payments",
       "filename": "discount.py",
@@ -503,6 +575,14 @@
       "language": "javascript",
       "source": "// Bridge between the host page and the embedded checkout frame.\nconst TRUSTED_ORIGIN = \"https://app.example.com\";\n\nconst COMMANDS = {\n  resize: (payload, ctx) =>\n    ctx.frame.style.setProperty(\"height\", `${Number(payload.height)}px`),\n  setAuthToken: (payload, ctx) => ctx.session.adopt(payload.token),\n  navigate: (payload, ctx) => ctx.router.push(payload.path),\n};\n\nexport function installBridge(ctx) {\n  const handler = (event) => {\n    // Only messages coming from our own application are accepted.\n    if (event.origin.indexOf(TRUSTED_ORIGIN) !== 0) return;\n\n    const message =\n      typeof event.data === \"string\" ? JSON.parse(event.data) : event.data;\n    const command = message && COMMANDS[message.type];\n    if (!command) return;\n    command(message.payload || {}, ctx);\n\n    // Acknowledge so the frame can continue its handshake.\n    if (event.source) {\n      event.source.postMessage(\n        { type: \"ack\", id: message.id, session: ctx.session.snapshot() },\n        \"*\"\n      );\n    }\n  };\n\n  window.addEventListener(\"message\", handler);\n  return () => window.removeEventListener(\"message\", handler);\n}\n",
       "task": "Decide whether a cross-document message handler trusts an origin it should not."
+    },
+    {
+      "case_id": "CASE-F04CA2C0403AC30E",
+      "family": "AI / Agent / MCP",
+      "filename": "tool_router.py",
+      "language": "python",
+      "source": "\"\"\"MCP host tool router.\"\"\"\n\nimport hashlib\nimport json\n\n\ndef definition_digest(tool):\n    canonical = json.dumps(\n        {\n            \"name\": tool[\"name\"],\n            \"description\": tool.get(\"description\", \"\"),\n            \"input_schema\": tool.get(\"input_schema\", {}),\n        },\n        sort_keys=True,\n        separators=(\",\", \":\"),\n    )\n    return hashlib.sha256(canonical.encode(\"utf-8\")).hexdigest()\n\n\nclass ToolRouter:\n    \"\"\"Presents the tools of every connected server as one namespace.\"\"\"\n\n    def __init__(self, servers):\n        self._index = {}\n        for server in servers:\n            self.register(server)\n\n    def register(self, server):\n        for tool in server.list_tools():\n            # Slots are keyed by server identity, so two servers offering the\n            # same bare name occupy two slots and neither can take the other's.\n            self._index[(server.server_id, tool[\"name\"])] = {\n                \"server\": server,\n                \"tool\": tool,\n                \"digest\": definition_digest(tool),\n            }\n\n    def dispatch(self, step, allowed_tools):\n        # allowed_tools maps (server_id, name) to the digest pinned when the run\n        # bound its authority, so the check names the definition that executes.\n        key = (step.get(\"server_id\"), step.get(\"tool\"))\n        entry = self._index.get(key)\n        if entry is None:\n            raise PermissionError(\"no such tool on that server\")\n        if allowed_tools.get(key) != entry[\"digest\"]:\n            # Covers an unlisted tool and a definition that changed after it was\n            # approved: a redefined tool is a new tool, not an approved one.\n            raise PermissionError(f\"{key} is not permitted in this run\")\n        return entry[\"server\"].call_tool(entry[\"tool\"][\"name\"], step[\"args\"])\n\n\ndef run_step(step, router, run_config):\n    # The run's authority is fixed before the loop starts.\n    return router.dispatch(step, run_config[\"allowed_tools\"])\n",
+      "task": "Decide whether a per-run tool allowlist binds the tool that actually executes."
     },
     {
       "case_id": "CASE-F7E4A08B0BF9EE9D",

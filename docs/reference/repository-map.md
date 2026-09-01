@@ -13,7 +13,7 @@ SecHelix/
 ├── .github/skills/sechelix/   # GitHub Copilot / VS Code adapter
 ├── agents/                    # specialist reviewer profiles
 ├── catalog/                   # 546 structured hypotheses
-├── gold-packs/                # 5 deep reference check packs
+├── gold-packs/                # 18 deep reference check packs (12 bug-class, 6 framework)
 ├── knowledge/                 # source trust, provenance graph, lesson cards
 ├── schemas/                   # versioned JSON contracts
 ├── sechelix_core/             # applicability, graph, catalog, contract core
@@ -24,7 +24,7 @@ SecHelix/
 ├── scripts/                   # validation + release gates
 ├── examples/                  # scope + report examples
 ├── extensions/                # community extension registry
-├── evals/                     # 33 paired fixtures + NOT_MEASURED baseline
+├── evals/                     # 38 paired fixtures + NOT_MEASURED baseline
 ├── artifacts/                 # case-study evidence artifacts
 ├── docs/                      # quickstart, commands, evaluation, case studies
 └── .github/                   # CI + contribution templates

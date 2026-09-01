@@ -1,0 +1,30 @@
+{
+  "id": "EVAL-AI-003",
+  "schema_version": "1.1",
+  "family": "AI / Agent / MCP",
+  "task": "Decide whether a per-run tool allowlist binds the tool that actually executes.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-863",
+      "CWE-829"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "tool_router.py",
+      "source": "\"\"\"MCP host tool router.\"\"\"\n\n\nclass ToolRouter:\n    \"\"\"Presents the tools of every connected server as one namespace.\"\"\"\n\n    def __init__(self, servers):\n        self._index = {}\n        for server in servers:\n            self.register(server)\n\n    def register(self, server):\n        for tool in server.list_tools():\n            # A server that reconnects re-registers its tools, so the index\n            # always reflects what each server currently offers.\n            self._index[tool[\"name\"]] = (server, tool)\n\n    def dispatch(self, step, allowed_tools):\n        name = step[\"tool\"]\n        if name not in allowed_tools:\n            raise PermissionError(f\"{name} is not permitted in this run\")\n        server, tool = self._index[name]\n        return server.call_tool(tool[\"name\"], step[\"args\"])\n\n\ndef run_step(step, router, run_config):\n    # The run's authority is fixed before the loop starts.\n    return router.dispatch(step, run_config[\"allowed_tools\"])\n",
+      "rationale": "A per-run allowlist exists and is enforced before dispatch, which is what makes the module read as hardened. The allowlist holds bare tool names while the index is one flat namespace keyed by bare name and re-registered on every connect, so a second or reconnecting server that advertises an already approved name takes over the slot. The check binds the string the model emitted; execution binds whichever server currently owns that string."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "tool_router.py",
+      "source": "\"\"\"MCP host tool router.\"\"\"\n\nimport hashlib\nimport json\n\n\ndef definition_digest(tool):\n    canonical = json.dumps(\n        {\n            \"name\": tool[\"name\"],\n            \"description\": tool.get(\"description\", \"\"),\n            \"input_schema\": tool.get(\"input_schema\", {}),\n        },\n        sort_keys=True,\n        separators=(\",\", \":\"),\n    )\n    return hashlib.sha256(canonical.encode(\"utf-8\")).hexdigest()\n\n\nclass ToolRouter:\n    \"\"\"Presents the tools of every connected server as one namespace.\"\"\"\n\n    def __init__(self, servers):\n        self._index = {}\n        for server in servers:\n            self.register(server)\n\n    def register(self, server):\n        for tool in server.list_tools():\n            # Slots are keyed by server identity, so two servers offering the\n            # same bare name occupy two slots and neither can take the other's.\n            self._index[(server.server_id, tool[\"name\"])] = {\n                \"server\": server,\n                \"tool\": tool,\n                \"digest\": definition_digest(tool),\n            }\n\n    def dispatch(self, step, allowed_tools):\n        # allowed_tools maps (server_id, name) to the digest pinned when the run\n        # bound its authority, so the check names the definition that executes.\n        key = (step.get(\"server_id\"), step.get(\"tool\"))\n        entry = self._index.get(key)\n        if entry is None:\n            raise PermissionError(\"no such tool on that server\")\n        if allowed_tools.get(key) != entry[\"digest\"]:\n            # Covers an unlisted tool and a definition that changed after it was\n            # approved: a redefined tool is a new tool, not an approved one.\n            raise PermissionError(f\"{key} is not permitted in this run\")\n        return entry[\"server\"].call_tool(entry[\"tool\"][\"name\"], step[\"args\"])\n\n\ndef run_step(step, router, run_config):\n    # The run's authority is fixed before the loop starts.\n    return router.dispatch(step, run_config[\"allowed_tools\"])\n",
+      "rationale": "Tool identity is the server plus the name, so two servers offering one name cannot collide, and the allowlist stores the digest of the definition pinned when the run bound its authority. A tool that is unlisted, that belongs to a different server, or whose description or schema changed after approval fails the same comparison, so neither shadowing nor a post-approval redefinition can inherit an approval."
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "id": "EVAL-AI-006",
+  "schema_version": "1.1",
+  "family": "AI / Agent / MCP",
+  "task": "Decide whether a human confirmation binds the action that finally executes.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-367",
+      "CWE-863"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "confirmation_gate.py",
+      "source": "\"\"\"Out-of-band confirmation for privileged agent actions.\"\"\"\n\nimport secrets\n\nAPPROVAL_TTL_SECONDS = 300\nPRIVILEGED_TOOLS = {\"send_email\", \"delete_records\", \"issue_refund\"}\n\n\nclass ConfirmationGate:\n    \"\"\"The operator answers in a channel the agent run cannot write to.\"\"\"\n\n    def __init__(self, approvals, notifier, clock):\n        self._approvals = approvals\n        self._notifier = notifier\n        self._clock = clock\n\n    def request(self, run_id, step, operator_id):\n        token = secrets.token_urlsafe(32)\n        self._approvals.put(token, {\n            \"run_id\": run_id,\n            \"tool\": step[\"tool\"],\n            \"operator_id\": operator_id,\n            \"issued_at\": self._clock.now(),\n        })\n        # The operator sees the tool and the arguments before answering.\n        self._notifier.ask(operator_id, step[\"tool\"], step[\"args\"], token)\n        return token\n\n    def execute(self, run_id, step, token, tools):\n        record = self._approvals.get(token)\n        if record is None or not record.get(\"approved\"):\n            raise PermissionError(\"action was not approved\")\n        if record[\"run_id\"] != run_id:\n            raise PermissionError(\"approval belongs to another run\")\n        if record[\"tool\"] != step[\"tool\"]:\n            raise PermissionError(\"approval was for a different tool\")\n        if self._clock.now() - record[\"issued_at\"] > APPROVAL_TTL_SECONDS:\n            raise PermissionError(\"approval expired\")\n        return tools[step[\"tool\"]](step[\"args\"])\n\n\ndef run_privileged_step(gate, run_id, step, token, tools):\n    if step[\"tool\"] not in PRIVILEGED_TOOLS:\n        return tools[step[\"tool\"]](step[\"args\"])\n    return gate.execute(run_id, step, token, tools)\n",
+      "rationale": "The gate has an out-of-band notifier, an unguessable token, a run binding, an operator binding, an expiry, and a tool-name check, and the operator really does see the arguments before answering. Execution then uses the arguments on the step passed in at call time rather than the ones that were approved, and the record is never consumed, so within the window the loop can re-enter execute with the same token and different arguments. The approval binds the tool name; the effect is set by arguments nobody approved."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "confirmation_gate.py",
+      "source": "\"\"\"Out-of-band confirmation for privileged agent actions.\"\"\"\n\nimport hashlib\nimport json\nimport secrets\n\nAPPROVAL_TTL_SECONDS = 300\nPRIVILEGED_TOOLS = {\"send_email\", \"delete_records\", \"issue_refund\"}\n\n\ndef action_digest(run_id, tool, args):\n    canonical = json.dumps(\n        {\"run_id\": run_id, \"tool\": tool, \"args\": args},\n        sort_keys=True,\n        separators=(\",\", \":\"),\n        default=str,\n    )\n    return hashlib.sha256(canonical.encode(\"utf-8\")).hexdigest()\n\n\nclass ConfirmationGate:\n    \"\"\"The operator answers in a channel the agent run cannot write to.\"\"\"\n\n    def __init__(self, approvals, notifier, clock):\n        self._approvals = approvals\n        self._notifier = notifier\n        self._clock = clock\n\n    def propose(self, run_id, step, operator_id):\n        token = secrets.token_urlsafe(32)\n        # The proposal itself is stored, not a reference to a live step.\n        self._approvals.put(token, {\n            \"run_id\": run_id,\n            \"tool\": step[\"tool\"],\n            \"args\": step[\"args\"],\n            \"digest\": action_digest(run_id, step[\"tool\"], step[\"args\"]),\n            \"operator_id\": operator_id,\n            \"issued_at\": self._clock.now(),\n        })\n        self._notifier.ask(operator_id, step[\"tool\"], step[\"args\"], token)\n        return token\n\n    def execute(self, run_id, token, tools):\n        # Consumed on read, so one answer authorizes exactly one call.\n        record = self._approvals.consume(token)\n        if record is None or not record.get(\"approved\"):\n            raise PermissionError(\"action was not approved\")\n        if record[\"run_id\"] != run_id:\n            raise PermissionError(\"approval belongs to another run\")\n        if self._clock.now() - record[\"issued_at\"] > APPROVAL_TTL_SECONDS:\n            raise PermissionError(\"approval expired\")\n        if record[\"digest\"] != action_digest(run_id, record[\"tool\"], record[\"args\"]):\n            raise PermissionError(\"approved action was altered in storage\")\n        # What executes is the stored proposal the operator saw. Nothing the run\n        # emits after the answer can change the tool or the arguments.\n        return tools[record[\"tool\"]](record[\"args\"])\n\n\ndef run_privileged_step(gate, run_id, step, token, tools):\n    if step[\"tool\"] not in PRIVILEGED_TOOLS:\n        return tools[step[\"tool\"]](step[\"args\"])\n    return gate.execute(run_id, token, tools)\n",
+      "rationale": "The proposal is stored in full and the executor takes no step at all: it consumes the record and calls the stored tool with the stored arguments, so the approved action is the executed action and one answer authorizes exactly one call. The digest is re-derived before use so a record altered in storage fails the same check, and the run, operator, and expiry bindings still hold."
+    }
+  }
+}

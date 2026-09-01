@@ -49,7 +49,7 @@ python scripts/security_gate.py examples/report.example.json --policy policies/d
 python scripts/validate_gold_packs.py
 #   OK: Gold Check Packs satisfy structural, provenance, and safety contracts
 python scripts/validate_knowledge.py
-#   OK: source registry, knowledge graph, 7 lesson card(s), and research packet validate
+#   OK: source registry, knowledge graph, 11 lesson card(s), and research packet validate
 python -m reports.report_renderer examples/report.example.json --format markdown
 #   rendered the full Markdown report
 ```

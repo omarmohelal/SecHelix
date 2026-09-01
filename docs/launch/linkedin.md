@@ -92,7 +92,7 @@ a dishonest number.
 
 • There is a harness baseline in the repo that is **explicitly not a SecHelix score**. It is a naive
 regex keyword matcher, run only to prove the scoring harness works and that the fixtures cannot be
-solved by pattern matching. It scored precision 0.512 and recall 0.636 on a balanced 33/33 split, which
+solved by pattern matching. It scored precision 0.511 and recall 0.632 on a balanced 38/38 split, which
 is chance level. Read that as evidence about **fixture difficulty**, not about how SecHelix performs.
 
 • This case study is **one** small application, roughly 600 lines, with no authentication and no

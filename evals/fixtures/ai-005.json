@@ -1,0 +1,30 @@
+{
+  "id": "EVAL-AI-005",
+  "schema_version": "1.1",
+  "family": "AI / Agent / MCP",
+  "task": "Decide whether content from an untrusted source can become a durable trusted instruction.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-807",
+      "CWE-349"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "agent_memory.py",
+      "source": "\"\"\"Durable per-user agent memory.\"\"\"\n\nFIRST_PARTY = \"FIRST_PARTY\"\nTHIRD_PARTY = \"THIRD_PARTY\"\n\n\nclass MemoryStore:\n    def __init__(self, rows, clock):\n        self._rows = rows\n        self._clock = clock\n\n    def remember(self, user_id, text, author):\n        self._rows.insert({\n            \"user_id\": user_id,\n            \"text\": text,\n            \"author\": author,\n            # Text the assistant wrote is a conclusion this system reached\n            # rather than raw third-party content, so it is stored trusted.\n            \"trust\": FIRST_PARTY if author == \"assistant\" else THIRD_PARTY,\n            \"created_at\": self._clock.now(),\n        })\n\n    def standing_preferences(self, user_id):\n        return [\n            row[\"text\"]\n            for row in self._rows.for_user(user_id)\n            if row[\"trust\"] == FIRST_PARTY\n        ]\n\n\ndef close_session(session, memory, model):\n    summary = model.summarize(session.transcript)\n    for fact in summary[\"durable_facts\"]:\n        memory.remember(session.user_id, fact[\"text\"], author=\"assistant\")\n\n\ndef build_context(user_id, memory, operator_prompt, model):\n    preferences = \"\\n\".join(memory.standing_preferences(user_id))\n    return model.build_prompt(\n        system=operator_prompt + \"\\n\\nStanding preferences:\\n\" + preferences,\n    )\n",
+      "rationale": "The store has a trust model and the instruction channel is filtered by it, so the module reads as provenance-aware. The label is computed from who wrote the string rather than from where the content came from, and the session summary is attributed to the assistant. A summary of a retrieved document is therefore stored first-party and replayed into the system prompt of every later session for that user, so one injection during one run becomes a standing instruction."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "agent_memory.py",
+      "source": "\"\"\"Durable per-user agent memory.\"\"\"\n\nOPERATOR = \"OPERATOR\"\nTHIRD_PARTY = \"THIRD_PARTY\"\n\n\nclass MemoryStore:\n    def __init__(self, rows, clock):\n        self._rows = rows\n        self._clock = clock\n\n    def remember(self, user_id, text, origins):\n        # Provenance is where the content came from, not who last wrote it\n        # down: a summary of third-party text is still third-party text.\n        origins = sorted(set(origins))\n        self._rows.insert({\n            \"user_id\": user_id,\n            \"text\": text,\n            \"origin\": OPERATOR if origins == [OPERATOR] else THIRD_PARTY,\n            \"derived_from\": origins,\n            \"created_at\": self._clock.now(),\n        })\n\n    def operator_preferences(self, user_id):\n        return [\n            row[\"text\"]\n            for row in self._rows.for_user(user_id)\n            if row[\"origin\"] == OPERATOR\n        ]\n\n    def recalled_notes(self, user_id):\n        return [\n            {\n                \"text\": row[\"text\"],\n                \"origin\": row[\"origin\"],\n                \"derived_from\": row[\"derived_from\"],\n            }\n            for row in self._rows.for_user(user_id)\n        ]\n\n\ndef close_session(session, memory, model):\n    summary = model.summarize(session.transcript)\n    for fact in summary[\"durable_facts\"]:\n        # origins_for maps a fact back to the transcript segments it was drawn\n        # from, so a fact touching a retrieved chunk stays labelled as such.\n        memory.remember(session.user_id, fact[\"text\"], session.origins_for(fact))\n\n\ndef build_context(user_id, memory, operator_prompt, model):\n    preferences = \"\\n\".join(memory.operator_preferences(user_id))\n    return model.build_prompt(\n        system=operator_prompt + \"\\n\\nStanding preferences:\\n\" + preferences,\n        untrusted={\"recalled_notes\": memory.recalled_notes(user_id)},\n    )\n",
+      "rationale": "Provenance is the union of the origins the content derives from, carried from the transcript segment through the summary onto the record, so a fact that touched retrieved content is stored third-party no matter who wrote it down. Only records whose origins are entirely operator-supplied reach the system prompt; everything else is recalled into a labelled data field, where it can inform the run without instructing it."
+    }
+  }
+}

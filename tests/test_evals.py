@@ -166,7 +166,7 @@ class EvalLabTests(unittest.TestCase):
         for field in ("runner", "sechelix_commit", "fixture_suite_version", "cases_sha256"):
             self.assertNotIn(run.get(field), (None, "", "NOT_MEASURED", "UNKNOWN"),
                              f"published baseline is missing {field}")
-        self.assertEqual(run["case_count"], 66)
+        self.assertEqual(run["case_count"], 76)
 
     def test_fixture_suite_resists_a_keyword_matcher(self):
         """A pattern matcher must stay near chance, or the fixtures are too easy."""

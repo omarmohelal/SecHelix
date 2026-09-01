@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0",
+  "lesson_id": "LC-CWE-807",
+  "title": "Security decisions taken on inputs the decision was meant to constrain",
+  "updated_at": "2026-09-01T00:00:00Z",
+  "domains": ["web", "api", "ai-agent"],
+  "summary": "A control fails when the value it consults is itself something the attacker can influence. In agent systems this appears in specific shapes: authority derived from a model-emitted tool name, a trust label computed from which component wrote a string rather than from where the content came from, a confirmation bound to a tool name while the effect is set by arguments, and a privilege tier read from metadata a connected source supplies. Verification must establish what the decision reads, who can influence that value, and whether the value that is checked is the same value that is later used.",
+  "detection_signals": [
+    "An authorization check reads a name, role, tier, or trust label carried in the same data the check is meant to constrain, including a field on a model-emitted step or a document being processed.",
+    "A trust or provenance label is derived from the identity of the writing component rather than from the origins of the content, so a summary of untrusted text inherits a trusted label.",
+    "The value that is checked and the value that is used are resolved separately, so an alias table, a merged namespace, or a re-read of live state can change what executes after the check passed.",
+    "A confirmation, approval, or step-up record binds an operation name but the executed effect is determined by arguments read at execution time, and the record is not consumed on use."
+  ],
+  "safe_local_tests": [
+    "Write the decision's inputs down explicitly and, for each, name the principals able to influence it; a control whose input has the same writer as the request it constrains is the finding.",
+    "In an isolated fixture, exercise the path twice with only the influenceable value differing and record which branch each run took, so the dependence is demonstrated rather than argued.",
+    "For approval flows, replay a stored approval with altered arguments inside the validity window and record whether the executed effect changed."
+  ],
+  "false_positive_traps": [
+    "A value that arrives in a request may still be safe when the decision is re-derived server-side from the authenticated principal, so its presence is not by itself a weakness.",
+    "An independent control at the resource, such as the tool's or the database's own authorization for the acting principal, can refuse the action regardless of the flawed check, and that must be evidenced at the resource rather than assumed.",
+    "A label that looks derivable from untrusted content may in fact be assigned by a component the attacker cannot reach; establish the write path before treating the label as attacker-influenced."
+  ],
+  "remediation_patterns": [
+    "Derive every security decision from server-held state bound to the authenticated principal, and treat values arriving with the request as claims to be checked rather than as answers.",
+    "Compute provenance as the union of the origins of the content a record derives from, carry it with the record, and admit only operator-origin content into channels the system acts on.",
+    "Check the resolved subject rather than the requested one: compare the identity that will execute, not the string that asked for it.",
+    "Bind an approval to a digest of the exact action, consume it on use, and execute the stored proposal rather than the arguments present at execution time."
+  ],
+  "regression_proof": [
+    "A test proves that supplying the influenceable value no longer changes the decision, while a legitimate request under the same conditions still succeeds.",
+    "For approval flows, a test proves that a stored approval cannot be replayed with different arguments and that a second use of the same approval is refused."
+  ],
+  "mapping_node_ids": [
+    "CWE-807",
+    "OWASP-TOP10-2021-A01",
+    "OWASP-ASVS-5.0.0-V8.3.1",
+    "OWASP-LLM-2025-LLM01",
+    "OWASP-LLM-2025-LLM06",
+    "SHX-FAMILY-AI",
+    "SHX-FAMILY-AUTHZ"
+  ],
+  "source_ids": ["mitre-cwe", "owasp-top-10", "owasp-asvs", "owasp-llm-top-10"]
+}

@@ -4,7 +4,7 @@ This directory contains everything needed to produce **the first uncontaminated 
 measurement**. Benchmark status is `NOT_MEASURED` and stays that way until a run completes under
 these conditions.
 
-- `cases.json` — 66 blind cases. SHA-256 `90c0cc29f6f65baa4791dc0633cb92a7e99db25a41d0d939a2fd8e06ae80be92`
+- `cases.json` — 76 blind cases. SHA-256 `c15861edbe997f5909d32d3a0870eb963b3c654b37583aaa6ba28d90d183d9fb`
 - Ground truth is **not** in this directory. It lives in `evals/fixtures/` and is only read at
   scoring time.
 
@@ -50,7 +50,7 @@ Each case carries only:
 No variant name, no fixture id, no rationale, no difficulty, no pairing. Case ids are opaque
 digests, and the file is ordered by digest so vulnerable and clean cases are not adjacent.
 
-Note: the suite is **balanced 33 / 33**. An evaluator that knows this could game the score by
+Note: the suite is **balanced 38 / 38**. An evaluator that knows this could game the score by
 answering to the ratio, so a run that appears calibrated to exactly 50% should be treated with
 suspicion, and the prompt below deliberately does not mention the balance.
 
@@ -81,7 +81,7 @@ Do not reveal the family counts, the balance, or that cases are paired.
   "provider": "<provider>",
   "runner": "<how predictions were produced>",
   "sechelix_commit": "<git rev-parse HEAD of the repo the packet came from>",
-  "fixture_suite_version": "33 fixtures / 66 cases",
+  "fixture_suite_version": "38 fixtures / 76 cases",
   "agent_host": "<Claude Code | API | other>",
   "execution_mode": "STATIC",
   "tools": ["<any scanner used, or none>"],
@@ -104,7 +104,7 @@ Do not reveal the family counts, the balance, or that cases are paired.
 
 `predicted_label` must be `VULNERABLE` or `CLEAN`. `verification_status` is optional and defaults
 to `NOT_RUN`; use `VERIFIED` only when the claim was independently reconstructed, and
-`FALSE_POSITIVE` when a candidate was raised and then refuted. Every one of the 66 cases must
+`FALSE_POSITIVE` when a candidate was raised and then refuted. Every one of the 76 cases must
 appear exactly once — the runner refuses a partial packet.
 
 **4. Score** (back in this repository):
@@ -128,7 +128,7 @@ rather than a misleading `0.0`.
 ## Reference point
 
 `evals/results/baseline-keyword-v1.json` is a deterministic regex matcher — no model, no network —
-scored through the same pipeline. It lands at chance on precision (0.512) while its recall (0.636) is bought by flagging 41 of 66 cases — a 0.61 false-positive rate. It exists to validate the
+scored through the same pipeline. It lands at chance on precision (0.511) while its recall (0.632) is bought by flagging 47 of 76 cases — a 0.61 false-positive rate. It exists to validate the
 harness and to evidence that the suite resists pattern matching. It is labelled
 `result_kind: HARNESS_BASELINE` with `is_sechelix_result: false` and must never be cited as
 SecHelix performance.

@@ -1,0 +1,285 @@
+{
+  "schema_version": "1.0",
+  "id": "SEC-SPRING-METHOD-001",
+  "version": "0.1.0",
+  "title": "Spring Boot: URL rules, proxied method security, and management surface",
+  "lifecycle": "REFERENCE",
+  "threat_model": {
+    "actor": "A caller who can reach the servlet container directly, including on the management port, and an authenticated user of one role reaching a method intended for another",
+    "asset": "The service methods behind the security annotations, the objects request binding constructs, and everything the management endpoints disclose or change about the running process",
+    "trust_boundary": "Two enforcement layers that are frequently assumed to be one: the filter chain matching request paths, and the advice a proxy applies when a bean's method is called from outside that bean",
+    "failure_mode": "A rule exists at one layer and the request or call reaches the sensitive code by a route that layer does not cover — a path the matcher writes differently, a call that never crosses the proxy, or a port the filter chain was never configured for",
+    "impact": "A privileged operation runs for a caller the configuration intended to reject, a request body sets fields the API never advertised, an untrusted document names the class the deserializer instantiates, or the management surface returns configuration and process state"
+  },
+  "applicability": {
+    "capability_tags": [
+      "spring_boot",
+      "spring_security",
+      "spring_method_security",
+      "spring_actuator",
+      "jackson_databind",
+      "spring_mvc"
+    ],
+    "rule": "ANY_CAPABILITY_PRESENT",
+    "required_evidence": [
+      "A Spring Boot application: a build file declaring the Boot parent or plugin, an `@SpringBootApplication` class, and an `application.properties` or `application.yml`",
+      "At least one enforcement point to reason about: a security filter chain bean, a method carrying an authorization annotation, or management endpoint configuration"
+    ]
+  },
+  "framework_fingerprints": [
+    {
+      "framework": "spring-security-filter-chain",
+      "versions": [
+        "6.x configures a `SecurityFilterChain` bean with `authorizeHttpRequests` and `requestMatchers`",
+        "5.x projects being upgraded still show the adapter class and the older request-authorization and matcher method names"
+      ],
+      "signals": [
+        "Rules ordered so a broad one precedes a narrow one, where the first matching rule decides and the narrower rule is never reached",
+        "A path rule written in one matcher style while the request can also arrive in a form that style does not match — a trailing slash, a suffix, or a different servlet path prefix",
+        "`anyRequest().permitAll()` or an equivalent catch-all, with the real protection expected to come from annotations that may not be present on every path",
+        "Cross-site request forgery protection disabled on a chain that still authenticates browsers with a session cookie",
+        "A second filter chain bean whose matcher covers requests the first was assumed to cover"
+      ]
+    },
+    {
+      "framework": "spring-method-security",
+      "versions": [
+        "`@EnableMethodSecurity` enables the pre and post annotations by default; the older `@Secured` and JSR-250 annotations are opt-in through its `securedEnabled` and `jsr250Enabled` attributes",
+        "the default advice mode is proxy-based; `@EnableMethodSecurity(mode = AdviceMode.ASPECTJ)` weaves instead, which changes what is intercepted"
+      ],
+      "signals": [
+        "Authorization annotations present in the codebase with no configuration enabling method security at all, so none of them is evaluated",
+        "An annotated method called from another method of the same bean, so the call never leaves the object and the proxy's advice does not run",
+        "An annotation on a private method, which neither interface nor subclass proxying can advise",
+        "An annotation on a concrete class where the bean is proxied through an interface the annotation is not declared on",
+        "An expression that checks a role but not the relationship between the caller and the argument, so any holder of the role reaches any object",
+        "A repository or service method reachable from more than one controller where only one of the call sites carries the check"
+      ]
+    },
+    {
+      "framework": "spring-request-binding",
+      "versions": ["any"],
+      "signals": [
+        "A controller binding a request body directly to a persistence entity rather than to a request-specific type",
+        "Form binding onto a command object without a declared allowed-field list, so any submitted field name can reach a setter",
+        "An identifier taken from the path and used to load an object with no check that the caller may reach it",
+        "A response returning a persistence entity directly, so fields added to the entity later appear in the API without review"
+      ]
+    },
+    {
+      "framework": "jackson-polymorphic-typing",
+      "versions": [
+        "Jackson 2.10 introduced a polymorphic type validator and the activation overloads that require one, replacing the older unconstrained enabling method"
+      ],
+      "signals": [
+        "Default typing activated on a mapper that deserializes request or message content, with a validator that admits a broad package rather than an enumerated set",
+        "A type annotated to carry its concrete class name in the document, on a type reachable from untrusted input",
+        "A field or collection declared as `Object`, an unbounded generic, or a broad interface on a type bound from untrusted content",
+        "A message listener or cache layer deserializing bytes from a broker or store that something other than this application can write to"
+      ]
+    },
+    {
+      "framework": "spring-boot-actuator",
+      "versions": [
+        "in the 3.x line only the health endpoint is exposed over HTTP and JMX by default; anything further is exposed by explicitly widening the inclusion property"
+      ],
+      "signals": [
+        "The web exposure include property set to a wildcard, which publishes every endpoint present on the classpath",
+        "Environment, configuration property, mappings, thread dump, or heap dump endpoints reachable, each disclosing a different part of the process",
+        "A log-level endpoint reachable and writable, which changes running behaviour rather than only reporting it",
+        "The management port left on the application port while the security filter chain has no rule naming the management path",
+        "Health detail configuration widened beyond the default without a corresponding access rule"
+      ]
+    }
+  ],
+  "sources": {
+    "source_ids": ["mitre-cwe", "owasp-top-10", "owasp-api-top-10", "owasp-asvs"],
+    "catalog_hypothesis_ids": [
+      "SHX-AUTHZ-L01",
+      "SHX-AUTHZ-L04",
+      "SHX-AUTHZ-L17",
+      "SHX-AUTHZ-L19",
+      "SHX-API-L08",
+      "SHX-FILE-L16",
+      "SHX-OPS-L21",
+      "SHX-PRIV-L20"
+    ],
+    "references": [
+      "https://docs.spring.io/spring-security/reference/6.5/servlet/authorization/method-security.html",
+      "https://docs.spring.io/spring-security/reference/6.5/servlet/authorization/authorize-http-requests.html",
+      "https://docs.spring.io/spring-security/reference/6.5/servlet/exploits/csrf.html",
+      "https://docs.spring.io/spring-boot/3.5/reference/actuator/endpoints.html",
+      "https://docs.spring.io/spring-boot/3.5/reference/actuator/enabling.html",
+      "https://docs.spring.io/spring-boot/3.5/reference/actuator/monitoring.html",
+      "https://github.com/FasterXML/jackson-databind/wiki/JacksonPolymorphicDeserialization",
+      "https://cwe.mitre.org/data/definitions/502.html",
+      "https://cwe.mitre.org/data/definitions/862.html",
+      "https://cwe.mitre.org/data/definitions/915.html",
+      "https://cwe.mitre.org/data/definitions/16.html"
+    ]
+  },
+  "boundary": {
+    "type": "METHOD_AND_URL_AUTHORIZATION",
+    "subject": "the authenticated principal in the security context of the executing thread",
+    "object": "the service method invoked, the object it acts on, and the process state the management surface exposes",
+    "action": "INVOKE",
+    "invariant": "Every route to a protected operation passes an enforcement point that actually intercepts it, and the check names the caller's relationship to the specific object rather than only the role they hold"
+  },
+  "sinks": [
+    {"kind": "SERVICE_METHOD", "examples": ["Annotated method reached by a call from inside the same bean", "Repository method reachable from a controller that carries no check"]},
+    {"kind": "CONTROLLER_ENDPOINT", "examples": ["Handler on a path the matcher writes differently", "Handler reached under a catch-all permit rule"]},
+    {"kind": "REQUEST_BINDING", "examples": ["Body bound directly onto a persistence entity", "Form binding with no allowed-field list"]},
+    {"kind": "POLYMORPHIC_DESERIALIZER", "examples": ["Mapper with default typing over untrusted content", "Type carrying its concrete class name in the document"]},
+    {"kind": "MANAGEMENT_ENDPOINT", "examples": ["Environment or configuration property endpoint", "Heap or thread dump endpoint", "Writable log-level endpoint"]},
+    {"kind": "ENTITY_RESPONSE", "examples": ["Persistence entity serialised straight into the response", "Association traversed during serialisation into rows the caller may not read"]}
+  ],
+  "detection_layers": [
+    {
+      "layer": "MODEL",
+      "signals": [
+        "For each protected operation, list every route that reaches it — HTTP path, internal call, scheduled task, message listener — and ask which enforcement point covers each route",
+        "Ask whether the check names the object or only the role, and what a holder of that role could reach across the whole object set",
+        "Ask what an unauthenticated caller learns from the management surface, and whether that surface is on the same port and chain as the application"
+      ]
+    },
+    {
+      "layer": "STATIC",
+      "signals": [
+        "Read every security filter chain bean in declaration order and record the matcher, the rule sequence, and where a broad rule precedes a narrow one",
+        "Confirm method security is enabled at all, and record its advice mode, before treating any authorization annotation as enforcement",
+        "For each annotated method, record its visibility, whether the bean is proxied through an interface that declares it, and whether any caller is another method of the same bean",
+        "List controller methods that bind request content directly to persistence types, and those that return persistence types directly",
+        "Find every mapper configuration that activates default typing and every type annotated to carry its class name, and trace whether untrusted content reaches them",
+        "Read the management configuration for the exposure include and exclude properties, the management port, the base path, and whether a filter chain rule names that path"
+      ]
+    },
+    {
+      "layer": "CONTRACT",
+      "signals": [
+        "State per operation which principal may perform it against which object, and check both halves are enforced rather than only the role half",
+        "Decide which layer is intended to be authoritative — URL rules or method annotations — and check the other layer is not silently relied on for paths the first does not cover",
+        "State which management endpoints are intended to be reachable and from where, and compare that with the configured exposure"
+      ]
+    },
+    {
+      "layer": "DATA",
+      "signals": [
+        "Establish which fields of each bound type are sensitive and whether request binding can reach them",
+        "Establish which classes are on the runtime classpath that a polymorphic deserializer could be asked to construct",
+        "Establish whether the management port is reachable from outside the deployment network, which the repository alone usually cannot show"
+      ]
+    },
+    {
+      "layer": "LOCAL_RUNTIME",
+      "signals": [
+        "Against a locally running instance with two synthetic accounts, call each endpoint as each account and unauthenticated, recording the status and body",
+        "Send the same path with a trailing slash, with a suffix, and with differing case, and record whether the rule still applies",
+        "Submit a request body containing a field the API does not document and read back the stored object to see whether it was set",
+        "Request the management base path and enumerate what responds, on both the application port and the management port"
+      ]
+    }
+  ],
+  "validation": {
+    "default_mode": "LOCAL",
+    "destructive_actions": false,
+    "production_mutation": false,
+    "steps": [
+      "Confirm explicit authorization and run a local instance with synthetic accounts and synthetic data only",
+      "Record a baseline for each endpoint as the account that legitimately holds the permission, so a later difference is attributable to the boundary",
+      "Repeat each call as a second account and unauthenticated, and record the status and body for each",
+      "Send each protected path in its variant forms — trailing slash, suffix, alternate case, alternate servlet prefix — and record which forms the rule still covers",
+      "Submit an undocumented field in a request body against a record the test created, then read the record back to observe whether binding set it",
+      "Enumerate the management surface on both ports, reading only; do not invoke endpoints that change process state such as log levels or shutdown, and do not capture heap or thread dumps containing real data",
+      "For the deserializer, exercise it only with content the test authored inside the local instance, and assert on which class was constructed rather than on any external effect",
+      "Record the Spring Boot and Spring Security versions with the results, since defaults for exposure and for method security configuration differ between lines"
+    ]
+  },
+  "false_positive_filters": [
+    "The method is annotated and the call site is another bean, so the invocation crosses the proxy and the advice runs; self-invocation is what breaks this, not annotation placement in general",
+    "Method security is enabled and the advice mode is weaving rather than proxying, in which case the proxy-boundary reasoning does not apply and the annotation is evaluated regardless of the call path",
+    "A filter chain rule already covers the path, so the missing annotation is redundancy rather than the only control — read both layers before reporting either",
+    "The broad rule the reviewer saw is declared after the narrow one, so the narrow rule matches first and decides",
+    "The catch-all permit rule is on a filter chain whose own matcher covers only paths that are genuinely public, and a separate chain covers the protected paths",
+    "Cross-site request forgery protection is disabled on a chain that authenticates only with a bearer credential a browser will not attach automatically, which is the documented reason for disabling it",
+    "The request body binds to a request-specific type whose fields are exactly the API's inputs, so the entity's sensitive fields are unreachable from binding",
+    "Form binding declares an allowed-field list, so submitted names outside it are ignored",
+    "Default typing is activated with a validator restricted to an enumerated set of application types, so the document cannot name an arbitrary class",
+    "The deserializer is only ever reached with bytes this application authenticated, so the polymorphic configuration has no untrusted path into it",
+    "The management endpoints are bound to a separate port that the deployment does not route from outside, or a filter chain rule requires authentication for the management base path — confirm which, since only one of these is visible in the repository",
+    "Only the health endpoint is exposed, which is the default in the 3.x line; the presence of the actuator dependency is not by itself the finding"
+  ],
+  "verification": {
+    "independent_required": true,
+    "required_evidence": [
+      "The enforcement configuration and the annotated method together: the filter chain rules in order, the method security configuration and its advice mode, and the annotation's placement and visibility",
+      "The call path from the entry point to the protected method, showing whether it crosses a bean boundary",
+      "A recorded request and response demonstrating the operation performed by a caller who should not be able to, alongside the same request by one who should",
+      "For a binding claim, the submitted field and the stored object read back afterwards, showing the value was accepted",
+      "For a management claim, the endpoint response as returned to an unauthenticated caller, and the port and path it was reached on",
+      "The Spring Boot and Spring Security versions, since exposure defaults and method security configuration differ between lines"
+    ],
+    "refutation_tests": [
+      "Confirm method security is enabled and read its advice mode before drawing any conclusion from an authorization annotation, since annotations without that configuration are inert and weaving changes what is intercepted",
+      "Identify the actual caller of the annotated method, because the finding is self-invocation rather than annotation placement",
+      "Read every filter chain bean in order before reporting a rule as unreachable or as overly broad, since the first matching rule decides and a second chain may exist",
+      "Attempt the same call as an authorized principal to confirm the operation works, so a rejection is attributable to the boundary",
+      "Check whether the management surface is on a separate port and whether the deployment routes it, and mark the conclusion blocked when the repository cannot show the routing",
+      "Read the polymorphic type validator configuration before treating default typing as unconstrained, since a validator restricted to enumerated application types is the documented containment"
+    ]
+  },
+  "root_causes": [
+    "Authorization is expressed at two layers with different matching semantics, so a rule at one layer is assumed to cover requests only the other layer sees",
+    "Annotation-based checks depend on interception the developer cannot see at the call site, so a call inside the same bean silently skips them",
+    "Authorization annotations are added without the configuration that activates them, leaving declarations that read as enforcement",
+    "Checks name the caller's role rather than their relationship to the object, so holding the role is sufficient for every object",
+    "Request binding is pointed at persistence types because it is convenient, which hands the caller the entity's whole field set",
+    "Polymorphic typing is enabled globally to make one payload round-trip, which lets any document reachable by that mapper name the class to construct",
+    "The management surface is widened during debugging and the change survives, or is left on the application port where the filter chain does not name it",
+    "Defaults are recalled from an earlier version line, so the reviewer reasons about exposure and configuration that the running version does not have"
+  ],
+  "variant_strategy": {
+    "anchor_fields": ["invariant", "boundary", "action"],
+    "variant_dimensions": ["actor", "object", "identity_state", "enforcement_layer", "sink_kind", "framework"],
+    "result_contract": "EXACT | VARIANT | REFUTED | BLOCKED; exact and variant matches remain hypotheses until verified"
+  },
+  "remediation": {
+    "canonical_invariant": "Enforce at a layer every route must cross, name the object rather than only the role, and keep the management surface on a boundary the application's own rules cover",
+    "patterns": [
+      "Deny by default in the filter chain and add explicit permits, so a path nobody wrote a rule for is refused rather than allowed",
+      "Order rules from most specific to least specific and keep one chain per matcher, so which rule decides is readable",
+      "Enable method security explicitly and place the annotation where the call actually crosses a bean boundary, refactoring self-invocation into a separate collaborator rather than annotating a method the proxy cannot advise",
+      "Write authorization expressions that relate the principal to the argument or return value, not only to a role name",
+      "Bind requests to types written for the request and map them onto entities in code, and return response types rather than entities",
+      "Restrict polymorphic deserialization to an enumerated set of application types through a validator, and prefer explicit type mapping over default typing on any mapper that sees untrusted content",
+      "Expose only the management endpoints that are needed, bind them to a separate port the deployment does not route publicly, and still require authentication on them",
+      "Assert the effective configuration in tests — which endpoints respond, which paths are permitted, which methods are advised — so a change to a default is caught by the build rather than by a reader"
+    ]
+  },
+  "regression": {
+    "fixture_ids": ["EVAL-AUTHZ-002", "EVAL-AUTHZ-003", "EVAL-FILE-004"],
+    "assertions": [
+      "The vulnerable ownership fixture enforces on one path and re-fetches by primary key with no predicate on its sibling, so a shared data-access call is protected at one call site and not the other — the framework-neutral form of an annotated method reached by an unchecked second route",
+      "The remediated ownership fixture requires the effective subject inside the shared call, so no call site can reach the object without it, and both paths still serve the owner",
+      "The vulnerable role fixture resolves the caller's role from the client-supplied payload rather than from authenticated state, and its decorator reads as enforcement while enforcing nothing",
+      "The remediated role fixture resolves the role from authenticated state and ignores the client-supplied value, while the privileged function still runs for a caller who genuinely holds the role",
+      "The vulnerable decoder fixture has a correct authenticated path and a legacy branch that decodes unauthenticated bytes, so anything able to write into the shared queue reaches an object-constructing decoder with chosen content",
+      "The compensated decoder fixture keeps the same object-constructing decoder and is safe because no unauthenticated path reaches it: the version is pinned, a missing tag is rejected rather than treated as legacy, and the comparison runs first"
+    ]
+  },
+  "mappings": {
+    "cwe": ["CWE-862", "CWE-863", "CWE-915", "CWE-502", "CWE-200", "CWE-16", "CWE-639"],
+    "owasp": ["OWASP-A01:2021", "OWASP-A05:2021", "OWASP-A08:2021", "OWASP-API3:2023", "OWASP-API5:2023", "OWASP-ASVS:V4"]
+  },
+  "calibration": {
+    "measurement_status": "NOT_MEASURED",
+    "sample_size": 0,
+    "notes": "This pack has not completed a reproducible benchmark run and makes no precision or recall claim."
+  },
+  "limitations": [
+    "The referenced fixtures are framework-neutral synthetic cases in plain Python; they exercise the invariants this pack anchors on and contain no Java or Spring code",
+    "Whether an annotated method is actually intercepted depends on the advice mode, the proxying strategy, and the call path, none of which is decidable from the annotation alone",
+    "Exposure and configuration defaults differ between major lines, and an application can override any of them, so the effective configuration rather than the version is the authority",
+    "Whether a management port is reachable is a deployment and network question the repository usually cannot answer, and a conclusion drawn without it should be marked blocked",
+    "Which classes a polymorphic deserializer could construct depends on the runtime classpath, including transitive dependencies, which source review alone does not enumerate"
+  ]
+}

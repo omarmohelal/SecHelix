@@ -50,9 +50,9 @@ A trusted finding should establish attacker control, reachability, a failed secu
 | Coverage | **546 stable security hypothesis IDs** across 21 families × 26 lenses |
 | Specialist mesh | **17 model-neutral role profiles**, including an independent verifier |
 | Contracts | **15 JSON Schema Draft 2020-12 contracts** for scope, applicability, evidence, findings, reports, extensions, knowledge, and Gold Check Packs |
-| Gold Check Packs | **5 deep reference packs** (IDOR, SSRF, race/idempotency, money invariants, AI/MCP tool authority) |
-| Eval fixtures | **33 paired fixtures — 66 cases across 10 families**, each with a vulnerable and a clean variant |
-| Knowledge graph | **73 nodes, 96 edges**, provenance-backed, plus **7 lesson cards** |
+| Gold Check Packs | **18 deep reference packs** — 12 bug-class (IDOR, SSRF, injection, race/idempotency, money invariants, AI/MCP tool authority, and more) plus 6 framework packs (Next.js, Express/Node, Django, Supabase/PostgREST, Spring Boot, Laravel) |
+| Eval fixtures | **38 paired fixtures — 76 cases across 10 families**, each with a vulnerable and a clean variant |
+| Knowledge graph | **76 nodes, 100 edges**, provenance-backed, plus **11 lesson cards** |
 | Evidence adapters | Semgrep, CodeQL/SARIF, OSV, Gitleaks, Trivy, npm/pnpm audit, Playwright, ZAP, Nuclei |
 | Reports | Markdown, redacted JSON, SARIF 2.1.0, escaped standalone HTML |
 | Release truth | `PASS`, `PASS_WITH_KNOWN_RISK`, `BLOCKED`, or fail-closed `INCOMPLETE` |
@@ -283,7 +283,7 @@ SecHelix has **no measured accuracy number**, and the reason is written down rat
 
 Unblocking it requires a run by a model or session that did not author the fixtures, using blind cases exported with `python evals/run_evals.py --export-cases`.
 
-**The harness itself is validated.** [`evals/results/baseline-keyword-v1.json`](evals/results/baseline-keyword-v1.json) records a naive regex keyword matcher run against all 66 cases. It carries `"is_sechelix_result": false` and **is not a SecHelix score.** It exists to prove two things: the scoring harness works, and the fixtures cannot be solved by pattern matching — the matcher lands at chance on a balanced 33/33 split. That is a statement about fixture difficulty, nothing else.
+**The harness itself is validated.** [`evals/results/baseline-keyword-v1.json`](evals/results/baseline-keyword-v1.json) records a naive regex keyword matcher run against all 76 cases. It carries `"is_sechelix_result": false` and **is not a SecHelix score.** It exists to prove two things: the scoring harness works, and the fixtures cannot be solved by pattern matching — the matcher lands at chance on a balanced 38/38 split. That is a statement about fixture difficulty, nothing else.
 
 Metrics are defined in **[docs/EVALUATION.md](docs/EVALUATION.md)**: verified precision, detection recall on known-ground-truth fixtures, false-positive rejection rate, applicability accuracy, regression-proof rate, and release-gate accuracy. A public score is allowed only after a reproducible run records the exact SecHelix commit, fixture version, model/provider configuration, enabled tools, ground truth, observed outcomes, false positives and negatives, `UNKNOWN`/`BLOCKED` cases, and supporting artifacts.
 
@@ -341,6 +341,7 @@ Different models can own different lanes without creating different security pol
 - [Command recipes](docs/reference/command-recipes.md) — one instruction per review lane
 - [Repository map](docs/reference/repository-map.md) — what lives where
 - [Zero-trust repository mode](docs/reference/untrusted-repo-mode.md) — auditing a hostile repository
+- [AI, agent, and MCP security](docs/reference/ai-agent-security.md) — mechanisms, and what evidence refutes each one
 - [Specialist agents](docs/reference/specialist-agents.md) — the 17 role profiles
 
 - [Quickstart](docs/QUICKSTART.md)

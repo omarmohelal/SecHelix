@@ -1,5 +1,8 @@
 # SecHelix credibility report
 
+<!-- doc-consistency: snapshot -->
+> **Dated snapshot.** This is a record of one work session — the before/after numbers below are what was true on the date above; the tree has since moved.
+
 **Date:** 2026-09-01 · **Version at start:** 3.0.0-alpha.4 · **Branch:** `credibility/v3.1-evidence-program`
 
 This report records what was audited, what was found, and what was fixed during a program whose

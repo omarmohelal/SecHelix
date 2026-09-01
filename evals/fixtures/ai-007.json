@@ -1,0 +1,30 @@
+{
+  "id": "EVAL-AI-007",
+  "schema_version": "1.1",
+  "family": "AI / Agent / MCP",
+  "task": "Decide whether a tool result can reach the model inside the operator's channel.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-140",
+      "CWE-77"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "context_builder.py",
+      "source": "\"\"\"Assemble the model context for one agent step.\"\"\"\n\nFENCE = \"<<<UNTRUSTED>>>\"\n\n\ndef _block(label, text):\n    # Untrusted material is labelled and delimited so the model can tell it\n    # apart from the operator's instructions.\n    return f\"{FENCE} BEGIN {label}\\n{text}\\n{FENCE} END {label}\"\n\n\ndef build_context(operator_prompt, user_message, tool_results):\n    sections = [operator_prompt, _block(\"user_message\", user_message)]\n    for result in tool_results:\n        sections.append(_block(f\"tool_result:{result['tool']}\", str(result[\"content\"])))\n    return [{\"role\": \"system\", \"content\": \"\\n\\n\".join(sections)}]\n",
+      "rationale": "Every untrusted segment is labelled and fenced, which is the shape a reviewer expects of a context builder that takes provenance seriously. The fence is a fixed literal inside one concatenated string, so a tool result containing the end marker closes its own block and the text after it lands in the operator's position. Every segment is in the system role to begin with, so there is nothing below the operator's channel for it to land in."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "context_builder.py",
+      "source": "\"\"\"Assemble the model context for one agent step.\"\"\"\n\n\ndef build_context(operator_prompt, user_message, tool_results):\n    # The system role carries only text this deployment owns. Nothing produced\n    # or fetched during the run is appended to it.\n    messages = [{\"role\": \"system\", \"content\": operator_prompt}]\n    messages.append({\n        \"role\": \"user\",\n        \"content\": [{\"type\": \"text\", \"text\": user_message}],\n    })\n    for result in tool_results:\n        # A result is a typed block in its own message, bound to the call it\n        # answers and carrying its origin. It is transported as a field of the\n        # request, so no byte sequence inside it can move it to another role.\n        messages.append({\n            \"role\": \"user\",\n            \"content\": [{\n                \"type\": \"tool_result\",\n                \"tool_use_id\": result[\"tool_use_id\"],\n                \"origin\": result[\"origin\"],\n                \"content\": result[\"content\"],\n            }],\n        })\n    return messages\n",
+      "rationale": "Separation is structural rather than lexical: the system role holds only deployment-owned text, and each tool result is a typed block in its own message carrying the call id and the origin. Because the boundary is a field of the serialized request rather than a marker inside a string, no byte sequence in a result can forge it, and the origin label survives to the dispatcher."
+    }
+  }
+}

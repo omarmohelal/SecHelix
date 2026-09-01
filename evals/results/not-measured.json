@@ -29,7 +29,7 @@
   "scanner_contribution": "NOT_MEASURED",
   "blocker": {
     "reason": "CONTAMINATED_EVALUATOR",
-    "statement": "No uncontaminated SecHelix run exists yet. The 33-fixture / 66-case suite was authored and expanded by assistant sessions working inside this repository, including the sessions that would have acted as the evaluated model. Those sessions know the fixtures, the pairings and the rationales, so scoring one of them would measure recall of authored answers rather than security-review capability. The disqualification is deliberately broad: any session that has read evals/fixtures/, scripts/build_eval_fixtures.py, or gold-packs/*/pack.json is excluded, because partial knowledge of a paired suite still leaks the answer to its twin.",
+    "statement": "No uncontaminated SecHelix run exists yet. The 38-fixture / 76-case suite was authored and expanded by assistant sessions working inside this repository, including the sessions that would have acted as the evaluated model. Those sessions know the fixtures, the pairings and the rationales, so scoring one of them would measure recall of authored answers rather than security-review capability. The disqualification is deliberately broad: any session that has read evals/fixtures/, scripts/build_eval_fixtures.py, or gold-packs/*/pack.json is excluded, because partial knowledge of a paired suite still leaks the answer to its twin.",
     "what_would_unblock_it": [
       "A run by a model or session that has not read evals/fixtures/, scripts/build_eval_fixtures.py, or gold-packs/*/pack.json.",
       "Copy evals/blind-packet/cases.json out of this repository and evaluate it in an isolated session.",
@@ -38,12 +38,12 @@
       "Publish only if sechelix_commit, agent_host, model and limitations are all present."
     ],
     "harness_status": "VALIDATED — see evals/results/baseline-keyword-v1.json",
-    "packet_ready": "evals/blind-packet/ — 66 blind cases with exact run instructions",
-    "suite_at_time_of_record": "33 fixtures / 66 cases / 10 families"
+    "packet_ready": "evals/blind-packet/ — 76 blind cases with exact run instructions",
+    "suite_at_time_of_record": "38 fixtures / 76 cases / 10 families"
   },
   "fixture_suite": {
-    "fixture_count": 33,
-    "case_count": 66,
+    "fixture_count": 38,
+    "case_count": 76,
     "families": 10,
     "family_ids": [
       "AI",
@@ -54,11 +54,12 @@
       "INJ",
       "MONEY",
       "RACE",
+      "SESS",
       "SSRF",
       "SUPPLY",
       "WEB"
     ],
-    "note": "Counts describe the available suite; they are not a measurement. `families` counts distinct catalog family segments in the fixture IDs (EVAL-<FAMILY>-<n>), not the free-text `family` label on each fixture.",
+    "note": "Counts describe the available suite; they are not a measurement. `families` is the number of distinct free-text `family` labels carried by the fixtures, which is what the per-family breakdown is keyed on. `family_ids` lists the catalog family segments that appear in the fixture IDs (EVAL-<FAMILY>-<n>); there are more of those than there are labels, because AUTH and SESS fixtures share one label.",
     "family_names": [
       "Authorization / BOLA / BFLA",
       "Authentication / Sessions",

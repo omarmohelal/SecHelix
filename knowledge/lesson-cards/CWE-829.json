@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0",
+  "lesson_id": "LC-CWE-829",
+  "title": "Functionality and instructions admitted from an untrusted control sphere",
+  "updated_at": "2026-09-01T00:00:00Z",
+  "domains": ["supply-chain", "ai-agent", "api"],
+  "summary": "A system takes on the trust of whatever it loads and acts on. The artifacts that carry this risk in agent and model-backed systems are wider than a dependency list: tool definitions supplied by a connected server, tool descriptions and annotations that reach the model as instruction text, prompt and skill files, model weights, and index snapshots are all functionality obtained from somewhere. Verification must establish where each artifact comes from, how its identity is pinned, whether verification happens before it is loaded or rendered, and what it can influence once admitted.",
+  "detection_signals": [
+    "A connected tool server supplies names, descriptions, schemas, or behaviour hints that the host places into the model's system or developer segment, giving a third party a write into the operator's channel.",
+    "Tools from several sources are merged into one namespace keyed by bare name, so the collision rule decides which program answers an approved name.",
+    "An approval, allowlist, or privilege tier is keyed by tool name rather than by the full definition, so a definition that changes after approval inherits it.",
+    "Prompts, skills, model weights, or index snapshots are fetched by mutable reference and loaded without a digest or signature check that runs before load."
+  ],
+  "safe_local_tests": [
+    "Enumerate every configured source in an isolated environment and record, for each, who controls it, how it is pinned, and what its process can reach beyond the advertised surface.",
+    "Capture the assembled model context from a real run and label each segment by who is able to write it, so third-party text sitting in an instruction position is shown rather than inferred.",
+    "Replace an artifact with an altered local fixture and confirm the load or the approval fails closed before the artifact takes effect."
+  ],
+  "false_positive_traps": [
+    "A source under the operator's exclusive control is not an untrusted sphere, and saying so explicitly is part of the review rather than an omission.",
+    "Behaviour hints published by a source describe intent, not enforcement; treating them as either evidence of safety or evidence of danger substitutes the source's claims for verification.",
+    "A merged namespace is only exploitable if some party other than the operator can register into it, which has to be established from the configuration rather than assumed from the merge."
+  ],
+  "remediation_patterns": [
+    "Render source-supplied text into a labelled data channel with its provenance attached, never into the segment that carries operator instructions.",
+    "Make identity include the source: key tools, approvals, and allowlists on the source plus the name plus a digest of the full definition, so a collision or a later redefinition cannot inherit an approval.",
+    "Declare privilege tiers in operator-controlled configuration rather than reading them from metadata the source supplies.",
+    "Pin every loadable artifact by immutable digest and verify before load, failing closed on a verification error."
+  ],
+  "regression_proof": [
+    "A test proves that a second source claiming an already approved name cannot capture the call, and that a definition altered after approval is refused until it is approved again.",
+    "A test proves that source-supplied description text appears only in the data channel of the assembled context, so a change that splices it into the instruction channel fails the suite."
+  ],
+  "mapping_node_ids": [
+    "CWE-829",
+    "OWASP-TOP10-2021-A08",
+    "OWASP-LLM-2025-LLM01",
+    "OWASP-LLM-2025-LLM03",
+    "SHX-FAMILY-AI",
+    "SHX-FAMILY-SUPPLY"
+  ],
+  "source_ids": ["mitre-cwe", "owasp-top-10", "owasp-llm-top-10"]
+}

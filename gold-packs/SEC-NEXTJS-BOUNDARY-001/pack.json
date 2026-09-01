@@ -1,0 +1,273 @@
+{
+  "schema_version": "1.0",
+  "id": "SEC-NEXTJS-BOUNDARY-001",
+  "version": "0.1.0",
+  "title": "Next.js App Router: the server boundary and the checks it does not carry",
+  "lifecycle": "REFERENCE",
+  "threat_model": {
+    "actor": "Any client that can send an HTTP request to the deployment. Server Functions, route handlers, and the image optimizer are addressable endpoints; reaching them never requires loading the page that references them",
+    "asset": "Everything behind the server boundary: the rows a Server Function reads or mutates, the values serialised into the RSC payload the browser receives, the secrets a module closes over, and the outbound requests the image optimizer makes on the server's behalf",
+    "trust_boundary": "Three separate boundaries that projects routinely treat as one: the network edge where proxy or middleware runs, the `'use server'` module boundary where a function becomes a POST endpoint, and the `'use client'` boundary where server data is serialised into a payload the browser can read",
+    "failure_mode": "The authorization check is written where the user interface is composed — in the page, the layout, or the proxy/middleware matcher — while the endpoint that actually reaches the data is a separate request path that re-enters the process without the session ever being re-resolved",
+    "impact": "A caller who never renders the guarded page invokes the mutation it was supposed to gate, reads data that only reached the client because it was passed as a prop, or steers a server-side fetch to a destination the application never intended"
+  },
+  "applicability": {
+    "capability_tags": [
+      "nextjs",
+      "next_app_router",
+      "server_actions",
+      "react_server_components",
+      "next_route_handlers",
+      "next_proxy_middleware",
+      "next_image_optimizer"
+    ],
+    "rule": "ANY_CAPABILITY_PRESENT",
+    "required_evidence": [
+      "A Next.js project root: `next.config.js`, `next.config.mjs`, or `next.config.ts` beside an `app/` directory containing `page`, `layout`, or `route` files",
+      "At least one server entry point reachable over HTTP: a module or inline function carrying the `'use server'` directive, a `route.ts` exporting an HTTP method, or `images` configured in `next.config`"
+    ]
+  },
+  "framework_fingerprints": [
+    {
+      "framework": "next-app-router",
+      "versions": ["13.4 and later", "14.x", "15.x", "16.x"],
+      "signals": [
+        "An `app/` tree whose `page` and `layout` files are Server Components by default and whose `'use client'` files mark the serialisation boundary",
+        "`route.ts` files exporting `GET`, `POST`, and other HTTP methods as the app's own API surface",
+        "Route segment config exports such as `dynamic`, `revalidate`, `fetchCache`, or `runtime` deciding whether a response is shared between callers",
+        "Data-access code imported directly by a Server Component rather than reached through an HTTP call"
+      ]
+    },
+    {
+      "framework": "next-server-functions",
+      "versions": ["13.4 and later", "14.x", "15.x", "16.x"],
+      "signals": [
+        "A module whose first line is `'use server'`, making every exported async function in it an individually addressable endpoint",
+        "An inline `'use server'` closure declared inside a Server Component and passed as a form `action` or to `useActionState`",
+        "A Server Function whose only visible authorization is the `redirect()` in the page that renders its form",
+        "A Server Function that spreads `FormData` or a request-shaped object straight into an ORM `update` or `create` call"
+      ]
+    },
+    {
+      "framework": "next-proxy-middleware",
+      "versions": [
+        "up to 15.x the file is `middleware.ts` exporting `middleware`",
+        "16.x deprecates that name in favour of `proxy.ts` exporting `proxy`, with `skipMiddlewareUrlNormalize` renamed to `skipProxyUrlNormalize`",
+        "16.x runs `proxy` on the Node.js runtime only; a project that needs the edge runtime keeps using `middleware`"
+      ],
+      "signals": [
+        "A `config.matcher` whose negative lookahead excludes `api`, `_next/static`, `_next/image`, or file extensions, so the routes it excludes have no proxy-layer check at all",
+        "Session state read from a cookie in the proxy and then trusted downstream without the page or Server Function re-resolving it",
+        "A database or network call inside the proxy, which the framework's own authentication guidance advises against because the proxy runs on every route including prefetches",
+        "Both a `middleware.ts` and a `proxy.ts`, or a half-completed `middleware-to-proxy` codemod, leaving it ambiguous which file the deployed version executes"
+      ]
+    },
+    {
+      "framework": "next-image-optimizer",
+      "versions": ["13.x", "14.x", "15.x", "16.x"],
+      "signals": [
+        "`images.remotePatterns` entries whose `hostname` is `**` or begins with a wildcard, or a legacy `images.domains` list still in place",
+        "`images.dangerouslyAllowSVG` enabled, which permits a format that can carry script into the optimizer's response",
+        "`images.dangerouslyAllowLocalIP` enabled, which the configuration documents as an SSRF risk taken deliberately for self-hosted VPC use",
+        "A user-supplied URL flowing into an `<Image src>` or directly into the `/_next/image?url=` query parameter"
+      ]
+    },
+    {
+      "framework": "next-caching-and-config",
+      "versions": [
+        "up to 14.x `fetch` and GET route handlers were cached by default",
+        "15.0 changed both defaults: `fetch` is uncached unless `cache: 'force-cache'`, and GET route handlers are dynamic unless the segment forces static"
+      ],
+      "signals": [
+        "A route that returns per-caller data while the segment is static or `revalidate` is set, so one caller's response can be served to another",
+        "`revalidatePath` or `revalidateTag` reachable from an endpoint whose caller is not authorized to invalidate that content",
+        "`headers()` in `next.config` setting a Content-Security-Policy that includes `'unsafe-inline'` or omits `frame-ancestors`",
+        "A `Cache-Control` or CDN rule applied at the platform layer that the repository cannot show, so caching behaviour is not decidable from code alone"
+      ]
+    }
+  ],
+  "sources": {
+    "source_ids": ["mitre-cwe", "owasp-top-10", "owasp-api-top-10", "owasp-asvs"],
+    "catalog_hypothesis_ids": [
+      "SHX-AUTHZ-L01",
+      "SHX-AUTHZ-L04",
+      "SHX-AUTHZ-L19",
+      "SHX-API-L08",
+      "SHX-API-L09",
+      "SHX-PRIV-L20",
+      "SHX-SSRF-L21",
+      "SHX-WEB-L21"
+    ],
+    "references": [
+      "https://nextjs.org/docs/app/guides/authentication",
+      "https://nextjs.org/docs/app/guides/data-security",
+      "https://nextjs.org/docs/app/api-reference/directives/use-server",
+      "https://nextjs.org/docs/app/api-reference/file-conventions/route",
+      "https://nextjs.org/docs/app/api-reference/file-conventions/proxy",
+      "https://nextjs.org/docs/app/api-reference/config/next-config-js/images",
+      "https://nextjs.org/docs/app/guides/upgrading/version-15",
+      "https://nextjs.org/docs/app/guides/upgrading/version-16",
+      "https://cwe.mitre.org/data/definitions/862.html",
+      "https://cwe.mitre.org/data/definitions/918.html",
+      "https://owasp.org/API-Security/"
+    ]
+  },
+  "boundary": {
+    "type": "SERVER_FUNCTION_AUTHORIZATION",
+    "subject": "the session the running request actually proves, resolved on the server from the request's own credentials",
+    "object": "the data a Server Function, route handler, or Server Component reaches, and the values that leave the server in the RSC payload",
+    "action": "INVOKE",
+    "invariant": "Every server entry point re-establishes the caller's identity and permission for itself, because rendering a page is not a precondition for reaching the endpoints that page references"
+  },
+  "sinks": [
+    {"kind": "SERVER_FUNCTION_ENDPOINT", "examples": ["Exported async function in a `'use server'` module", "Inline `'use server'` closure passed as a form action", "Server Function invoked through `useActionState` or `startTransition`"]},
+    {"kind": "ROUTE_HANDLER", "examples": ["`app/api/*/route.ts` exporting `GET` or `POST`", "Handler reading `params` or `searchParams` and querying by that value alone"]},
+    {"kind": "RSC_PAYLOAD", "examples": ["Whole database row passed as a prop from a Server Component to a `'use client'` component", "Object serialised into the flight payload because it was closed over by a client component"]},
+    {"kind": "CLIENT_BUNDLE", "examples": ["Module holding a secret imported by both a server and a client component", "`NEXT_PUBLIC_` environment variable holding a value that is not meant to be public"]},
+    {"kind": "IMAGE_OPTIMIZER_FETCH", "examples": ["`/_next/image?url=` request against a permissive `remotePatterns` entry", "Optimizer fetch reaching a link-local or private address"]},
+    {"kind": "ROUTE_CACHE", "examples": ["Per-caller response produced by a statically rendered segment", "`revalidatePath` or `revalidateTag` triggered from an endpoint the caller should not be able to reach"]}
+  ],
+  "detection_layers": [
+    {
+      "layer": "MODEL",
+      "signals": [
+        "For each server entry point, ask what an attacker sends to reach it directly, then ask which line in that entry point resolves who is calling",
+        "Ask which of the three boundaries — proxy, `'use server'`, `'use client'` — the observed check actually sits on, and whether the data path crosses a boundary the check does not cover",
+        "Ask what a caller learns by reading the RSC payload of a page they are allowed to see, independent of what the rendered UI displays"
+      ]
+    },
+    {
+      "layer": "STATIC",
+      "signals": [
+        "Enumerate every `'use server'` module and every inline `'use server'` closure, and record for each whether the session is resolved inside the function or inside a module it calls",
+        "Enumerate every `route.ts` and record which HTTP methods it exports and what identity each one establishes before touching data",
+        "Read `config.matcher` in `proxy.ts` or `middleware.ts` and list the route prefixes it excludes, then check what protects those prefixes instead",
+        "Trace props crossing from Server Components into `'use client'` components and mark any whole-record object, token, or internal identifier",
+        "Read `next.config` for `images.remotePatterns`, `images.domains`, `dangerouslyAllowSVG`, `dangerouslyAllowLocalIP`, and the `headers()` entries, and record which of them widen a destination or relax a browser control"
+      ]
+    },
+    {
+      "layer": "CONTRACT",
+      "signals": [
+        "State, per entry point, which principal may invoke it and where that statement is enforced in code rather than in the UI that renders its trigger",
+        "Decide whether the project's authorization lives in a data-access layer both the page and the Server Function call, or is duplicated per call site where one copy can be missing",
+        "Record the Next.js major version, because caching defaults for `fetch` and GET route handlers changed at 15.0 and the proxy file convention changed at 16.0"
+      ]
+    },
+    {
+      "layer": "DATA",
+      "signals": [
+        "Identify which fields of each record are safe for the browser to hold, and compare that with what is actually serialised into props",
+        "Establish whether any route that returns per-caller data is rendered statically or carries a `revalidate` value",
+        "List the hosts `images.remotePatterns` admits and check whether any of them is a redirector, a user-content host, or a wildcard that resolves inside the deployment network"
+      ]
+    },
+    {
+      "layer": "LOCAL_RUNTIME",
+      "signals": [
+        "Against a locally built application with two synthetic accounts, invoke each Server Function and route handler with the second account's session and with no session at all, recording the status and body",
+        "Run `next build` and inspect the produced client chunks for values that were expected to stay on the server",
+        "View the RSC payload for a page as each synthetic account and compare it against what the page renders",
+        "Request `/_next/image?url=` with a destination the policy should refuse and record whether the response is a 400 or a fetched body"
+      ]
+    }
+  ],
+  "validation": {
+    "default_mode": "LOCAL",
+    "destructive_actions": false,
+    "production_mutation": false,
+    "steps": [
+      "Confirm explicit authorization and work against a locally built copy with two synthetic accounts and no real user data",
+      "Record a baseline: perform each action through the user interface as the account that owns the data, and capture the resulting request so the endpoint, the action identifier, and the payload shape are known",
+      "Replay the captured request with the second account's session and again with no session cookie at all, changing nothing else, and record the status and body each time",
+      "Repeat the replay against every route handler method, including methods the user interface never calls, since each export is separately addressable",
+      "Load each page as each synthetic account and read the RSC payload rather than the rendered output, recording any field present in the payload but absent from the screen",
+      "Request the image optimizer with a destination outside the intended set and record whether it is refused, without pointing it at any host the authorization does not cover",
+      "Keep every observation to reads and to mutations on synthetic records the test itself created, and record the Next.js version alongside the results because several defaults are version-dependent"
+    ]
+  },
+  "false_positive_filters": [
+    "The Server Function resolves the session inside its own body — awaiting the auth helper, or reading and verifying the session cookie — and throws or redirects before any data access; this is the refutation, and a check in the page that renders the form is not",
+    "The Server Function is a thin wrapper over a data-access module that performs authentication and authorization itself; the check exists one call frame away and the framework's own guidance describes this as the recommended shape, so read the callee before concluding the check is missing",
+    "The exported async function carries `'use server'` but nothing in the application references it, so the build removes it and never publishes an endpoint for it; confirm by searching for its import sites and by checking the built output rather than assuming",
+    "The route handler reads `cookies()` or `headers()` and re-resolves the caller, so the proxy matcher excluding its prefix costs nothing",
+    "The value visible in the RSC payload is already public — a published product record, a value the same caller could read from another authorized endpoint — so its presence is not an exposure",
+    "The object crossing into a client component is a narrowed data transfer object built from the record rather than the record itself, so the sensitive columns never enter the payload",
+    "The module holding the secret imports `server-only`, which turns any client import of it into a build error, so the secret cannot reach the bundle even if a client component later tries",
+    "`images.remotePatterns` pins protocol, a hostname with no leading wildcard, and a pathname, and `dangerouslyAllowLocalIP` is false, so the optimizer refuses destinations outside the pinned set with a 400 rather than fetching them",
+    "The route is dynamic — `export const dynamic = 'force-dynamic'`, or it reads `cookies()`/`headers()`, or the project is on 15.0 or later where GET route handlers are no longer cached by default — so a per-caller response is not shared between callers",
+    "The proxy or middleware performs an optimistic redirect only, and the real check is at the data source; a redirect that can be skipped is not the control and its absence for a given route is not by itself the finding"
+  ],
+  "verification": {
+    "independent_required": true,
+    "required_evidence": [
+      "The entry point itself — the `'use server'` function, the route handler export, or the segment — with the lines that resolve identity, or the demonstrated absence of any such line in it and in everything it calls",
+      "A recorded request and response showing the endpoint reached directly with the second account's session or with no session, alongside the same request as the owning account",
+      "The proxy or middleware `config.matcher` together with the path of the entry point, showing whether the matcher covers it",
+      "For a payload or bundle exposure, the serialised value itself as observed in the RSC payload or in a built client chunk, with the record field it corresponds to",
+      "The Next.js version in use, because caching defaults and the proxy file convention differ by major version"
+    ],
+    "refutation_tests": [
+      "Read the full call chain from the entry point to the data access before concluding no check exists, since the recommended shape places it in a data-access module rather than in the action",
+      "Search for every reference to the exported Server Function and inspect the built output, since an unused one is removed at build time and publishes no endpoint",
+      "Re-run the same replay as the owning account to confirm the endpoint works at all, so a failure is attributable to the boundary rather than to a broken request",
+      "Compare the RSC payload against what the same caller can already retrieve from an endpoint they are authorized to call, so an exposure claim is about new information rather than about presentation",
+      "Point the image optimizer at a destination inside the pinned set and at one outside it, so a refusal demonstrates the policy rather than an unrelated failure",
+      "Check whether the deployment platform, not the repository, sets the caching or header behaviour being reasoned about, and mark the conclusion blocked when the repository cannot show it"
+    ]
+  },
+  "root_causes": [
+    "Authorization is written where the interface is composed, so it protects the rendering of a control rather than the endpoint that control invokes",
+    "The `'use server'` directive is read as an implementation detail rather than as the declaration that publishes an HTTP endpoint reachable without the page",
+    "Proxy or middleware is treated as the enforcement layer even though its matcher deliberately excludes route prefixes and the framework documents it as an optimistic check",
+    "Server-to-client props are chosen for the convenience of rendering rather than for what may leave the server, so whole records enter the payload",
+    "Authorization is duplicated per call site instead of living in a single data-access layer, so a new entry point is a new opportunity to omit it",
+    "Destination policy for the image optimizer is expressed as a wildcard hostname because a narrower pattern was inconvenient during development",
+    "Caching configuration is reasoned about from an older major version's defaults, or is set at the platform rather than in the repository, so the code does not show what is actually shared"
+  ],
+  "variant_strategy": {
+    "anchor_fields": ["invariant", "boundary", "action"],
+    "variant_dimensions": ["actor", "object", "identity_state", "enforcement_layer", "sink_kind", "framework"],
+    "result_contract": "EXACT | VARIANT | REFUTED | BLOCKED; exact and variant matches remain hypotheses until verified"
+  },
+  "remediation": {
+    "canonical_invariant": "Put authentication and authorization in a server-only data-access layer that every entry point must pass through, so a page, a Server Function, and a route handler cannot disagree about who is allowed to do what",
+    "patterns": [
+      "Re-resolve the session inside each Server Function and route handler and fail closed before any data access, treating the page-level check as user experience rather than as enforcement",
+      "Route all reads and writes through a module that imports `server-only` and performs the authorization itself, keeping actions thin",
+      "Return narrowed data transfer objects to client components instead of whole records, so the payload contains only fields the browser may hold",
+      "Keep proxy or middleware for redirects and coarse pre-filtering, and state in the file itself that it is not the enforcement layer",
+      "Pin `images.remotePatterns` to explicit protocol, hostname, and pathname, leave `dangerouslyAllowSVG` and `dangerouslyAllowLocalIP` disabled, and treat any wildcard hostname as a destination-policy decision that needs its own justification",
+      "Mark per-caller routes dynamic explicitly rather than relying on the current major version's default, and gate `revalidatePath` and `revalidateTag` behind the same authorization as the mutation they follow",
+      "Set the security headers the application depends on — Content-Security-Policy, `frame-ancestors`, referrer policy — in one place and assert them in a test, so a header is not silently lost between platform and config",
+      "When upgrading across a major version, re-derive the caching and proxy behaviour from that version's own documentation rather than from the previous one"
+    ]
+  },
+  "regression": {
+    "fixture_ids": ["EVAL-AUTHZ-003", "EVAL-AUTHZ-005", "EVAL-SSRF-002"],
+    "assertions": [
+      "The vulnerable role-check fixture resolves the caller's role from the client-supplied request payload rather than from the session, and its decorator reads as enforcement while enforcing nothing — the framework-neutral form of a Server Function that trusts what the browser sent",
+      "The remediated role-check fixture resolves the role server-side and ignores the client-supplied value, while the privileged function still works for the caller who genuinely holds the role",
+      "The vulnerable object-update fixture copies every key of the request body onto the persisted object even though a field list is present, so a privileged field arrives from the caller — the framework-neutral form of a Server Function spreading `FormData` into an ORM update",
+      "The compensated object-update fixture keeps the same alarming whole-body copy and is safe only because the class declares `__slots__`, so undeclared attributes are rejected; a reviewer who stops at the copy reports a false positive",
+      "The vulnerable fetch fixture validates the destination once and then follows redirects without revalidating, so a permitted host redirects the request to a private address — the framework-neutral form of a permissive optimizer destination policy",
+      "The remediated fetch fixture revalidates every hop in a bounded loop while still fetching legitimate destinations, so the control is distinguishable from a disabled feature"
+    ]
+  },
+  "mappings": {
+    "cwe": ["CWE-862", "CWE-863", "CWE-915", "CWE-918", "CWE-200", "CWE-524", "CWE-16"],
+    "owasp": ["OWASP-A01:2021", "OWASP-A05:2021", "OWASP-API1:2023", "OWASP-API5:2023", "OWASP-ASVS:V4"]
+  },
+  "calibration": {
+    "measurement_status": "NOT_MEASURED",
+    "sample_size": 0,
+    "notes": "This pack has not completed a reproducible benchmark run and makes no precision or recall claim."
+  },
+  "limitations": [
+    "The referenced fixtures are framework-neutral synthetic cases that express the same invariants; no fixture in this repository is written in Next.js, so the fixtures exercise the reasoning and not the framework surface",
+    "Several behaviours named here are version-dependent — caching defaults changed at 15.0 and the proxy file convention at 16.0 — so a conclusion drawn without reading the project's Next.js version does not transfer",
+    "Server Function endpoint identifiers are generated by the build and are not stable inputs; reasoning about them from source alone is unreliable and they must be observed from a build",
+    "Hosting platform configuration — CDN caching, edge rules, response headers, image optimizer behaviour on managed platforms — sits outside the repository and can override what the code appears to say",
+    "Framework-level mitigations change between releases; the framework's own security advisories, not this pack, are the authority on which versions are affected by a given published issue"
+  ]
+}

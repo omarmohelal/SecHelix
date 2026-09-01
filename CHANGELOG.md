@@ -45,6 +45,19 @@ All notable changes to SecHelix are documented here.
 - All six modules are now reachable from `skills/sechelix/SKILL.md`, which
   previously referenced none of them. Capability the workflow cannot reach is
   dead code.
+- **AI, agent and MCP reasoning depth**
+  (`docs/reference/ai-agent-security.md`). Covers prompt injection, tool
+  authority and the confused deputy, MCP server trust (description poisoning,
+  shadowing, the `list_changed` rug pull, transport and token audience),
+  excessive agency and what makes a confirmation a real boundary, exfiltration
+  channels, retrieval, memory poisoning, multi-agent trust, output sinks and AI
+  supply chain. Every area states both what verifies it and what refutes it, and
+  a closing section is explicit that filtering, blocklists and model
+  self-policing are mitigations rather than controls. Protocol statements are
+  pinned to MCP revision `2025-11-25`. Five new paired fixtures
+  (`EVAL-AI-003` through `EVAL-AI-007`) take the AI family from two pairs to
+  seven, and four CWE-anchored lesson cards (77, 88, 829, 807) enter the
+  knowledge graph.
 
 ### Evidence and honesty
 
@@ -53,8 +66,8 @@ All notable changes to SecHelix are documented here.
   its commit, suite version and a SHA-256 of the exact case file. The published
   figure had been scored against the 19-fixture suite and never regenerated, so
   it had silently become a number about a suite that no longer existed. Rescored
-  on the current balanced 33/33 suite: **precision 0.512, recall 0.636**. The
-  precision is a coin flip and the recall is bought by flagging 41 of 66 cases,
+  on the current balanced 38/38 suite: **precision 0.511, recall 0.632**. The
+  precision is a coin flip and the recall is bought by flagging 47 of 76 cases,
   a 0.61 false-positive rate. Still `is_sechelix_result: false`.
 - `score()` now carries `result_kind` and `is_sechelix_result` through from the
   prediction packet, defaulting to `UNDECLARED`. Regenerating the baseline had
@@ -108,7 +121,7 @@ All notable changes to SecHelix are documented here.
   families**, and corrected a stale family count in the `NOT_MEASURED` record.
 - Grew Gold Check Packs from one to **five** (IDOR, SSRF, race/idempotency,
   money invariants, AI/MCP tool authority).
-- Expanded the knowledge graph to **73 nodes and 96 edges** with **7 lesson
+- Expanded the knowledge graph to **76 nodes and 100 edges** with **11 lesson
   cards**, all provenance-backed.
 - Published the **first real case study**
   (`docs/case-studies/gamingops-store-2026-09-01.md`) with its evidence

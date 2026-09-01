@@ -107,7 +107,7 @@ lenses, 15 JSON Schema Draft 2020-12 contracts, four applicability outcomes
   exported cases.
 - `evals/results/baseline-keyword-v1.json` is **not** a SecHelix score (`is_sechelix_result: false`).
   It is a naive regex keyword matcher run to prove the harness works and that the fixtures resist
-  pattern matching: precision 0.512 / recall 0.636 on a balanced 33/33 split, i.e. chance. That is a
+  pattern matching: precision 0.511 / recall 0.632 on a balanced 38/38 split, i.e. chance. That is a
   fixture-difficulty statement, not a performance claim.
 - n=1, ~600 LOC, no auth, no server-side state. Measures nothing about general performance.
 - The verified finding was MEDIUM. Not a critical.
@@ -243,8 +243,8 @@ retest environment provenance belongs in the evidence, not in someone's memory.
 Apache-2.0, https://github.com/omarmohelal/SecHelix, install with
 `npx skills@latest add omarmohelal/SecHelix --skill sechelix`. Structurally: 546 hypotheses = 21
 families x 26 lenses; 17 model-neutral specialist role profiles including an independent verifier;
-15 JSON Schema Draft 2020-12 contracts; 12 Gold Check Packs; 33 paired eval fixtures = 66 cases across
-11 families; knowledge graph of 73 nodes, 96 edges, 7 lesson cards. Release gate returns `PASS`,
+15 JSON Schema Draft 2020-12 contracts; 18 Gold Check Packs; 38 paired eval fixtures = 76 cases across
+10 families; knowledge graph of 76 nodes, 100 edges, 11 lesson cards. Release gate returns `PASS`,
 `PASS_WITH_KNOWN_RISK`, `BLOCKED`, or fail-closed `INCOMPLETE`.
 
 The design position is one sentence: **security findings are claims, and a claim gets verified before
@@ -261,7 +261,7 @@ it gets to accuse anyone.**
 - There is a harness baseline at `evals/results/baseline-keyword-v1.json` that is **explicitly not a
   SecHelix score** (`is_sechelix_result: false`). It is a naive regex keyword matcher, run only to
   prove the scoring harness works and that the fixtures cannot be solved by pattern matching. It hit
-  precision 0.512 / recall 0.636 on a balanced 33/33 split — chance level. Read that as a statement
+  precision 0.511 / recall 0.632 on a balanced 38/38 split — chance level. Read that as a statement
   about fixture difficulty, not about how SecHelix performs.
 - This case study is **one** small ~600 LOC app with no authentication and no server-side state. It
   tells you nothing about performance on a real service with roles, tenancy, money, and state

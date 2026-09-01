@@ -183,7 +183,7 @@ Adds one entry to `data/tools.json` under `category: "security"`, and regenerate
 
 SecHelix is an Apache-2.0 Agent Skill (`SKILL.md` format) for application-security review of systems
 the operator owns or is explicitly authorized to test. It is not a scanner and not a scanner wrapper;
-it consumes scanner evidence through 9 adapters and treats every scanner alert or model suspicion as
+it consumes scanner evidence through 11 adapters and treats every scanner alert or model suspicion as
 a hypothesis until evidence supports it.
 
 The design premise is that a security finding is a claim, and a claim gets an independent refutation
@@ -194,9 +194,9 @@ proof, and the release gate is fail-closed — `PASS` / `PASS_WITH_KNOWN_RISK` /
 `INCOMPLETE`.
 
 Structure behind that: 546 structured hypotheses (21 families x 26 verification lenses), 17
-model-neutral specialist role profiles, 15 JSON Schema Draft 2020-12 contracts, 12 Gold Check Packs,
-9 evidence adapters (Semgrep, Trivy, OSV, Gitleaks, ZAP, Nuclei, Playwright, package audit, SARIF),
-33 eval fixtures / 66 cases, and a provenance-backed knowledge graph of 73 nodes and 96 edges.
+model-neutral specialist role profiles, 15 JSON Schema Draft 2020-12 contracts, 18 Gold Check Packs,
+11 evidence adapters (Semgrep, Trivy, OSV, Gitleaks, ZAP, Nuclei, Playwright, package audit, SARIF),
+38 eval fixtures / 76 cases, and a provenance-backed knowledge graph of 76 nodes and 100 edges.
 Coverage emphasis is on business logic, payments, race conditions and idempotency, authorization, and
 AI/agent/MCP security.
 
@@ -262,8 +262,8 @@ Claude marketplace: `/plugin marketplace add omarmohelal/sechelix-marketplace` t
       Confirm the valid category list has not changed since 2026-09-01.
 - [ ] **R-10.** `url` resolves over HTTPS and the repo is public.
 - [ ] **R-11.** Every number in the PR body matches the tree at the time of submission: 546
-      hypotheses, 21 families, 26 lenses, 17 roles, 15 contracts, 9 adapters, 12 Gold Check Packs,
-      33 fixtures / 66 cases, 73 nodes / 96 edges. Re-run `python scripts/validate_catalog.py`.
+      hypotheses, 21 families, 26 lenses, 17 roles, 15 contracts, 11 adapters, 18 Gold Check Packs,
+      38 fixtures / 76 cases, 76 nodes / 100 edges. Re-run `python scripts/validate_catalog.py`.
 - [ ] **R-12.** `NOT_MEASURED` appears in the PR body and is not softened.
 - [ ] **R-13.** Authorship self-disclosed in the PR body.
 

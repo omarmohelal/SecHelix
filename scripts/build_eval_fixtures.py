@@ -906,6 +906,555 @@ def run(operator_prompt, ticket, model, ctx, allowed_tools=frozenset({"search_do
 ''',
 ))
 
+FIXTURES.append(fixture(
+    "EVAL-AI-003",
+    "AI / Agent / MCP",
+    "Decide whether a per-run tool allowlist binds the tool that actually executes.",
+    language="python",
+    filename="tool_router.py",
+    cwe=["CWE-863", "CWE-829"],
+    difficulty="hard",
+    vulnerable_rationale=(
+        "A per-run allowlist exists and is enforced before dispatch, which is what "
+        "makes the module read as hardened. The allowlist holds bare tool names "
+        "while the index is one flat namespace keyed by bare name and re-registered "
+        "on every connect, so a second or reconnecting server that advertises an "
+        "already approved name takes over the slot. The check binds the string the "
+        "model emitted; execution binds whichever server currently owns that string."
+    ),
+    vulnerable='''\
+"""MCP host tool router."""
+
+
+class ToolRouter:
+    """Presents the tools of every connected server as one namespace."""
+
+    def __init__(self, servers):
+        self._index = {}
+        for server in servers:
+            self.register(server)
+
+    def register(self, server):
+        for tool in server.list_tools():
+            # A server that reconnects re-registers its tools, so the index
+            # always reflects what each server currently offers.
+            self._index[tool["name"]] = (server, tool)
+
+    def dispatch(self, step, allowed_tools):
+        name = step["tool"]
+        if name not in allowed_tools:
+            raise PermissionError(f"{name} is not permitted in this run")
+        server, tool = self._index[name]
+        return server.call_tool(tool["name"], step["args"])
+
+
+def run_step(step, router, run_config):
+    # The run's authority is fixed before the loop starts.
+    return router.dispatch(step, run_config["allowed_tools"])
+''',
+    clean_rationale=(
+        "Tool identity is the server plus the name, so two servers offering one name "
+        "cannot collide, and the allowlist stores the digest of the definition pinned "
+        "when the run bound its authority. A tool that is unlisted, that belongs to a "
+        "different server, or whose description or schema changed after approval "
+        "fails the same comparison, so neither shadowing nor a post-approval "
+        "redefinition can inherit an approval."
+    ),
+    clean='''\
+"""MCP host tool router."""
+
+import hashlib
+import json
+
+
+def definition_digest(tool):
+    canonical = json.dumps(
+        {
+            "name": tool["name"],
+            "description": tool.get("description", ""),
+            "input_schema": tool.get("input_schema", {}),
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+class ToolRouter:
+    """Presents the tools of every connected server as one namespace."""
+
+    def __init__(self, servers):
+        self._index = {}
+        for server in servers:
+            self.register(server)
+
+    def register(self, server):
+        for tool in server.list_tools():
+            # Slots are keyed by server identity, so two servers offering the
+            # same bare name occupy two slots and neither can take the other's.
+            self._index[(server.server_id, tool["name"])] = {
+                "server": server,
+                "tool": tool,
+                "digest": definition_digest(tool),
+            }
+
+    def dispatch(self, step, allowed_tools):
+        # allowed_tools maps (server_id, name) to the digest pinned when the run
+        # bound its authority, so the check names the definition that executes.
+        key = (step.get("server_id"), step.get("tool"))
+        entry = self._index.get(key)
+        if entry is None:
+            raise PermissionError("no such tool on that server")
+        if allowed_tools.get(key) != entry["digest"]:
+            # Covers an unlisted tool and a definition that changed after it was
+            # approved: a redefined tool is a new tool, not an approved one.
+            raise PermissionError(f"{key} is not permitted in this run")
+        return entry["server"].call_tool(entry["tool"]["name"], step["args"])
+
+
+def run_step(step, router, run_config):
+    # The run's authority is fixed before the loop starts.
+    return router.dispatch(step, run_config["allowed_tools"])
+''',
+))
+
+FIXTURES.append(fixture(
+    "EVAL-AI-004",
+    "AI / Agent / MCP",
+    "Decide whether an agent-selected command can reach execution as something other than data.",
+    language="python",
+    filename="command_tool.py",
+    cwe=["CWE-88", "CWE-77"],
+    difficulty="hard",
+    vulnerable_rationale=(
+        "shell=False, an argv list, and a binary allowlist are all present, which is "
+        "the shape reviewers accept as the hardened form of command execution. "
+        "Everything after argv[0] still comes from the model, and each allowed "
+        "binary interprets some of its own arguments as a program or a configuration "
+        "override, so the model can name a subprocess without any shell being "
+        "involved. The allowlist constrains which interpreter runs, not what it is "
+        "told to do."
+    ),
+    vulnerable='''\
+"""Repository inspection tool exposed to the agent."""
+
+import subprocess
+
+ALLOWED_BINARIES = {"git", "rg", "sed"}
+TIMEOUT_SECONDS = 30
+MAX_OUTPUT = 4000
+
+
+def run_command(step, workdir):
+    """Run a command the model composed.
+
+    The argument vector goes straight to exec with no shell, so quoting, pipes,
+    and semicolons inside the arguments are inert.
+    """
+    argv = [str(part) for part in step["argv"]]
+    if not argv:
+        raise ValueError("empty command")
+    if argv[0] not in ALLOWED_BINARIES:
+        raise PermissionError(f"{argv[0]} is not an allowed binary")
+    completed = subprocess.run(
+        argv,
+        cwd=workdir,
+        shell=False,
+        capture_output=True,
+        timeout=TIMEOUT_SECONDS,
+        check=False,
+        text=True,
+    )
+    return {"returncode": completed.returncode, "stdout": completed.stdout[:MAX_OUTPUT]}
+''',
+    clean_rationale=(
+        "The model selects an operation rather than composing a command line. Every "
+        "flag is a literal of this module, the one model-supplied value must match a "
+        "plain-identifier pattern and is placed after a double dash so it cannot be "
+        "parsed as an option, and the child runs with a minimal environment so no "
+        "inherited variable can reintroduce a hook, pager, or config command. The "
+        "legitimate read-only inspection still works."
+    ),
+    clean='''\
+"""Repository inspection tool exposed to the agent."""
+
+import re
+import subprocess
+
+TIMEOUT_SECONDS = 30
+MAX_OUTPUT = 4000
+
+# The model picks an operation, never a command line. Every flag below is a
+# literal of this module, so no option can originate in model output.
+OPERATIONS = {
+    "log": ["git", "--no-pager", "log", "--max-count=50", "--format=%H %s"],
+    "show": ["git", "--no-pager", "show", "--stat"],
+    "grep": ["rg", "--no-config", "--fixed-strings", "--max-count=200"],
+}
+OPERAND = re.compile("[A-Za-z0-9._/-]{1,120}")
+CHILD_ENV = {"PATH": "/usr/bin:/bin", "LC_ALL": "C"}
+
+
+def run_command(step, workdir):
+    base = OPERATIONS.get(step.get("operation"))
+    if base is None:
+        raise PermissionError("operation is not available")
+    operand = str(step.get("operand", ""))
+    if not OPERAND.fullmatch(operand):
+        raise ValueError("operand is not a plain identifier")
+    # The single model-supplied value goes after "--", so a leading dash cannot
+    # be read as an option by a binary that treats some options as programs.
+    argv = [*base, "--", operand]
+    completed = subprocess.run(
+        argv,
+        cwd=workdir,
+        shell=False,
+        capture_output=True,
+        timeout=TIMEOUT_SECONDS,
+        check=False,
+        text=True,
+        # A minimal environment: no inherited config, hook, or pager variable.
+        env=CHILD_ENV,
+    )
+    return {"returncode": completed.returncode, "stdout": completed.stdout[:MAX_OUTPUT]}
+''',
+))
+
+FIXTURES.append(fixture(
+    "EVAL-AI-005",
+    "AI / Agent / MCP",
+    "Decide whether content from an untrusted source can become a durable trusted instruction.",
+    language="python",
+    filename="agent_memory.py",
+    cwe=["CWE-807", "CWE-349"],
+    difficulty="hard",
+    vulnerable_rationale=(
+        "The store has a trust model and the instruction channel is filtered by it, "
+        "so the module reads as provenance-aware. The label is computed from who "
+        "wrote the string rather than from where the content came from, and the "
+        "session summary is attributed to the assistant. A summary of a retrieved "
+        "document is therefore stored first-party and replayed into the system "
+        "prompt of every later session for that user, so one injection during one "
+        "run becomes a standing instruction."
+    ),
+    vulnerable='''\
+"""Durable per-user agent memory."""
+
+FIRST_PARTY = "FIRST_PARTY"
+THIRD_PARTY = "THIRD_PARTY"
+
+
+class MemoryStore:
+    def __init__(self, rows, clock):
+        self._rows = rows
+        self._clock = clock
+
+    def remember(self, user_id, text, author):
+        self._rows.insert({
+            "user_id": user_id,
+            "text": text,
+            "author": author,
+            # Text the assistant wrote is a conclusion this system reached
+            # rather than raw third-party content, so it is stored trusted.
+            "trust": FIRST_PARTY if author == "assistant" else THIRD_PARTY,
+            "created_at": self._clock.now(),
+        })
+
+    def standing_preferences(self, user_id):
+        return [
+            row["text"]
+            for row in self._rows.for_user(user_id)
+            if row["trust"] == FIRST_PARTY
+        ]
+
+
+def close_session(session, memory, model):
+    summary = model.summarize(session.transcript)
+    for fact in summary["durable_facts"]:
+        memory.remember(session.user_id, fact["text"], author="assistant")
+
+
+def build_context(user_id, memory, operator_prompt, model):
+    preferences = "\\n".join(memory.standing_preferences(user_id))
+    return model.build_prompt(
+        system=operator_prompt + "\\n\\nStanding preferences:\\n" + preferences,
+    )
+''',
+    clean_rationale=(
+        "Provenance is the union of the origins the content derives from, carried "
+        "from the transcript segment through the summary onto the record, so a fact "
+        "that touched retrieved content is stored third-party no matter who wrote it "
+        "down. Only records whose origins are entirely operator-supplied reach the "
+        "system prompt; everything else is recalled into a labelled data field, where "
+        "it can inform the run without instructing it."
+    ),
+    clean='''\
+"""Durable per-user agent memory."""
+
+OPERATOR = "OPERATOR"
+THIRD_PARTY = "THIRD_PARTY"
+
+
+class MemoryStore:
+    def __init__(self, rows, clock):
+        self._rows = rows
+        self._clock = clock
+
+    def remember(self, user_id, text, origins):
+        # Provenance is where the content came from, not who last wrote it
+        # down: a summary of third-party text is still third-party text.
+        origins = sorted(set(origins))
+        self._rows.insert({
+            "user_id": user_id,
+            "text": text,
+            "origin": OPERATOR if origins == [OPERATOR] else THIRD_PARTY,
+            "derived_from": origins,
+            "created_at": self._clock.now(),
+        })
+
+    def operator_preferences(self, user_id):
+        return [
+            row["text"]
+            for row in self._rows.for_user(user_id)
+            if row["origin"] == OPERATOR
+        ]
+
+    def recalled_notes(self, user_id):
+        return [
+            {
+                "text": row["text"],
+                "origin": row["origin"],
+                "derived_from": row["derived_from"],
+            }
+            for row in self._rows.for_user(user_id)
+        ]
+
+
+def close_session(session, memory, model):
+    summary = model.summarize(session.transcript)
+    for fact in summary["durable_facts"]:
+        # origins_for maps a fact back to the transcript segments it was drawn
+        # from, so a fact touching a retrieved chunk stays labelled as such.
+        memory.remember(session.user_id, fact["text"], session.origins_for(fact))
+
+
+def build_context(user_id, memory, operator_prompt, model):
+    preferences = "\\n".join(memory.operator_preferences(user_id))
+    return model.build_prompt(
+        system=operator_prompt + "\\n\\nStanding preferences:\\n" + preferences,
+        untrusted={"recalled_notes": memory.recalled_notes(user_id)},
+    )
+''',
+))
+
+FIXTURES.append(fixture(
+    "EVAL-AI-006",
+    "AI / Agent / MCP",
+    "Decide whether a human confirmation binds the action that finally executes.",
+    language="python",
+    filename="confirmation_gate.py",
+    cwe=["CWE-367", "CWE-863"],
+    difficulty="hard",
+    vulnerable_rationale=(
+        "The gate has an out-of-band notifier, an unguessable token, a run binding, "
+        "an operator binding, an expiry, and a tool-name check, and the operator "
+        "really does see the arguments before answering. Execution then uses the "
+        "arguments on the step passed in at call time rather than the ones that were "
+        "approved, and the record is never consumed, so within the window the loop "
+        "can re-enter execute with the same token and different arguments. The "
+        "approval binds the tool name; the effect is set by arguments nobody approved."
+    ),
+    vulnerable='''\
+"""Out-of-band confirmation for privileged agent actions."""
+
+import secrets
+
+APPROVAL_TTL_SECONDS = 300
+PRIVILEGED_TOOLS = {"send_email", "delete_records", "issue_refund"}
+
+
+class ConfirmationGate:
+    """The operator answers in a channel the agent run cannot write to."""
+
+    def __init__(self, approvals, notifier, clock):
+        self._approvals = approvals
+        self._notifier = notifier
+        self._clock = clock
+
+    def request(self, run_id, step, operator_id):
+        token = secrets.token_urlsafe(32)
+        self._approvals.put(token, {
+            "run_id": run_id,
+            "tool": step["tool"],
+            "operator_id": operator_id,
+            "issued_at": self._clock.now(),
+        })
+        # The operator sees the tool and the arguments before answering.
+        self._notifier.ask(operator_id, step["tool"], step["args"], token)
+        return token
+
+    def execute(self, run_id, step, token, tools):
+        record = self._approvals.get(token)
+        if record is None or not record.get("approved"):
+            raise PermissionError("action was not approved")
+        if record["run_id"] != run_id:
+            raise PermissionError("approval belongs to another run")
+        if record["tool"] != step["tool"]:
+            raise PermissionError("approval was for a different tool")
+        if self._clock.now() - record["issued_at"] > APPROVAL_TTL_SECONDS:
+            raise PermissionError("approval expired")
+        return tools[step["tool"]](step["args"])
+
+
+def run_privileged_step(gate, run_id, step, token, tools):
+    if step["tool"] not in PRIVILEGED_TOOLS:
+        return tools[step["tool"]](step["args"])
+    return gate.execute(run_id, step, token, tools)
+''',
+    clean_rationale=(
+        "The proposal is stored in full and the executor takes no step at all: it "
+        "consumes the record and calls the stored tool with the stored arguments, so "
+        "the approved action is the executed action and one answer authorizes exactly "
+        "one call. The digest is re-derived before use so a record altered in storage "
+        "fails the same check, and the run, operator, and expiry bindings still hold."
+    ),
+    clean='''\
+"""Out-of-band confirmation for privileged agent actions."""
+
+import hashlib
+import json
+import secrets
+
+APPROVAL_TTL_SECONDS = 300
+PRIVILEGED_TOOLS = {"send_email", "delete_records", "issue_refund"}
+
+
+def action_digest(run_id, tool, args):
+    canonical = json.dumps(
+        {"run_id": run_id, "tool": tool, "args": args},
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+class ConfirmationGate:
+    """The operator answers in a channel the agent run cannot write to."""
+
+    def __init__(self, approvals, notifier, clock):
+        self._approvals = approvals
+        self._notifier = notifier
+        self._clock = clock
+
+    def propose(self, run_id, step, operator_id):
+        token = secrets.token_urlsafe(32)
+        # The proposal itself is stored, not a reference to a live step.
+        self._approvals.put(token, {
+            "run_id": run_id,
+            "tool": step["tool"],
+            "args": step["args"],
+            "digest": action_digest(run_id, step["tool"], step["args"]),
+            "operator_id": operator_id,
+            "issued_at": self._clock.now(),
+        })
+        self._notifier.ask(operator_id, step["tool"], step["args"], token)
+        return token
+
+    def execute(self, run_id, token, tools):
+        # Consumed on read, so one answer authorizes exactly one call.
+        record = self._approvals.consume(token)
+        if record is None or not record.get("approved"):
+            raise PermissionError("action was not approved")
+        if record["run_id"] != run_id:
+            raise PermissionError("approval belongs to another run")
+        if self._clock.now() - record["issued_at"] > APPROVAL_TTL_SECONDS:
+            raise PermissionError("approval expired")
+        if record["digest"] != action_digest(run_id, record["tool"], record["args"]):
+            raise PermissionError("approved action was altered in storage")
+        # What executes is the stored proposal the operator saw. Nothing the run
+        # emits after the answer can change the tool or the arguments.
+        return tools[record["tool"]](record["args"])
+
+
+def run_privileged_step(gate, run_id, step, token, tools):
+    if step["tool"] not in PRIVILEGED_TOOLS:
+        return tools[step["tool"]](step["args"])
+    return gate.execute(run_id, token, tools)
+''',
+))
+
+FIXTURES.append(fixture(
+    "EVAL-AI-007",
+    "AI / Agent / MCP",
+    "Decide whether a tool result can reach the model inside the operator's channel.",
+    language="python",
+    filename="context_builder.py",
+    cwe=["CWE-140", "CWE-77"],
+    difficulty="hard",
+    vulnerable_rationale=(
+        "Every untrusted segment is labelled and fenced, which is the shape a "
+        "reviewer expects of a context builder that takes provenance seriously. The "
+        "fence is a fixed literal inside one concatenated string, so a tool result "
+        "containing the end marker closes its own block and the text after it lands "
+        "in the operator's position. Every segment is in the system role to begin "
+        "with, so there is nothing below the operator's channel for it to land in."
+    ),
+    vulnerable='''\
+"""Assemble the model context for one agent step."""
+
+FENCE = "<<<UNTRUSTED>>>"
+
+
+def _block(label, text):
+    # Untrusted material is labelled and delimited so the model can tell it
+    # apart from the operator's instructions.
+    return f"{FENCE} BEGIN {label}\\n{text}\\n{FENCE} END {label}"
+
+
+def build_context(operator_prompt, user_message, tool_results):
+    sections = [operator_prompt, _block("user_message", user_message)]
+    for result in tool_results:
+        sections.append(_block(f"tool_result:{result['tool']}", str(result["content"])))
+    return [{"role": "system", "content": "\\n\\n".join(sections)}]
+''',
+    clean_rationale=(
+        "Separation is structural rather than lexical: the system role holds only "
+        "deployment-owned text, and each tool result is a typed block in its own "
+        "message carrying the call id and the origin. Because the boundary is a field "
+        "of the serialized request rather than a marker inside a string, no byte "
+        "sequence in a result can forge it, and the origin label survives to the "
+        "dispatcher."
+    ),
+    clean='''\
+"""Assemble the model context for one agent step."""
+
+
+def build_context(operator_prompt, user_message, tool_results):
+    # The system role carries only text this deployment owns. Nothing produced
+    # or fetched during the run is appended to it.
+    messages = [{"role": "system", "content": operator_prompt}]
+    messages.append({
+        "role": "user",
+        "content": [{"type": "text", "text": user_message}],
+    })
+    for result in tool_results:
+        # A result is a typed block in its own message, bound to the call it
+        # answers and carrying its origin. It is transported as a field of the
+        # request, so no byte sequence inside it can move it to another role.
+        messages.append({
+            "role": "user",
+            "content": [{
+                "type": "tool_result",
+                "tool_use_id": result["tool_use_id"],
+                "origin": result["origin"],
+                "content": result["content"],
+            }],
+        })
+    return messages
+''',
+))
+
 
 # ============================================================================
 # SEC-IDENTITY-ATO-001 — identity and account takeover

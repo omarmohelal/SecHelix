@@ -236,9 +236,9 @@ Structurally, the skill is backed by:
 - 546 structured security hypotheses (exactly 21 families x 26 verification lenses)
 - 17 model-neutral specialist role profiles, including an independent verifier
 - 15 JSON Schema Draft 2020-12 contracts that reports must validate against
-- 12 Gold Check Packs (including IDOR, SSRF, race/idempotency, money invariants, AI/MCP tool authority)
-- 9 evidence adapters: Semgrep, Trivy, OSV, Gitleaks, ZAP, Nuclei, Playwright, package audit, SARIF
-- 33 eval fixtures / 66 cases, and a provenance-backed knowledge graph of 73 nodes and 96 edges
+- 18 Gold Check Packs (including IDOR, SSRF, race/idempotency, money invariants, AI/MCP tool authority)
+- 11 evidence adapters: Semgrep, Trivy, OSV, Gitleaks, ZAP, Nuclei, Playwright, package audit, SARIF
+- 38 eval fixtures / 76 cases, and a provenance-backed knowledge graph of 76 nodes and 100 edges
 
 Coverage emphasis is on classes that pattern matching handles poorly: business logic, payments and
 money invariants, race conditions and idempotency, authorization (BOLA/IDOR/BFLA), and AI/agent/MCP
@@ -332,8 +332,8 @@ whether that is me opening a sync PR on each release, or something you already h
       activates. "Components work as described" is a stated Must Have.
 - [ ] **M-11.** All `.json` files parse.
 - [ ] **M-12.** Every number in the PR body matches the vendored tree: 546 hypotheses, 21 families,
-      26 lenses, 17 roles, 15 contracts, 9 adapters, 12 Gold Check Packs, 33 fixtures / 66 cases,
-      73 nodes / 96 edges. Re-run `python scripts/validate_catalog.py`.
+      26 lenses, 17 roles, 15 contracts, 11 adapters, 18 Gold Check Packs, 38 fixtures / 76 cases,
+      76 nodes / 100 edges. Re-run `python scripts/validate_catalog.py`.
 
 ### Content accuracy
 

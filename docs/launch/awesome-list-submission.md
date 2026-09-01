@@ -61,9 +61,9 @@ before it is reported.
 
 Structurally it ships: 546 structured security hypotheses (21 families x 26 verification lenses), 17
 model-neutral specialist role profiles including an independent verifier, 15 JSON Schema Draft
-2020-12 contracts, 12 Gold Check Packs, 11 read-only evidence adapters, 33 paired eval fixtures
-(66 cases across 10 families), and a
-knowledge graph of 73 nodes, 96 edges, and 7 lesson cards. Applicability resolves to APPLICABLE,
+2020-12 contracts, 18 Gold Check Packs, 11 read-only evidence adapters, 38 paired eval fixtures
+(76 cases across 10 families), and a
+knowledge graph of 76 nodes, 100 edges, and 11 lesson cards. Applicability resolves to APPLICABLE,
 NOT_APPLICABLE, UNKNOWN, or BLOCKED — missing evidence is never treated as absence — and the release
 gate returns PASS, PASS_WITH_KNOWN_RISK, BLOCKED, or a fail-closed INCOMPLETE.
 
@@ -165,8 +165,8 @@ get an entry merged.
   of authored answers, not security-review capability. Unblocking requires a run by a model/session
   that did not author the fixtures, using blind exported cases.
 - The repository's keyword baseline is **explicitly not a SecHelix score**
-  (`is_sechelix_result: false`). It is a naive regex matcher that scored precision 0.512 / recall 0.636
-  on a balanced 33/33 split — chance level — proving the harness works and the fixtures resist
+  (`is_sechelix_result: false`). It is a naive regex matcher that scored precision 0.511 / recall 0.632
+  on a balanced 38/38 split — chance level — proving the harness works and the fixtures resist
   pattern matching. That is a **fixture-difficulty** statement, not a performance claim, and it must
   never appear in the entry line.
 - The single case study is **one** small ~600 LOC app with no authentication and no server-side state.

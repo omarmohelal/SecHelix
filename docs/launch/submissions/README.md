@@ -60,9 +60,9 @@ checklist includes this step, and `python scripts/validate_catalog.py` is the st
 | Specialist roles | 17 | `agents/` |
 | JSON contracts | 15 | `schemas/*.json` |
 | Evidence adapters | 9 — Semgrep, Trivy, OSV, Gitleaks, ZAP, Nuclei, Playwright, package audit, SARIF | `adapters/` |
-| Gold Check Packs | 12 | `gold-packs/` |
-| Eval fixtures | 33 (66 cases) | `evals/fixtures/` |
-| Knowledge graph | 73 nodes / 96 edges | repo docs |
+| Gold Check Packs | 18 (12 bug-class, 6 framework) | `gold-packs/` |
+| Eval fixtures | 38 (76 cases) | `evals/fixtures/` |
+| Knowledge graph | 76 nodes / 100 edges | repo docs |
 | `UNTRUSTED_REPO` mode | present | `docs/reference/untrusted-repo-mode.md`, `schemas/scope-v1.schema.json` |
 | Install (skills) | `npx skills@latest add omarmohelal/SecHelix --skill sechelix` | `README.md` |
 | Install (marketplace) | `/plugin marketplace add omarmohelal/sechelix-marketplace` then `/plugin install sechelix@sechelix` | cold-install verified |
@@ -82,10 +82,14 @@ Both are called out in the individual drafts, and both affect more than one dest
 
 ### Correction to an earlier draft
 
-`docs/launch/awesome-list-submission.md` describes the adapters as covering "multiple hosts". That is
-wrong and is not repeated here: the 9 adapters are **scanner/evidence adapters**, not host adapters.
-That file also carries pre-`v3.2` counts (5 Gold Check Packs, 19 fixtures / 38 cases); the table above
-reflects the current tree.
+`docs/launch/awesome-list-submission.md` used to describe the adapters as covering "multiple hosts",
+which is wrong — they are **scanner/evidence adapters**, not host adapters — and it carried
+pre-`v3.2` counts. Both have been corrected in place.
+
+Counts in these drafts are no longer maintained by hand.
+`scripts/check_doc_consistency.py` reads the tree and fails the build when any documented count
+drifts from it, which is how the "multiple hosts" line and the stale counts survived as long as they
+did: no gate read prose as assertions.
 
 ---
 

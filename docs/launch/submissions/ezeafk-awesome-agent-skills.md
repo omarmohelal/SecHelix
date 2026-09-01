@@ -169,9 +169,9 @@ the operator owns or is explicitly authorized to test, and producing a defensibl
 **Reusable structure beyond a single prompt.** The repository ships, as files: 546 structured security
 hypotheses (exactly 21 families x 26 verification lenses) in a validated catalog with stable IDs; 17
 model-neutral specialist role profiles, including an independent verifier; 15 JSON Schema Draft
-2020-12 contracts that reports must validate against; 12 Gold Check Packs; 9 evidence adapters
-(Semgrep, Trivy, OSV, Gitleaks, ZAP, Nuclei, Playwright, package audit, SARIF); 33 eval fixtures /
-66 cases with a scoring harness; and a provenance-backed knowledge graph of 73 nodes and 96 edges.
+2020-12 contracts that reports must validate against; 18 Gold Check Packs; 11 evidence adapters
+(Semgrep, Trivy, OSV, Gitleaks, ZAP, Nuclei, Playwright, package audit, SARIF); 38 eval fixtures /
+76 cases with a scoring harness; and a provenance-backed knowledge graph of 76 nodes and 100 edges.
 The catalog shape is enforced by `scripts/validate_catalog.py` in CI-checkable form.
 
 **Installation and usage.**
@@ -271,8 +271,8 @@ Scored honestly, including where it is weak. Your scoring governs, not mine.
 ### Content accuracy
 
 - [ ] **E-8.** Every number in the PR body matches the tree at submission time: 546 hypotheses, 21
-      families, 26 lenses, 17 roles, 15 contracts, 9 adapters, 12 Gold Check Packs, 33 fixtures /
-      66 cases, 73 nodes / 96 edges. Re-run `python scripts/validate_catalog.py`.
+      families, 26 lenses, 17 roles, 15 contracts, 11 adapters, 18 Gold Check Packs, 38 fixtures /
+      76 cases, 76 nodes / 100 edges. Re-run `python scripts/validate_catalog.py`.
 - [ ] **E-9.** No adoption, star, install, user, testimonial, benchmark, accuracy, or "better than X"
       claim anywhere in the row or the PR body.
 - [ ] **E-10.** The Validation self-score stays at **1**. Do not raise it. `NOT_MEASURED` is stated

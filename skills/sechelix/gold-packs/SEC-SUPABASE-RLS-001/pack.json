@@ -1,0 +1,281 @@
+{
+  "schema_version": "1.0",
+  "id": "SEC-SUPABASE-RLS-001",
+  "version": "0.1.0",
+  "title": "Supabase and PostgREST: the policy is the only server-side check",
+  "lifecycle": "REFERENCE",
+  "threat_model": {
+    "actor": "Any holder of the browser-side publishable key, which is every visitor, plus any authenticated user who can change the parts of their own token the policies read",
+    "asset": "Every table, view, function, and storage object reachable through the exposed schema, since the data API is addressable directly and the application's own client is only one of its callers",
+    "trust_boundary": "The database role the request executes as — `anon`, `authenticated`, or a privileged role — and the policies that bind that specific role on that specific object",
+    "failure_mode": "A policy is written and assumed to be the boundary, while the request reaches the object as a role the policy does not bind, or through an object that carries its owner's rights rather than the caller's, or the policy reads a claim the user can set",
+    "impact": "Rows belonging to other users are read, written, or aggregated straight from the browser, with no application code involved and no application log recording it"
+  },
+  "applicability": {
+    "capability_tags": [
+      "supabase",
+      "postgrest",
+      "postgres_rls",
+      "supabase_storage",
+      "supabase_auth",
+      "database_policies"
+    ],
+    "rule": "ANY_CAPABILITY_PRESENT",
+    "required_evidence": [
+      "A client constructed against a hosted data API with a project URL and an API key, or migrations that create policies with `create policy` on tables in an exposed schema",
+      "At least one table, view, function, or storage bucket that browser-side code reads or writes without an application server in the path"
+    ]
+  },
+  "framework_fingerprints": [
+    {
+      "framework": "postgres-row-level-security",
+      "versions": [
+        "row-level security is a PostgreSQL feature; `enable` does not bind the table owner, `force` does",
+        "roles carrying the `BYPASSRLS` attribute remain exempt even when the table is forced"
+      ],
+      "signals": [
+        "A migration that runs `enable row level security` on a table the runtime role owns, with no `force row level security`",
+        "A table in the exposed schema with grants to the browser-facing roles and no policy migration at all",
+        "A policy declared `to public`, which includes the unauthenticated role, where the intent was `to authenticated`",
+        "An update policy of the shape `using (owner check) with check (true)`, which lets a permitted row be rewritten to belong to somebody else",
+        "A policy whose predicate reads a token claim the user can change, rather than one only the server can set"
+      ]
+    },
+    {
+      "framework": "supabase-api-keys",
+      "versions": [
+        "legacy key names are `anon` for the browser and `service_role` for the server",
+        "current key names are `sb_publishable_...` for the browser and `sb_secret_...` for the server, replacing them one for one",
+        "secret keys refuse browser-originated calls with HTTP 401, which limits one exposure route and does not reduce the key's authority elsewhere"
+      ],
+      "signals": [
+        "A secret or `service_role` key present in client-reachable configuration — a `NEXT_PUBLIC_`-style variable, a mobile bundle, or a committed environment file",
+        "A single client module used from both server and browser code paths, where the key it receives depends on the import site",
+        "Server-side code using the privileged key for ordinary user requests, so every query runs with row-level security bypassed and the policies are never exercised",
+        "A key rotation that replaced the value without narrowing where it is read from"
+      ]
+    },
+    {
+      "framework": "postgrest-exposed-surface",
+      "versions": ["any"],
+      "signals": [
+        "A function reachable as an RPC endpoint in the exposed schema, so its arguments come straight from the caller",
+        "An embedded-resource request shape that traverses a foreign key into a table whose own policies were never reviewed",
+        "A view in the exposed schema over a policy-protected table, which executes with its owner's rights unless it was created with `security_invoker` set on — an option PostgreSQL provides from version 15",
+        "A `security definer` function created in the exposed schema, which the platform's own guidance advises against",
+        "A `security definer` function without `set search_path`, so name resolution inside it depends on the caller's search path"
+      ]
+    },
+    {
+      "framework": "supabase-auth-claims",
+      "versions": ["any"],
+      "signals": [
+        "A policy or function reading user-editable profile metadata from the token and treating it as a role or permission",
+        "An application that writes an authorization attribute through the user-update API, where the user can call the same API themselves",
+        "A role or entitlement stored in a table that the same user can update, with the policy on that table permitting it",
+        "A policy comparing an identity claim against a column of a different type, so the comparison never matches and the behaviour differs from what the author intended"
+      ]
+    },
+    {
+      "framework": "supabase-storage",
+      "versions": ["any"],
+      "signals": [
+        "A bucket marked public, which serves its objects without evaluating object policies",
+        "Object policies covering `select` but not `insert`, `update`, or `delete`, so reads are constrained and writes are not",
+        "A path convention used as the authorization boundary — the first folder segment as the owner — without a policy that actually enforces it",
+        "Signed URL creation reachable from a path that does not first check the caller may reach that object"
+      ]
+    }
+  ],
+  "sources": {
+    "source_ids": ["mitre-cwe", "owasp-asvs", "owasp-api-top-10", "owasp-top-10"],
+    "catalog_hypothesis_ids": [
+      "SHX-DB-L01",
+      "SHX-DB-L02",
+      "SHX-DB-L19",
+      "SHX-DB-L21",
+      "SHX-DB-L22",
+      "SHX-API-L04",
+      "SHX-CRYPTO-L20",
+      "SHX-FILE-L01"
+    ],
+    "references": [
+      "https://supabase.com/docs/guides/database/postgres/row-level-security",
+      "https://supabase.com/docs/guides/api/securing-your-api",
+      "https://supabase.com/docs/guides/getting-started/migrating-to-new-api-keys",
+      "https://supabase.com/docs/guides/storage/security/access-control",
+      "https://supabase.com/docs/guides/database/database-advisors",
+      "https://www.postgresql.org/docs/current/ddl-rowsecurity.html",
+      "https://www.postgresql.org/docs/current/sql-createpolicy.html",
+      "https://postgrest.org/en/stable/references/auth.html",
+      "https://postgrest.org/en/stable/references/api/schemas.html",
+      "https://cwe.mitre.org/data/definitions/863.html",
+      "https://cwe.mitre.org/data/definitions/1220.html",
+      "https://cwe.mitre.org/data/definitions/522.html"
+    ]
+  },
+  "boundary": {
+    "type": "DATABASE_POLICY_ENFORCEMENT",
+    "subject": "the database role and the token claims the request actually arrives with",
+    "object": "the rows, functions, views, and storage objects reachable through the exposed schema",
+    "action": "QUERY",
+    "invariant": "Every object the data API exposes is constrained by a policy that binds the role the request runs as, evaluated against claims the caller cannot set, and no object in that schema executes with rights other than the caller's"
+  },
+  "sinks": [
+    {"kind": "EXPOSED_TABLE", "examples": ["Table in the exposed schema with browser-role grants", "Table whose policy the runtime role is exempt from"]},
+    {"kind": "RPC_FUNCTION", "examples": ["Function callable as an RPC endpoint", "`security definer` function reachable from the exposed schema"]},
+    {"kind": "EXPOSED_VIEW", "examples": ["View over a policy-protected table without invoker rights", "Materialised aggregate carrying no predicate of its own"]},
+    {"kind": "EMBEDDED_RESOURCE", "examples": ["Foreign-key embed reaching a related table", "Nested select traversing to a table with no policy"]},
+    {"kind": "STORAGE_OBJECT", "examples": ["Object in a public bucket", "Object write permitted by a policy that only constrains reads"]},
+    {"kind": "PRIVILEGED_KEY_PATH", "examples": ["Server route using the privileged key for a user's own request", "Privileged key present in client-reachable configuration"]}
+  ],
+  "detection_layers": [
+    {
+      "layer": "MODEL",
+      "signals": [
+        "Treat the data API as directly addressable and ask what a holder of the browser key can request without using the application at all",
+        "For each policy, ask which role it binds and whether the request in question arrives as that role",
+        "For each predicate, ask who can change the value it reads — the server only, or the user"
+      ]
+    },
+    {
+      "layer": "STATIC",
+      "signals": [
+        "List every table in the exposed schema from the migrations and mark which have row-level security enabled, which have it forced, and which have policies",
+        "Record which role owns each table and which role the runtime connects as, since ownership decides whether an unforced policy binds",
+        "Read each policy's command, role list, `using` expression, and `with check` expression separately, and note where `with check` is absent",
+        "List every function in the exposed schema, mark the `security definer` ones, and record whether each sets a search path",
+        "List every view in the exposed schema and record whether it was created with invoker rights",
+        "Trace every construction of a data API client and record which key each one receives and whether that code can run in a browser"
+      ]
+    },
+    {
+      "layer": "CONTRACT",
+      "signals": [
+        "State per table which roles may perform which commands, and compare that with the grants and the policy role lists rather than with the policy names",
+        "Decide, per predicate, whether the claim it reads is server-controlled, and treat a user-editable one as caller input",
+        "Compare the policy set the migrations create with the policy set the deployed database reports, since the deployed state is the authority"
+      ]
+    },
+    {
+      "layer": "DATA",
+      "signals": [
+        "Establish which tables hold rows for more than one user, and which of those are reachable by embedding from a table the caller can already read",
+        "Establish which buckets are public and what is stored in them",
+        "Review the platform's own database advisories for objects reported as unprotected or as carrying definer rights, and treat them as leads to confirm rather than as findings"
+      ]
+    },
+    {
+      "layer": "LOCAL_RUNTIME",
+      "signals": [
+        "Against a local or dedicated non-production project seeded with two synthetic users, issue the same requests as each user and record the rows returned",
+        "Issue the same requests unauthenticated with the browser key alone, and record what comes back",
+        "Request an embedded resource that traverses each foreign key and record which related rows are returned",
+        "Attempt an update that changes an ownership column to the other synthetic user and record whether it is refused"
+      ]
+    }
+  ],
+  "validation": {
+    "default_mode": "LOCAL",
+    "destructive_actions": false,
+    "production_mutation": false,
+    "steps": [
+      "Confirm explicit authorization and work against a local stack or a dedicated non-production project seeded with two synthetic users and no real data",
+      "Record a baseline for each request as the owning user, so a later difference is attributable to the policy rather than to a malformed request",
+      "Repeat every request as the second synthetic user and again with the browser key and no session, recording the rows returned each time",
+      "Query the deployed catalog for each exposed table to read whether row-level security is enabled and forced, which role owns it, and which policies exist, rather than inferring any of this from the migrations",
+      "Call each exposed function as each synthetic user and record the rows it returns, noting separately whether it is `security definer`",
+      "Request each exposed view as each synthetic user, since a view can return rows the caller's own policies would hide",
+      "Attempt an ownership-changing update only on records the test itself created, and record the refusal or the change",
+      "Never use a privileged key for these observations, since it bypasses exactly the control being tested, and never point the steps at a production project"
+    ]
+  },
+  "false_positive_filters": [
+    "Row-level security is forced on the table and the runtime role neither owns it nor carries the bypass attribute — read this from the deployed catalog rather than from the migration, because enabling alone leaves the owner exempt",
+    "The table has row-level security enabled and no policies at all, which denies every row to a non-bypassing role; an empty policy list is a closed table, not an open one",
+    "The update policy omits `with check`, which is not a hole: the `using` expression governs both the rows that may be updated and the rows that may result, so the missing clause has to be read against that rule before it is reported",
+    "The table has no grants to the browser-facing roles, so it is not reachable through the data API regardless of its policies",
+    "The predicate reads a claim the server sets and the user cannot change through the account API, so the identity it tests is not caller-controlled",
+    "The comparison against a nullable ownership column yields unknown rather than true, so rows with no owner are hidden rather than exposed — verify the direction before reporting it as a leak",
+    "The `security definer` function lives in a schema the data API does not expose and is only called from inside a policy, which is the documented pattern for avoiding recursive policy evaluation",
+    "The `security definer` function pins its search path and schema-qualifies every name, so its behaviour does not depend on the caller",
+    "The view is created with invoker rights, so the caller's own policies apply to the rows it returns",
+    "The embedded related table carries its own policies binding the same role, so traversing the foreign key does not widen what the caller can read",
+    "The privileged key is only read in a server-only module — one the build refuses to include in client output — and never in a code path a browser executes; a browser-origin refusal by the platform is a second line, not the containment",
+    "The bucket is private and object policies cover every command the client can issue, not only reads"
+  ],
+  "verification": {
+    "independent_required": true,
+    "required_evidence": [
+      "The deployed state of the object: whether row-level security is enabled and forced, which role owns it, and the full text of every policy on it, read from the database rather than from the migrations",
+      "The role the request executes as, traced from the key and token the client presents to the role the database sees",
+      "A two-user reproduction on a non-production project showing which rows each user received for the same request",
+      "For a key exposure, the client-reachable location the privileged key was read from, and a demonstration that a non-browser caller can use it",
+      "For a definer object, its definition showing the rights it runs with and whether its search path is pinned"
+    ],
+    "refutation_tests": [
+      "Read the deployed catalog before concluding a policy binds the runtime role, since enabling row-level security leaves the owner exempt and forcing does not bind a role with the bypass attribute",
+      "Check whether the table has any grants to the browser-facing roles before asserting the data API can reach it",
+      "Read the `using` and `with check` expressions together against the rule that `using` governs both when `with check` is absent, before reporting a missing clause",
+      "Determine whether the claim a predicate reads can be changed by the user through the account API, since that is what separates an identity check from caller input",
+      "Check whether an exposed view was created with invoker rights before attributing its rows to a policy failure",
+      "Repeat every observation with the browser key rather than a privileged key, since a privileged key bypasses the control and proves nothing about it"
+    ]
+  },
+  "root_causes": [
+    "Row-level security is enabled rather than forced while the runtime role owns the table, so the policy never applies to the connection that matters",
+    "A table is added to the exposed schema with grants and without the policy migration the other tables received",
+    "The policy binds a wider role list than intended, so the unauthenticated role inherits a rule written for authenticated users",
+    "A predicate reads a claim the user can set, turning an authorization decision into caller input",
+    "An object in the exposed schema runs with its owner's rights — a definer function or a non-invoker view — so the caller's policies are not the ones evaluated",
+    "The privileged key is used for ordinary user requests because it is simpler, which means the policies are never exercised and their defects are invisible",
+    "The privileged key is placed in configuration that the client build can read, because one client module serves both server and browser code",
+    "Storage authorization is expressed as a path convention rather than as a policy, so the convention is documentation and not enforcement",
+    "Migrations and the deployed database drift, so the policy set in the repository is not the policy set in force"
+  ],
+  "variant_strategy": {
+    "anchor_fields": ["invariant", "boundary", "action"],
+    "variant_dimensions": ["actor", "object", "identity_state", "enforcement_layer", "sink_kind", "framework"],
+    "result_contract": "EXACT | VARIANT | REFUTED | BLOCKED; exact and variant matches remain hypotheses until verified"
+  },
+  "remediation": {
+    "canonical_invariant": "Force row-level security on every exposed object, connect as a role the policies bind, evaluate only server-controlled claims, and keep the privileged key out of anything a browser can reach",
+    "patterns": [
+      "Force row-level security so the owning role is subject to its own policies, and give the runtime a separate non-owning role without the bypass attribute",
+      "Write one policy per command with an explicit role list, and state both `using` and `with check` for update policies rather than relying on the implicit rule",
+      "Key policies on server-controlled identity and on tables the user cannot rewrite, never on user-editable profile metadata",
+      "Keep helper functions used by policies in a schema the data API does not expose, mark them `security definer` only where the recursion requires it, and pin their search path with every name schema-qualified",
+      "Create exposed views with invoker rights so the caller's policies apply, or keep them out of the exposed schema",
+      "Read the privileged key only in a server-only module the build cannot include in client output, and use the browser key with the user's own session for anything a user initiates",
+      "Make storage buckets private and write object policies for every command, using the path convention inside the policy rather than instead of it",
+      "Assert the deployed policy set — enabled, forced, owner, role list, expressions — in a test that reads the live catalog, so migration drift fails visibly",
+      "Treat the platform's database advisories as a standing signal in continuous integration rather than as a one-time review"
+    ]
+  },
+  "regression": {
+    "fixture_ids": ["EVAL-AUTHZ-006", "EVAL-AUTHZ-007"],
+    "assertions": [
+      "The vulnerable policy fixture declares a policy and only enables row-level security while the runtime role owns the table, so every predicate-free statement runs unrestricted and the setting the policy reads is never consulted",
+      "The compensated policy fixture keeps the identical predicate-free statements and is safe because the table forces row-level security, the runtime connects as a separate non-owning role, and the setting is bound per transaction — the alarming surface is unchanged and only the binding differs",
+      "The vulnerable connection fixture routes a reporting query through a second pool whose role bypasses the policy and carries no predicate, so it aggregates every tenant's rows",
+      "The vulnerable connection fixture also sets its scoping value for the session rather than the transaction, so the value survives on the pooled connection into the next request",
+      "The remediated connection fixture uses one enforcing role, binds the value per transaction, and repeats the predicate explicitly, while still returning the owning tenant's rows"
+    ]
+  },
+  "mappings": {
+    "cwe": ["CWE-863", "CWE-862", "CWE-1220", "CWE-522", "CWE-269", "CWE-668"],
+    "owasp": ["OWASP-A01:2021", "OWASP-A05:2021", "OWASP-API1:2023", "OWASP-API5:2023", "OWASP-ASVS:V4"]
+  },
+  "calibration": {
+    "measurement_status": "NOT_MEASURED",
+    "sample_size": 0,
+    "notes": "This pack has not completed a reproducible benchmark run and makes no precision or recall claim."
+  },
+  "limitations": [
+    "The referenced fixtures are framework-neutral synthetic cases in plain Python that express the enable-versus-force and bypassing-role invariants; neither contains platform-specific policy SQL",
+    "The deployed database is the authority on which policies exist, which roles own which tables, and which roles carry the bypass attribute, and none of that is decidable from migrations alone",
+    "Key names and the browser-origin refusal behaviour are platform features that have changed and can change again; the platform's current documentation is the authority, not this pack",
+    "Storage, authentication, and the data API layer are managed services whose configuration lives outside the repository and decides much of the real behaviour",
+    "Platform advisories are heuristics over the deployed schema and are leads rather than findings; each still requires the reachability and impact work this pack describes"
+  ]
+}

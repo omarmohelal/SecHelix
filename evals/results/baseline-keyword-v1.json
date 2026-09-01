@@ -1,10 +1,10 @@
 {
   "counts": {
-    "false_negative": 12,
-    "false_positive": 20,
-    "rejected_false_candidates": 13,
-    "true_negative": 13,
-    "true_positive": 21
+    "false_negative": 14,
+    "false_positive": 23,
+    "rejected_false_candidates": 15,
+    "true_negative": 15,
+    "true_positive": 24
   },
   "is_sechelix_result": false,
   "limitations": [
@@ -12,28 +12,28 @@
     "It performs no verification, so verified precision is not meaningful for this run.",
     "Its purpose is to validate the scoring harness and to evidence fixture difficulty."
   ],
-  "measured_at": "2026-09-01T17:21:43.397178Z",
+  "measured_at": "2026-09-01T17:46:00.808827Z",
   "measurement_status": "MEASURED",
   "metrics": {
     "applicability_accuracy": "NOT_MEASURED",
-    "detection_recall": 0.636364,
+    "detection_recall": 0.631579,
     "duplicate_root_cause_rate": 0.0,
-    "false_positive_rate": 0.606061,
-    "false_positive_rejection_rate": 0.393939,
-    "precision": 0.512195,
-    "recall": 0.636364,
+    "false_positive_rate": 0.605263,
+    "false_positive_rejection_rate": 0.394737,
+    "precision": 0.510638,
+    "recall": 0.631579,
     "regression_proof_rate": "NOT_MEASURED",
     "release_gate_accuracy": "NOT_MEASURED",
     "verified_precision": 0.0
   },
   "per_family": {
     "AI / Agent / MCP": {
-      "detection_recall": 0.5,
-      "false_positive_rate": 1.0,
-      "fn": 1,
-      "fp": 2,
-      "tn": 0,
-      "tp": 1
+      "detection_recall": 0.571429,
+      "false_positive_rate": 0.714286,
+      "fn": 3,
+      "fp": 5,
+      "tn": 2,
+      "tp": 4
     },
     "Authentication / Sessions": {
       "detection_recall": 1.0,
@@ -111,26 +111,26 @@
   "result_kind": "HARNESS_BASELINE",
   "run": {
     "agent_host": "none",
-    "case_count": 66,
-    "cases_sha256": "90c0cc29f6f65baa4791dc0633cb92a7e99db25a41d0d939a2fd8e06ae80be92",
+    "case_count": 76,
+    "cases_sha256": "c15861edbe997f5909d32d3a0870eb963b3c654b37583aaa6ba28d90d183d9fb",
     "cost": 0,
     "execution_mode": "STATIC",
-    "fixture_count": 33,
-    "fixture_suite_version": "66 cases",
+    "fixture_count": 38,
+    "fixture_suite_version": "76 cases",
     "input_tokens": 0,
     "model": "keyword-baseline-v1 (no model)",
     "output_tokens": 0,
     "prompt_reference": "not applicable; this baseline uses no prompt",
     "provider": "none (deterministic regex)",
     "runner": "evals/baselines/keyword_baseline.py",
-    "sechelix_commit": "954e5f7518a6be61cb8311c341cac9e165189075",
+    "sechelix_commit": "1ae073b5decf7bf49779e4b813e92b2258f1839c",
     "time_seconds": 0,
     "tools": [
       "python-re"
     ]
   },
   "scanner_contribution": {
-    "keyword-baseline": 41
+    "keyword-baseline": 47
   },
   "schema_version": "1.0.0"
 }

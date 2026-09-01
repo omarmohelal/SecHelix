@@ -1,5 +1,8 @@
 # SecHelix discoverability report
 
+<!-- doc-consistency: snapshot -->
+> **Dated snapshot.** This is a record of one work session — the inventory numbers below are what was true on the date above; the tree has since moved.
+
 **Date:** 2026-09-01 · **Canonical domain:** https://sechelix.com (live, verified certificate)
 
 ---
