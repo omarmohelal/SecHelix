@@ -157,6 +157,24 @@ class StaleReportCannotPass(unittest.TestCase):
         verdict = assess_freshness(mutated, current_commit=COMMIT)
         self.assertFalse(verdict.usable)
 
+    def test_a_degenerate_current_commit_is_never_fresh(self):
+        """An empty commit is what a failed `git rev-parse` returns, not a match."""
+        for degenerate in ("", " ", "0", "06", "06ab", chr(10), chr(9)):
+            with self.subTest(repr(degenerate)):
+                verdict = assess_freshness(self._bound(COMMIT), current_commit=degenerate)
+                self.assertFalse(verdict.usable, degenerate)
+                self.assertNotEqual(verdict.state, "FRESH")
+
+    def test_a_degenerate_report_commit_is_never_fresh(self):
+        from sechelix_core.revision import RevisionError
+
+        # bind_report refuses a non-hex commit outright; a short hex one must
+        # still fail the comparison rather than matching everything.
+        verdict = assess_freshness(self._bound("06ab"), current_commit=COMMIT)
+        self.assertFalse(verdict.usable)
+        with self.assertRaises(RevisionError):
+            self._bound("not-hex")
+
     def test_only_an_exact_prefix_match_is_fresh(self):
         for wrong in (OTHER, OTHER[:12], COMMIT[:11] + "f"):
             with self.subTest(wrong):
