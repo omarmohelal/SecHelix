@@ -29,6 +29,7 @@ SCHEMAS = {
     "knowledge-graph": "knowledge-graph-v1.schema.json",
     "lesson-card": "lesson-card-v1.schema.json",
     "research-packet": "research-packet-v1.schema.json",
+    "gold-check-pack": "gold-check-pack-v1.schema.json",
 }
 
 
@@ -255,6 +256,36 @@ def _validate_extension_manifest(data: dict[str, Any], errors: list[str], **_: A
         path = Path(fixture)
         if path.is_absolute() or ".." in path.parts:
             errors.append(f"$.tests.fixtures[{index}]: must be a repository-relative path without '..'")
+
+
+def _validate_gold_check_pack(data: dict[str, Any], errors: list[str], **_: Any) -> None:
+    """Keep reusable packs tied to canonical provenance and honest calibration."""
+
+    source_ids = set(_knowledge_source_index())
+    unknown_sources = sorted(set(data["sources"]["source_ids"]) - source_ids)
+    if unknown_sources:
+        errors.append(f"$.sources.source_ids: unknown source IDs: {unknown_sources}")
+
+    catalog = load_json(ROOT / "catalog" / "checks.json")
+    hypothesis_ids = {item["id"] for item in catalog["hypotheses"]}
+    unknown_hypotheses = sorted(set(data["sources"]["catalog_hypothesis_ids"]) - hypothesis_ids)
+    if unknown_hypotheses:
+        errors.append(f"$.sources.catalog_hypothesis_ids: unknown hypothesis IDs: {unknown_hypotheses}")
+
+    fixture_ids: set[str] = set()
+    for path in sorted((ROOT / "evals" / "fixtures").glob("*.json")):
+        fixture = load_json(path)
+        if isinstance(fixture, dict) and isinstance(fixture.get("id"), str):
+            fixture_ids.add(fixture["id"])
+    unknown_fixtures = sorted(set(data["regression"]["fixture_ids"]) - fixture_ids)
+    if unknown_fixtures:
+        errors.append(f"$.regression.fixture_ids: unknown fixture IDs: {unknown_fixtures}")
+
+    calibration = data["calibration"]
+    if calibration["measurement_status"] == "NOT_MEASURED" and calibration["sample_size"] != 0:
+        errors.append("$.calibration.sample_size: NOT_MEASURED requires a zero sample size")
+    if calibration["measurement_status"] == "MEASURED" and calibration["sample_size"] == 0:
+        errors.append("$.calibration.sample_size: MEASURED requires a non-zero sample size")
 
 
 def _validate_extension_registry(data: dict[str, Any], errors: list[str], **_: Any) -> None:

@@ -1,6 +1,6 @@
 # SecHelix architecture
 
-SecHelix is deliberately split into six layers so the methodology can remain portable while vendor-specific adapters evolve independently.
+SecHelix is deliberately split into seven layers so the methodology can remain portable while vendor-specific adapters evolve independently.
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
@@ -24,6 +24,11 @@ SecHelix is deliberately split into six layers so the methodology can remain por
 └─────────────────────────────┬───────────────────────────────┘
                               │
 ┌─────────────────────────────▼───────────────────────────────┐
+│  Gold Packs + Variant Hunter                                │
+│  reusable invariants · fingerprints · sibling hypotheses   │
+└─────────────────────────────┬───────────────────────────────┘
+                              │
+┌─────────────────────────────▼───────────────────────────────┐
 │  Evidence adapters                                          │
 │  static · dependency · browser · API · DB · CI · scanners   │
 └─────────────────────────────┬───────────────────────────────┘
@@ -43,6 +48,18 @@ The root `SKILL.md` owns methodology. Vendor adapters may add invocation/orchest
 `catalog/checks.json` is a structured cross product rather than a static payload list. Families identify where a security property lives; lenses identify how an invariant can fail. The combination produces a hypothesis that must be marked applicable before testing.
 
 This model makes it easy to add a new family or verification lens without copying hundreds of near-identical checks.
+
+## Gold Packs and variants
+
+Gold Check Packs deepen selected catalog hypotheses with threat models,
+framework fingerprints, detection layers, false-positive filters, safe
+validation, independent refutation, canonical remediation, and regression
+proof. Packs do not increase the 546-slot catalog count and cannot mark their
+own results verified.
+
+The deterministic Variant Hunter compares a verified seed invariant with sibling
+paths. It returns `EXACT`, `VARIANT`, `REFUTED`, or `BLOCKED`; exact and variant
+matches remain hypotheses and re-enter the normal evidence workflow.
 
 ## Knowledge resolution
 

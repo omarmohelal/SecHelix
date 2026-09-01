@@ -32,9 +32,9 @@ If the user does not specify a mode, start with `STATIC`, then ask/derive whethe
 When the repository runtime is available, use its versioned contracts rather
 than inventing parallel report shapes:
 
-- fourteen JSON Schema Draft 2020-12 contracts cover scope, attack surface,
+- fifteen JSON Schema Draft 2020-12 contracts cover scope, attack surface,
   applicability, evidence, findings, reports, catalog, extensions, source trust,
-  knowledge graph, lesson cards, and live research packets;
+  knowledge graph, lesson cards, live research packets, and Gold Check Packs;
 - all 546 catalog hypotheses have explicit, stable IDs from the frozen manifest;
 - applicability has exactly four outcomes: `APPLICABLE`, `NOT_APPLICABLE`,
   `UNKNOWN`, and `BLOCKED`;
@@ -375,6 +375,8 @@ Also report:
 - `references/sources.md` — standards and source references.
 - `references/knowledge-engine.md` — source trust, rights, live research,
   confidence, graph, lesson-card, lab, and de-identified learning policy.
+- `references/gold-check-packs.md` — reusable check-pack and Variant Hunter
+  contracts that cannot bypass applicability or verification.
 - `knowledge/` — source registry, provenance graph, and lesson cards.
 - `catalog/checks.json` — structured hypothesis catalog.
 - `agents/` — specialist reviewer profiles.
@@ -390,6 +392,7 @@ Also report:
 - `scripts/attack_surface.py` — attack-surface and Mermaid graph helper.
 - `scripts/validate_catalog.py` — catalog validation.
 - `scripts/validate_knowledge.py` — knowledge-source, graph, card, and research validation.
+- `scripts/validate_gold_packs.py` — Gold Pack provenance, safety, and calibration validation.
 
 Typical repository-runtime commands:
 

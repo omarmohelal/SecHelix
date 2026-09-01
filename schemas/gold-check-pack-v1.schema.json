@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sechelix.dev/schemas/gold-check-pack-v1.schema.json",
+  "title": "SecHelix Gold Check Pack v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "id", "version", "title", "lifecycle", "threat_model",
+    "applicability", "framework_fingerprints", "sources", "boundary", "sinks",
+    "detection_layers", "validation", "false_positive_filters", "verification",
+    "root_causes", "variant_strategy", "remediation", "regression", "mappings",
+    "calibration", "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "id": {"type": "string", "pattern": "^SEC-[A-Z][A-Z0-9-]{4,63}$"},
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "title": {"type": "string", "minLength": 8, "maxLength": 120},
+    "lifecycle": {"enum": ["REFERENCE", "COMMUNITY", "INCUBATING", "OFFICIAL"]},
+    "threat_model": {
+      "type": "object", "additionalProperties": false,
+      "required": ["actor", "asset", "trust_boundary", "failure_mode", "impact"],
+      "properties": {
+        "actor": {"type": "string", "minLength": 3},
+        "asset": {"type": "string", "minLength": 3},
+        "trust_boundary": {"type": "string", "minLength": 3},
+        "failure_mode": {"type": "string", "minLength": 8},
+        "impact": {"type": "string", "minLength": 8}
+      }
+    },
+    "applicability": {
+      "type": "object", "additionalProperties": false,
+      "required": ["capability_tags", "rule", "required_evidence"],
+      "properties": {
+        "capability_tags": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}$"}},
+        "rule": {"enum": ["ANY_CAPABILITY_PRESENT", "ALL_CAPABILITIES_PRESENT"]},
+        "required_evidence": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string", "minLength": 8}}
+      }
+    },
+    "framework_fingerprints": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["framework", "signals"],
+        "properties": {
+          "framework": {"type": "string", "minLength": 2},
+          "versions": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "signals": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 5}}
+        }
+      }
+    },
+    "sources": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_ids", "catalog_hypothesis_ids", "references"],
+      "properties": {
+        "source_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]{2,79}$"}},
+        "catalog_hypothesis_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^SHX-[A-Z][A-Z0-9]{1,11}-L[0-9]{2}$"}},
+        "references": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^https://"}}
+      }
+    },
+    "boundary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "subject", "object", "action", "invariant"],
+      "properties": {
+        "type": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$"},
+        "subject": {"type": "string", "minLength": 2},
+        "object": {"type": "string", "minLength": 2},
+        "action": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]{1,31}$"},
+        "invariant": {"type": "string", "minLength": 12}
+      }
+    },
+    "sinks": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["kind", "examples"],
+        "properties": {
+          "kind": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$"},
+          "examples": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 3}}
+        }
+      }
+    },
+    "detection_layers": {
+      "type": "array", "minItems": 2,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["layer", "signals"],
+        "properties": {
+          "layer": {"enum": ["MODEL", "STATIC", "CONTRACT", "DATA", "LOCAL_RUNTIME", "STAGING_SAFE"]},
+          "signals": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 8}}
+        }
+      }
+    },
+    "validation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["default_mode", "destructive_actions", "production_mutation", "steps"],
+      "properties": {
+        "default_mode": {"enum": ["STATIC", "LOCAL", "STAGING"]},
+        "destructive_actions": {"const": false},
+        "production_mutation": {"const": false},
+        "steps": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string", "minLength": 10}}
+      }
+    },
+    "false_positive_filters": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string", "minLength": 8}},
+    "verification": {
+      "type": "object", "additionalProperties": false,
+      "required": ["independent_required", "required_evidence", "refutation_tests"],
+      "properties": {
+        "independent_required": {"const": true},
+        "required_evidence": {"type": "array", "minItems": 3, "uniqueItems": true, "items": {"type": "string", "minLength": 8}},
+        "refutation_tests": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string", "minLength": 8}}
+      }
+    },
+    "root_causes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 8}},
+    "variant_strategy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["anchor_fields", "variant_dimensions", "result_contract"],
+      "properties": {
+        "anchor_fields": {"type": "array", "minItems": 3, "uniqueItems": true, "items": {"enum": ["invariant", "boundary", "action"]}},
+        "variant_dimensions": {"type": "array", "minItems": 3, "uniqueItems": true, "items": {"enum": ["actor", "object", "identity_state", "enforcement_layer", "sink_kind", "framework"]}},
+        "result_contract": {"const": "EXACT | VARIANT | REFUTED | BLOCKED; exact and variant matches remain hypotheses until verified"}
+      }
+    },
+    "remediation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["canonical_invariant", "patterns"],
+      "properties": {
+        "canonical_invariant": {"type": "string", "minLength": 12},
+        "patterns": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 8}}
+      }
+    },
+    "regression": {
+      "type": "object", "additionalProperties": false,
+      "required": ["fixture_ids", "assertions"],
+      "properties": {
+        "fixture_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Z0-9-]{5,80}$"}},
+        "assertions": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string", "minLength": 8}}
+      }
+    },
+    "mappings": {
+      "type": "object", "additionalProperties": false,
+      "required": ["cwe", "owasp"],
+      "properties": {
+        "cwe": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^CWE-[0-9]+$"}},
+        "owasp": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 4}}
+      }
+    },
+    "calibration": {
+      "type": "object", "additionalProperties": false,
+      "required": ["measurement_status", "sample_size", "notes"],
+      "properties": {
+        "measurement_status": {"enum": ["MEASURED", "NOT_MEASURED", "INSUFFICIENT_SAMPLE", "BLOCKED"]},
+        "sample_size": {"type": "integer", "minimum": 0},
+        "notes": {"type": "string", "minLength": 12}
+      }
+    },
+    "limitations": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 12}}
+  }
+}

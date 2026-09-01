@@ -44,9 +44,13 @@ class RepositoryCheckTests(unittest.TestCase):
             "catalog/checks.json",
             "agents/independent-verifier.md",
             "schemas/report-v1.schema.json",
+            "schemas/gold-check-pack-v1.schema.json",
+            "gold-packs/SEC-AUTHZ-IDOR-001/pack.json",
             "adapters/cli.py",
             "reports/report_renderer.py",
             "scripts/security_gate.py",
+            "scripts/validate_gold_packs.py",
+            "sechelix_core/variant_hunter.py",
         ):
             self.assertTrue((PORTABLE_SKILL / path).is_file(), path)
 

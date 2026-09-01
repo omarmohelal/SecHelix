@@ -15,6 +15,7 @@ DIRECTORIES = (
     "agents",
     "catalog",
     "examples",
+    "gold-packs",
     "knowledge",
     "policies",
     "references",
@@ -32,6 +33,7 @@ SCRIPT_FILES = (
     "security_gate.py",
     "validate_contract.py",
     "validate_knowledge.py",
+    "validate_gold_packs.py",
 )
 
 def include(path: Path) -> bool:

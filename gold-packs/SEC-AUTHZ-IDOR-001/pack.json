@@ -1,0 +1,152 @@
+{
+  "schema_version": "1.0",
+  "id": "SEC-AUTHZ-IDOR-001",
+  "version": "0.1.0",
+  "title": "Object authorization and missing subject boundary",
+  "lifecycle": "REFERENCE",
+  "threat_model": {
+    "actor": "Authenticated or anonymous caller",
+    "asset": "Tenant- or owner-scoped application objects",
+    "trust_boundary": "Caller identity to object ownership decision",
+    "failure_mode": "A lookup or list operation omits the effective subject or ownership constraint",
+    "impact": "An unauthorized caller may read or mutate an object outside the intended ownership boundary"
+  },
+  "applicability": {
+    "capability_tags": ["authorization", "multi_tenancy", "object_ownership"],
+    "rule": "ANY_CAPABILITY_PRESENT",
+    "required_evidence": [
+      "A protected object is associated with an owner, tenant, seller, or equivalent subject",
+      "A caller identity is expected to constrain read or write access to that object"
+    ]
+  },
+  "framework_fingerprints": [
+    {
+      "framework": "generic-data-access",
+      "versions": ["any"],
+      "signals": [
+        "A route or service resolves an object identifier before an ownership decision",
+        "A list query can execute without an effective subject predicate"
+      ]
+    },
+    {
+      "framework": "python-synthetic-fixture",
+      "versions": ["3.x"],
+      "signals": [
+        "A dictionary-backed object lookup returns an invoice without comparing tenant identity"
+      ]
+    }
+  ],
+  "sources": {
+    "source_ids": ["mitre-cwe", "owasp-asvs"],
+    "catalog_hypothesis_ids": ["SHX-AUTHZ-L02"],
+    "references": [
+      "https://cwe.mitre.org/data/definitions/862.html",
+      "https://owasp.org/www-project-application-security-verification-standard/"
+    ]
+  },
+  "boundary": {
+    "type": "OBJECT_AUTHORIZATION",
+    "subject": "effective caller identity",
+    "object": "owner- or tenant-scoped resource",
+    "action": "ACCESS",
+    "invariant": "Every protected object access is constrained by the effective subject at a canonical enforcement boundary"
+  },
+  "sinks": [
+    {"kind": "OBJECT_LOOKUP", "examples": ["Repository get-by-id", "RPC object fetch"]},
+    {"kind": "LIST_QUERY", "examples": ["Tenant list endpoint", "Seller-owned collection query"]},
+    {"kind": "BULK_OPERATION", "examples": ["Export selection", "Bulk update target set"]}
+  ],
+  "detection_layers": [
+    {
+      "layer": "STATIC",
+      "signals": [
+        "Trace the effective subject into the canonical object lookup or collection predicate",
+        "Compare list, item, bulk, export, and background-job enforcement paths"
+      ]
+    },
+    {
+      "layer": "CONTRACT",
+      "signals": [
+        "Compare the role-object-action matrix with the observed enforcement node",
+        "Treat null or unresolved identity as evidence to investigate, not as authorization"
+      ]
+    },
+    {
+      "layer": "LOCAL_RUNTIME",
+      "signals": [
+        "Use isolated two-subject fixtures and objects owned by each synthetic subject",
+        "Assert the foreign object is denied while the owned control remains available"
+      ]
+    }
+  ],
+  "validation": {
+    "default_mode": "LOCAL",
+    "destructive_actions": false,
+    "production_mutation": false,
+    "steps": [
+      "Confirm explicit authorization and create two isolated synthetic subjects",
+      "Exercise the owned-object control before the foreign-object comparison",
+      "Record response, repository decision, and the enforcement node without using real customer data"
+    ]
+  },
+  "false_positive_filters": [
+    "The route and object are intentionally public under the documented policy",
+    "A canonical database or service-layer policy enforces the same subject-object invariant",
+    "The suspected path is unreachable from the caller-controlled entrypoint",
+    "The observed lookup is a test double that cannot execute in the deployed path"
+  ],
+  "verification": {
+    "independent_required": true,
+    "required_evidence": [
+      "Attacker-controlled subject or object identifier",
+      "Reachable path from the authorized test entrypoint to the lookup",
+      "Observed failed boundary and a safe isolated reproduction",
+      "Concrete impact and the defective canonical invariant"
+    ],
+    "refutation_tests": [
+      "Search for compensating ownership enforcement in lower service, RPC, or database layers",
+      "Repeat with an owned object to distinguish general failure from an authorization decision",
+      "Reconstruct caller identity resolution without assuming the original hypothesis is correct"
+    ]
+  },
+  "root_causes": [
+    "The effective subject is absent from the canonical data-access contract",
+    "Authorization is enforced in presentation code rather than the object boundary",
+    "Null or unresolved identity silently widens a protected query"
+  ],
+  "variant_strategy": {
+    "anchor_fields": ["invariant", "boundary", "action"],
+    "variant_dimensions": ["actor", "object", "identity_state", "enforcement_layer", "sink_kind", "framework"],
+    "result_contract": "EXACT | VARIANT | REFUTED | BLOCKED; exact and variant matches remain hypotheses until verified"
+  },
+  "remediation": {
+    "canonical_invariant": "Require the effective subject in the data-access contract and fail closed before every protected object operation",
+    "patterns": [
+      "Use one authorization-aware repository or service boundary for item, list, bulk, and background paths",
+      "Keep database row policies or equivalent lower-layer enforcement as defense in depth",
+      "Reject missing identity before building a protected query"
+    ]
+  },
+  "regression": {
+    "fixture_ids": ["EVAL-AUTHZ-001"],
+    "assertions": [
+      "The vulnerable control exposes the foreign synthetic object before remediation",
+      "The remediated path denies the foreign object and still permits the owned control",
+      "List and item paths preserve the same subject-object invariant"
+    ]
+  },
+  "mappings": {
+    "cwe": ["CWE-862"],
+    "owasp": ["OWASP-ASVS:V4", "OWASP-API1:2023"]
+  },
+  "calibration": {
+    "measurement_status": "NOT_MEASURED",
+    "sample_size": 0,
+    "notes": "The reference pack has not completed a reproducible benchmark run and makes no precision or recall claim."
+  },
+  "limitations": [
+    "Framework fingerprints are investigation leads and do not establish reachability or impact",
+    "Database row policies and service meshes may provide compensating controls outside the reviewed code path",
+    "The synthetic fixture proves the contract shape, not performance on external applications"
+  ]
+}

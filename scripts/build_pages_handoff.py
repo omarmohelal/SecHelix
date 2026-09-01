@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 
 
 DEFAULT_ORIGIN = "https://sechelix.magnoumx.chatgpt.site"
-ROUTES = ("", "docs", "contribute", "support")
+ROUTES = ("", "workbench", "benchmarks", "docs", "contribute", "support")
 
 
 def validate_origin(value: str) -> str:

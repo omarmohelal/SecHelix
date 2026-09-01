@@ -48,7 +48,8 @@ A finding becomes trusted only when the evidence supports attacker control, reac
 |---|---|
 | Coverage | **546 explicit, stable hypothesis IDs** across 21 families and 26 lenses |
 | Specialist mesh | **17 model-neutral role profiles**, including an independent verifier |
-| Contracts | **14 JSON Schema Draft 2020-12 contracts** from scope/report through extensions, source trust, graph, lessons, and research |
+| Contracts | **15 JSON Schema Draft 2020-12 contracts** from scope/report through extensions, source trust, graph, research, and Gold Check Packs |
+| Gold Pack + variants | One authorization reference pack plus a deterministic Variant Hunter foundation; matches remain hypotheses until verified |
 | Knowledge engine | Rights-aware source registry, deterministic live-research confidence, provenance graph, and lesson-card seed |
 | Evidence adapters | Semgrep, CodeQL/SARIF, OSV, Gitleaks, Trivy, npm/pnpm audit, Playwright, ZAP, Nuclei |
 | Reports | Markdown, redacted JSON, SARIF 2.1.0, escaped standalone HTML |
