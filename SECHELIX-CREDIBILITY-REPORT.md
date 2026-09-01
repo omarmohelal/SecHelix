@@ -142,6 +142,31 @@ validator against the actually-shipped tree.
 
 ---
 
+## 3b. Claims that were downgraded because they could not be reproduced
+
+A packaging audit ran real cold installs. Only what was actually executed is now marked
+`VERIFIED`; two existing claims were **downgraded**, which matters more than the upgrades:
+
+| Claim | Was | Now | Why |
+| --- | --- | --- | --- |
+| Codex integration | "Cold-install verified" | `DOCUMENTED` | The vendor documents `.agents/skills/`; nobody ran Codex during this audit. |
+| `.codex/skills/` mirror | folded into the above | `UNVERIFIED` | It is not a documented Codex discovery path. |
+| Portable bundle | "Verified bundle" | `VERIFIED` | Five scripts executed from a cold copy outside the repo. |
+| Claude Code plugin | *absent from the matrix* | `VERIFIED` | `claude plugin validate` and `--plugin-dir` load both confirmed. |
+| Agent Skills CLI | *absent* | `VERIFIED` | Cold-installed into an empty project. |
+
+A Claude marketplace manifest was **deliberately not added**: with `marketplace.json` present,
+`claude plugin validate` stops validating the plugin itself, which is the wrong signal to ship.
+
+Two other honesty fixes: a `skills.sh` badge pointed at a 404 and was removed, and `SECURITY.md`
+and `CODE_OF_CONDUCT.md` both routed reports to nowhere and now use GitHub private advisories.
+
+A vocabulary defect in my own work was also corrected: the evaluation fixtures used **19 distinct
+family labels for 10 security domains**, which split the per-family metric buckets so a single
+domain could score twice. Families are now normalized to 10 canonical values.
+
+---
+
 ## 4. What is still not proven
 
 - **No benchmark score exists.** See `SECHELIX-EVALUATION-REPORT.md` for the exact blocker.
