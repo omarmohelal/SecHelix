@@ -1,5 +1,8 @@
 # VNext closeout
 
+> Historical note: this document records the `3.0.0-alpha.1` closeout. The
+> current release is documented in `docs/releases/3.0.0-alpha.4.md`.
+
 ## Delivered
 
 - Contract-first SecHelix core, catalog, attack-surface graph, applicability,

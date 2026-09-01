@@ -2,6 +2,24 @@
 
 All notable changes to SecHelix are documented here.
 
+## [3.0.0-alpha.4] - 2026-09-01
+
+### V2 Pro release polish
+
+- Finished the private V2 Pro product surfaces for the interactive verification
+  console, Evidence Workbench, Attack Surface, Authorization Matrix, Variant
+  Analysis, Benchmark Lab, and Command Center.
+- Replaced inactive product navigation with implemented destinations and added
+  an accessible mobile application menu.
+- Kept finding severity separate from verification state and preserved honest
+  `NOT_MEASURED` benchmark semantics.
+- Removed obsolete generated QA output, unused UI primitives and dependencies,
+  historical CSS generations, and stale preview assets.
+- Refreshed the V2 screenshots and 1200×630 social card without publishing
+  private website source or production source maps.
+- Hardened repository hygiene, mobile legibility, keyboard focus, reduced
+  motion, link integrity, and the public/private release boundary.
+
 ## [3.0.0-alpha.3] - 2026-09-01
 
 ### Expert knowledge foundation
