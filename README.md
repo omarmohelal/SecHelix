@@ -296,7 +296,7 @@ SecHelix/
 ├── extensions/                 # curated community extension registry
 ├── evals/                      # paired fixtures + NOT_MEASURED baseline
 ├── docs/                       # rollout + design docs
-├── assets/vnext-preview/       # selected source-free product screenshots
+├── assets/                     # public brand/readme assets
 └── .github/                    # pinned CI + contribution templates
 ```
 
