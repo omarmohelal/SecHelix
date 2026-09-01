@@ -251,6 +251,18 @@ def evaluate(
         if status in UNPROVEN_STATES and severity in blocking_severities:
             incomplete.append(f"{finding_id}: {severity} candidate remains {status}")
             continue
+        # A candidate that is still an open HYPOTHESIS at release time was neither
+        # proven nor refuted. That is the definition of UNKNOWN, and this project's
+        # whole premise is that UNKNOWN never reads as absence of a problem. It is
+        # INCOMPLETE rather than BLOCKED: nothing has been demonstrated, so the
+        # honest statement is that the release cannot be decided, not that it fails.
+        if (status == "HYPOTHESIS"
+                and severity in blocking_severities
+                and resolution not in CLOSED_RESOLUTIONS):
+            incomplete.append(
+                f"{finding_id}: {severity} candidate is still an unresolved hypothesis"
+            )
+            continue
         if severity in regression_severities and status == "VERIFIED" and resolution == "FIXED" and not _regression_complete(finding):
             incomplete.append(f"{finding_id}: fixed {severity} finding lacks passing regression proof")
             continue

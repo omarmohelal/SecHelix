@@ -101,7 +101,7 @@ action in an environment they control.
 
 The project is pre-1.0 in API-stability terms despite the `3.x` version string:
 the `3.x` line tracks the framework generation, not a stability guarantee. The
-15 JSON contracts in `schemas/` are versioned individually; a breaking change to
+16 JSON contracts in `schemas/` are versioned individually; a breaking change to
 any of them bumps that contract's version. Security fixes target `main` and the
 most recent alpha only.
 

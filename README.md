@@ -13,7 +13,6 @@
   <a href="#evaluation-and-proof-status"><img src="https://img.shields.io/badge/benchmark-NOT__MEASURED-f59e0b?style=flat-square" alt="benchmark NOT_MEASURED"/></a>
   <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-3.2.0--alpha.1-9b8cff?style=flat-square" alt="3.2.0 alpha 1"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-a78bfa?style=flat-square" alt="Apache-2.0"/></a>
-  <a href="https://skills.sh/omarmohelal/SecHelix"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fskills.sh%2Fapi%2Fbadge%2Fomarmohelal%2FSecHelix&style=flat-square" alt="skills.sh listing"/></a>
 </p>
 
 <p align="center">
@@ -50,7 +49,7 @@ A trusted finding should establish attacker control, reachability, a failed secu
 |---|---|
 | Coverage | **546 stable security hypothesis IDs** across 21 families × 26 lenses |
 | Specialist mesh | **17 model-neutral role profiles**, including an independent verifier |
-| Contracts | **15 JSON Schema Draft 2020-12 contracts** for scope, applicability, evidence, findings, reports, extensions, knowledge, and Gold Check Packs |
+| Contracts | **16 JSON Schema Draft 2020-12 contracts** for scope, applicability, evidence, findings, reports, extensions, knowledge, and Gold Check Packs |
 | Gold Check Packs | **18 deep reference packs** — 12 bug-class (IDOR, SSRF, injection, race/idempotency, money invariants, AI/MCP tool authority, and more) plus 6 framework packs (Next.js, Express/Node, Django, Supabase/PostgREST, Spring Boot, Laravel) |
 | Eval fixtures | **38 paired fixtures — 76 cases across 10 families**, each with a vulnerable and a clean variant |
 | Knowledge graph | **76 nodes, 100 edges**, provenance-backed, plus **11 lesson cards** |
@@ -280,7 +279,7 @@ See [SECURITY.md](SECURITY.md).
 
 SecHelix has **no measured accuracy number**, and the reason is written down rather than glossed over.
 
-**The blocker is `CONTAMINATED_EVALUATOR`.** The fixture suite was expanded on 2026-09-01 by the same assistant session that would have acted as the evaluated model, so that session knew fixtures it had written itself. Scoring it would measure recall of authored answers, not security-review capability. Full record: [`evals/results/not-measured.json`](evals/results/not-measured.json).
+**The blocker is `CONTAMINATED_EVALUATOR`.** The fixture suite was expanded on 2026-09-01 by the same assistant session that would have acted as the evaluated model, so that session knew fixtures it had written itself. Scoring it would measure recall of authored answers, not security-review capability. Full record: [`evals/results/not-measured.json`](evals/results/not-measured.json). If you want to produce the first real number, the whole procedure is [`evals/blind-packet/RUN.md`](evals/blind-packet/RUN.md) — one file to download, and the result gets published whichever way it comes out.
 
 Unblocking it requires a run by a model or session that did not author the fixtures, using blind cases exported with `python evals/run_evals.py --export-cases`.
 

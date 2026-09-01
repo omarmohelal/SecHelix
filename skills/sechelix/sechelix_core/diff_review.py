@@ -232,24 +232,33 @@ def parse_unified_diff(text: str) -> list[FileDiff]:
             files.append(FileDiff(path, tuple(added), tuple(removed), binary))
         path, added, removed, binary = None, [], [], False
 
+    in_hunk = False
     for raw in text.splitlines():
         if raw.startswith("diff --git"):
             flush()
+            in_hunk = False
             parts = raw.split(" b/")
             path = parts[-1].strip() if len(parts) > 1 else raw.split()[-1]
             continue
         if raw.startswith("Binary files"):
             binary = True
             continue
-        if raw.startswith("+++ b/"):
+        # "---" and "+++" are file headers only before the first hunk. Inside a
+        # hunk they are content: removing the SQL comment "-- x" produces the
+        # line "--- x", and treating that as a header made the removed line
+        # vanish. A removed "-- ALTER TABLE ... ENABLE ROW LEVEL SECURITY" then
+        # read as UNCHANGED — a silent miss rather than a flagged gap, which is
+        # the worst outcome this classifier can produce.
+        if not in_hunk and raw.startswith("+++ b/"):
             if path is None:
                 path = raw[6:].strip()
             continue
-        if raw.startswith("--- "):
+        if not in_hunk and raw.startswith("--- "):
             continue
         match = _HUNK.match(raw)
         if match:
             new_line = int(match.group(1))
+            in_hunk = True
             continue
         if raw.startswith("+"):
             added.append((new_line, raw[1:]))
@@ -273,6 +282,65 @@ def _is_prose(path: str) -> bool:
     return str(path).lower().endswith(PROSE_SUFFIXES)
 
 
+#: Line starts that mean "this line is commentary, not behaviour", across the
+#: languages this reviewer sees. Deliberately conservative: only a line that is
+#: *entirely* a comment qualifies, never trailing commentary after real code.
+_COMMENT_STARTS = ("#", "//", "*", "/*", "*/", '"""', "'''", "<!--", "--")
+
+
+#: Keys whose values are human prose even inside a structured file. A JSON Schema
+#: `description` explaining a security concept is documentation, not behaviour.
+_PROSE_KEYS = re.compile(r'^\s*"(description|title|summary|rationale|note|notes|'
+                         r'question|statement|reason|message|\$comment)"\s*:')
+
+
+def _is_commentary(line: str) -> bool:
+    """Whether an added line is prose rather than an executable change.
+
+    Prose inside code files was producing exactly the false positives this
+    project exists to reject. A docstring explaining that a digest "is not a
+    signature" was classified as a webhook change; a JSON Schema `description`
+    mentioning a sample-size bucket was classified as storage access. Neither
+    line does anything.
+
+    Only the `secret` rule still applies to commentary — a credential pasted into
+    a comment is still a credential — mirroring how prose *files* are handled.
+    """
+    stripped = line.strip()
+    if not stripped:
+        return True
+    if stripped.startswith(_COMMENT_STARTS):
+        return True
+    return bool(_PROSE_KEYS.match(line))
+
+
+def _commentary_mask(added: Sequence[tuple[int, str]]) -> dict[int, bool]:
+    """Mark each added line as prose or not, tracking multi-line docstrings.
+
+    A docstring's *body* lines start with ordinary words, so a per-line check
+    alone misses them. This tracks triple-quote parity across the added lines.
+
+    The limit is real and worth stating: a diff shows added lines, not the file
+    around them, so a hunk that begins in the middle of a docstring cannot be
+    recognized as such. The parity therefore resets per file and errs toward
+    treating text as code — under-suppressing rather than over-suppressing,
+    which is the right direction for a security reviewer.
+    """
+    mask: dict[int, bool] = {}
+    inside = False
+    for line_number, line in added:
+        opens_or_closes = line.count('"""') + line.count("'''")
+        if inside:
+            mask[line_number] = True
+            if opens_or_closes % 2 == 1:
+                inside = False
+            continue
+        mask[line_number] = _is_commentary(line)
+        if opens_or_closes % 2 == 1:
+            inside = True
+    return mask
+
+
 def classify_file(diff: FileDiff) -> list[SecurityDelta]:
     """Classify one file's changes into security deltas."""
     if diff.binary:
@@ -284,11 +352,16 @@ def classify_file(diff: FileDiff) -> list[SecurityDelta]:
     deltas: list[SecurityDelta] = []
     removed_text = "\n".join(diff.removed)
     prose = _is_prose(diff.path)
+    commentary = _commentary_mask(diff.added)
 
     for rule in RULES:
         if prose and rule.kind not in PROSE_RELEVANT_KINDS:
             continue
         for line_number, line in diff.added:
+            # Commentary changes nothing except what a reader believes. Only a
+            # secret in a comment is still a finding.
+            if rule.kind != "secret" and commentary.get(line_number, False):
+                continue
             if rule.pattern.search(line):
                 deltas.append(SecurityDelta(
                     rule.kind, rule.added, diff.path, line_number,

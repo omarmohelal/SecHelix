@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sechelix.com/schemas/calibration-v1.schema.json",
+  "title": "SecHelix calibration record v1",
+  "description": "How well stated confidence predicted the independent verifier's outcome. A calibration record is a claim about the reviewer, so it obeys the same evidence rules as a claim about code: it is NOT_MEASURED until enough uncontaminated samples exist, and it names its own contamination.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "measurement_status",
+    "sample_size",
+    "minimum_sample_size",
+    "buckets",
+    "contamination",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+
+    "measurement_status": {
+      "description": "MEASURED only when sample_size >= minimum_sample_size AND contamination.is_contaminated is false. Any other combination is NOT_MEASURED, and every metric renders as the literal string NOT_MEASURED rather than a number.",
+      "enum": ["MEASURED", "NOT_MEASURED"]
+    },
+
+    "sample_size": { "type": "integer", "minimum": 0 },
+
+    "minimum_sample_size": {
+      "description": "Below this, a bucket's observed rate is noise. Declared up front so the threshold cannot be lowered after seeing a result.",
+      "type": "integer",
+      "minimum": 1
+    },
+
+    "buckets": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/bucket" }
+    },
+
+    "calibration_error": {
+      "description": "Mean absolute gap between stated confidence and observed verification rate, weighted by bucket size. A number only when measurement_status is MEASURED.",
+      "oneOf": [
+        { "type": "number", "minimum": 0, "maximum": 1 },
+        { "const": "NOT_MEASURED" }
+      ]
+    },
+
+    "overconfident_buckets": {
+      "description": "Buckets whose observed verification rate falls materially below their stated confidence. These are the ones that produce false accusations.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+
+    "underconfident_buckets": {
+      "description": "Buckets whose observed rate exceeds their stated confidence. These produce findings that were downgraded or discarded when they should not have been.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+
+    "contamination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["is_contaminated", "reason"],
+      "properties": {
+        "is_contaminated": { "type": "boolean" },
+        "reason": {
+          "description": "Why the samples cannot be trusted, or NONE. A session that authored the fixtures it is being scored against is contaminated.",
+          "type": "string",
+          "minLength": 1
+        },
+        "excluded_sample_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+
+    "limitations": {
+      "description": "What would make a reader over-read this record. Required and non-empty, even when MEASURED.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+
+    "generated_from": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "report_ids": { "type": "array", "items": { "type": "string" } },
+        "sechelix_commit": { "type": "string" }
+      }
+    }
+  },
+
+  "$defs": {
+    "bucket": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["confidence", "stated_probability", "sample_size", "verified", "refuted", "unresolved", "observed_rate"],
+      "properties": {
+        "confidence": {
+          "description": "The confidence vocabulary from finding-v1. NOT_ASSESSED is tracked but never scored: a finding that stated no confidence made no prediction to be right or wrong about.",
+          "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ASSESSED"]
+        },
+        "stated_probability": {
+          "description": "The probability the label is taken to assert. Declared in the record so a reader can disagree with the mapping rather than guess it.",
+          "oneOf": [
+            { "type": "number", "minimum": 0, "maximum": 1 },
+            { "const": "NOT_APPLICABLE" }
+          ]
+        },
+        "sample_size": { "type": "integer", "minimum": 0 },
+        "verified": { "type": "integer", "minimum": 0 },
+        "refuted": { "type": "integer", "minimum": 0 },
+        "unresolved": {
+          "description": "Candidates whose verification did not complete. Counted separately and never folded into either side: an unresolved candidate is not evidence for or against the confidence that raised it.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "observed_rate": {
+          "description": "verified / (verified + refuted). NOT_MEASURED when the bucket is below the minimum sample size or has no resolved samples.",
+          "oneOf": [
+            { "type": "number", "minimum": 0, "maximum": 1 },
+            { "const": "NOT_MEASURED" }
+          ]
+        },
+        "gap": {
+          "oneOf": [
+            { "type": "number" },
+            { "const": "NOT_MEASURED" }
+          ]
+        }
+      }
+    }
+  }
+}

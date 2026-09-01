@@ -20,6 +20,11 @@ FRESH = "FRESH"
 STALE = "STALE"
 UNKNOWN_FRESHNESS = "UNKNOWN"
 
+#: Shortest revision that can be compared meaningfully. Git's own abbreviation
+#: floor is 4 and 7 is the conventional short form; anything shorter carries too
+#: little entropy to distinguish trees, and an empty string carries none at all.
+MINIMUM_COMPARABLE_WIDTH = 7
+
 #: Paths whose change invalidates a report even when nothing else moved, because
 #: they define the security posture rather than merely using it.
 POSTURE_PATHS = (
@@ -135,9 +140,23 @@ def assess_freshness(
             current_commit=_short(current_commit),
         )
 
-    # Compare on the shorter of the two, so a short SHA still matches a full one.
-    width = min(len(report_commit), len(str(current_commit)))
-    if report_commit[:width].lower() != str(current_commit)[:width].lower():
+    # Compare on the shorter of the two, so a short SHA still matches a full one —
+    # but only once both are long enough to mean anything. Without a floor, an
+    # empty current_commit compares equal to every report and everything reads
+    # FRESH. That is the exact value a caller gets from a `git rev-parse` whose
+    # output was empty rather than absent, and it is fail-open in a module whose
+    # contract is that any doubt resolves to stale.
+    current = str(current_commit).strip()
+    width = min(len(report_commit), len(current))
+    if width < MINIMUM_COMPARABLE_WIDTH:
+        return FreshnessVerdict(
+            UNKNOWN_FRESHNESS,
+            f"a revision must be at least {MINIMUM_COMPARABLE_WIDTH} characters to be "
+            f"compared; got {len(report_commit)} and {len(current)}",
+            report_commit=_short(report_commit),
+            current_commit=_short(current) if current else None,
+        )
+    if report_commit[:width].lower() != current[:width].lower():
         posture = tuple(p for p in changed_paths if _is_posture_path(p))
         reason = (
             f"the report describes {_short(report_commit)} but the tree is at "
