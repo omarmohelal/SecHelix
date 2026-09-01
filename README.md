@@ -13,6 +13,7 @@
   <a href="#evaluation-and-proof-status"><img src="https://img.shields.io/badge/benchmark-NOT__MEASURED-f59e0b?style=flat-square" alt="benchmark NOT_MEASURED"/></a>
   <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-3.2.0--alpha.1-9b8cff?style=flat-square" alt="3.2.0 alpha 1"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-a78bfa?style=flat-square" alt="Apache-2.0"/></a>
+  <a href="https://skills.sh/omarmohelal/SecHelix"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fskills.sh%2Fapi%2Fbadge%2Fomarmohelal%2FSecHelix&style=flat-square" alt="skills.sh listing"/></a>
 </p>
 
 <p align="center">
