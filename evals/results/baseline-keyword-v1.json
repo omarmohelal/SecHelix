@@ -1,31 +1,27 @@
 {
-  "schema_version": "1.0.0",
-  "result_kind": "HARNESS_BASELINE",
-  "subject": "keyword-baseline-v1 (deterministic regex matcher)",
-  "is_sechelix_result": false,
-  "headline": "This is NOT a SecHelix performance result. It is a naive keyword matcher run against the fixture suite to validate the scoring harness and to evidence that the fixtures cannot be solved by pattern matching.",
   "counts": {
-    "false_negative": 9,
-    "false_positive": 10,
-    "rejected_false_candidates": 9,
-    "true_negative": 9,
-    "true_positive": 10
+    "false_negative": 12,
+    "false_positive": 20,
+    "rejected_false_candidates": 13,
+    "true_negative": 13,
+    "true_positive": 21
   },
+  "is_sechelix_result": false,
   "limitations": [
     "This baseline is a naive pattern matcher, not a security review and not SecHelix.",
     "It performs no verification, so verified precision is not meaningful for this run.",
     "Its purpose is to validate the scoring harness and to evidence fixture difficulty."
   ],
-  "measured_at": "2026-09-01T15:25:01.412586Z",
+  "measured_at": "2026-09-01T17:21:43.397178Z",
   "measurement_status": "MEASURED",
   "metrics": {
     "applicability_accuracy": "NOT_MEASURED",
-    "detection_recall": 0.526316,
+    "detection_recall": 0.636364,
     "duplicate_root_cause_rate": 0.0,
-    "false_positive_rate": 0.526316,
-    "false_positive_rejection_rate": 0.473684,
-    "precision": 0.5,
-    "recall": 0.526316,
+    "false_positive_rate": 0.606061,
+    "false_positive_rejection_rate": 0.393939,
+    "precision": 0.512195,
+    "recall": 0.636364,
     "regression_proof_rate": "NOT_MEASURED",
     "release_gate_accuracy": "NOT_MEASURED",
     "verified_precision": 0.0
@@ -43,24 +39,24 @@
       "detection_recall": 1.0,
       "false_positive_rate": 1.0,
       "fn": 0,
-      "fp": 1,
+      "fp": 5,
       "tn": 0,
-      "tp": 1
+      "tp": 5
     },
     "Authorization / BOLA / BFLA": {
-      "detection_recall": 0.333333,
-      "false_positive_rate": 0.666667,
-      "fn": 2,
-      "fp": 2,
-      "tn": 1,
-      "tp": 1
+      "detection_recall": 0.571429,
+      "false_positive_rate": 0.571429,
+      "fn": 3,
+      "fp": 4,
+      "tn": 3,
+      "tp": 4
     },
     "Browser / XSS": {
-      "detection_recall": 1.0,
+      "detection_recall": 0.333333,
       "false_positive_rate": 0.0,
-      "fn": 0,
+      "fn": 2,
       "fp": 0,
-      "tn": 1,
+      "tn": 3,
       "tp": 1
     },
     "Business Logic / Payments": {
@@ -72,20 +68,20 @@
       "tp": 0
     },
     "Files / Uploads / Parsers": {
-      "detection_recall": 0.5,
-      "false_positive_rate": 0.5,
+      "detection_recall": 0.75,
+      "false_positive_rate": 0.75,
       "fn": 1,
-      "fp": 1,
+      "fp": 3,
       "tn": 1,
-      "tp": 1
+      "tp": 3
     },
     "Injection / Dataflow": {
-      "detection_recall": 0.5,
-      "false_positive_rate": 0.5,
+      "detection_recall": 0.75,
+      "false_positive_rate": 0.75,
       "fn": 1,
-      "fp": 1,
+      "fp": 3,
       "tn": 1,
-      "tp": 1
+      "tp": 3
     },
     "Race / Idempotency / Replay": {
       "detection_recall": 0.5,
@@ -112,31 +108,29 @@
       "tp": 1
     }
   },
+  "result_kind": "HARNESS_BASELINE",
   "run": {
     "agent_host": "none",
-    "case_count": 38,
+    "case_count": 66,
+    "cases_sha256": "90c0cc29f6f65baa4791dc0633cb92a7e99db25a41d0d939a2fd8e06ae80be92",
     "cost": 0,
     "execution_mode": "STATIC",
-    "fixture_count": 19,
-    "fixture_suite_version": "NOT_MEASURED",
+    "fixture_count": 33,
+    "fixture_suite_version": "66 cases",
     "input_tokens": 0,
     "model": "keyword-baseline-v1 (no model)",
     "output_tokens": 0,
     "prompt_reference": "not applicable; this baseline uses no prompt",
     "provider": "none (deterministic regex)",
     "runner": "evals/baselines/keyword_baseline.py",
-    "sechelix_commit": "NOT_MEASURED",
+    "sechelix_commit": "954e5f7518a6be61cb8311c341cac9e165189075",
     "time_seconds": 0,
     "tools": [
       "python-re"
     ]
   },
   "scanner_contribution": {
-    "keyword-baseline": 20
+    "keyword-baseline": 41
   },
-  "interpretation": [
-    "Precision 0.5 and detection recall 0.526316 on a balanced 19/19 split is chance-level.",
-    "A keyword matcher therefore carries no signal on this suite, which is the intended fixture-difficulty property.",
-    "No conclusion about SecHelix, any model, or any scanner may be drawn from this run."
-  ]
+  "schema_version": "1.0.0"
 }

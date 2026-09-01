@@ -146,6 +146,28 @@ class EvalLabTests(unittest.TestCase):
         self.assertEqual(baseline["result_kind"], "HARNESS_BASELINE")
         self.assertFalse(baseline["is_sechelix_result"])
 
+    def test_an_undeclared_result_is_never_readable_as_a_sechelix_score(self):
+        """Omitting the label must not default to claiming a SecHelix result."""
+        exported = export_blind_cases(self.fixtures)
+        packet = {
+            "model": "x",
+            "predictions": [
+                {"case_id": case["case_id"], "predicted_label": "CLEAN"}
+                for case in exported["cases"]
+            ],
+        }
+        result = score(packet, self.fixtures)
+        self.assertEqual(result["is_sechelix_result"], "UNDECLARED")
+        self.assertEqual(result["result_kind"], "UNDECLARED")
+
+    def test_the_published_baseline_records_how_to_reproduce_it(self):
+        baseline = json.loads((ROOT / "evals/results/baseline-keyword-v1.json").read_text(encoding="utf-8"))
+        run = baseline["run"]
+        for field in ("runner", "sechelix_commit", "fixture_suite_version", "cases_sha256"):
+            self.assertNotIn(run.get(field), (None, "", "NOT_MEASURED", "UNKNOWN"),
+                             f"published baseline is missing {field}")
+        self.assertEqual(run["case_count"], 66)
+
     def test_fixture_suite_resists_a_keyword_matcher(self):
         """A pattern matcher must stay near chance, or the fixtures are too easy."""
         import sys

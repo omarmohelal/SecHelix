@@ -11,17 +11,32 @@ This is not a security tool and it is not SecHelix. It exists for two reasons:
    state, or authorization reasoning.
 
 Usage:
+    # regenerate the published floor, end to end
+    python evals/baselines/keyword_baseline.py --score \
+        --output evals/results/baseline-keyword-v1.json
+
+    # or emit just the prediction packet
     python evals/baselines/keyword_baseline.py --cases work/blind-cases.json \
         --output work/baseline-predictions.json
+
+The published result must stay regenerable. An earlier copy was committed with no
+recorded suite version, so when the fixture suite grew from 19 fixtures to 33 the
+number silently became a statement about a suite that no longer existed.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
+
+ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_CASES = ROOT / "evals" / "blind-packet" / "cases.json"
 
 # Patterns a naive reviewer would treat as "smells". They are intentionally the
 # sort of surface signal a grep-based rule or an unsophisticated model uses.
@@ -45,7 +60,19 @@ def predict_label(source: str) -> tuple[str, list[str]]:
     return ("VULNERABLE" if hits else "CLEAN"), hits
 
 
-def build_predictions(cases: list[dict[str, Any]]) -> dict[str, Any]:
+def _git_head() -> str:
+    """Record which tree produced the number, so it can be reproduced."""
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "UNKNOWN"
+    return out.stdout.strip() if out.returncode == 0 else "UNKNOWN"
+
+
+def build_predictions(cases: list[dict[str, Any]], *, cases_sha256: str = "NOT_MEASURED") -> dict[str, Any]:
     rows = []
     for case in cases:
         label, hits = predict_label(case["source"])
@@ -70,6 +97,13 @@ def build_predictions(cases: list[dict[str, Any]]) -> dict[str, Any]:
         "input_tokens": 0,
         "output_tokens": 0,
         "cost": 0,
+        "sechelix_commit": _git_head(),
+        "fixture_suite_version": f"{len(rows)} cases",
+        "cases_sha256": cases_sha256,
+        "result_kind": "HARNESS_BASELINE",
+        # Load-bearing: this number is a statement about fixture difficulty, and
+        # must never be readable as SecHelix performance.
+        "is_sechelix_result": False,
         "limitations": [
             "This baseline is a naive pattern matcher, not a security review and not SecHelix.",
             "It performs no verification, so verified precision is not meaningful for this run.",
@@ -81,17 +115,31 @@ def build_predictions(cases: list[dict[str, Any]]) -> dict[str, Any]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cases", type=Path, required=True, help="blind case export")
-    parser.add_argument("--output", type=Path, help="prediction packet; stdout when omitted")
+    parser.add_argument("--cases", type=Path, default=DEFAULT_CASES, help="blind case export")
+    parser.add_argument("--output", type=Path, help="output file; stdout when omitted")
+    parser.add_argument("--score", action="store_true",
+                        help="score the packet against the fixtures and emit the result")
     args = parser.parse_args(argv)
 
-    payload = json.loads(args.cases.read_text(encoding="utf-8"))
-    predictions = build_predictions(payload["cases"])
-    text = json.dumps(predictions, indent=2, ensure_ascii=False) + "\n"
+    raw = args.cases.read_bytes()
+    payload = json.loads(raw.decode("utf-8"))
+    cases = payload if isinstance(payload, list) else payload["cases"]
+    predictions = build_predictions(cases, cases_sha256=hashlib.sha256(raw).hexdigest())
+
+    if args.score:
+        sys.path.insert(0, str(ROOT))
+        from evals.run_evals import load_fixtures, score
+
+        result = score(predictions, load_fixtures())
+        metrics = result["metrics"]
+        print(f"precision {metrics['precision']}  recall {metrics['recall']}")
+        predictions = result
+
+    text = json.dumps(predictions, indent=2, ensure_ascii=False, sort_keys=args.score) + "\n"
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(text, encoding="utf-8")
-        print(f"wrote {len(predictions['predictions'])} baseline predictions to {args.output}")
+        print(f"wrote {args.output}")
     else:
         print(text, end="")
     return 0

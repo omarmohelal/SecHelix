@@ -186,7 +186,13 @@ def score(predictions: Mapping[str, Any], fixtures: list[dict[str, Any]]) -> dic
             "input_tokens": predictions.get("input_tokens", "NOT_MEASURED"),
             "output_tokens": predictions.get("output_tokens", "NOT_MEASURED"),
             "cost": predictions.get("cost", "NOT_MEASURED"),
+            "cases_sha256": predictions.get("cases_sha256", "NOT_MEASURED"),
         },
+        # Carried through from the packet, never inferred. A result that does not
+        # say what it is must not be readable as a SecHelix score by omission, so
+        # the default is UNDECLARED rather than a boolean either way.
+        "result_kind": predictions.get("result_kind", "UNDECLARED"),
+        "is_sechelix_result": predictions.get("is_sechelix_result", "UNDECLARED"),
         "counts": {
             "true_positive": tp,
             "false_positive": fp,

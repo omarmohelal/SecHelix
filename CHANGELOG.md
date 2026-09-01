@@ -2,6 +2,61 @@
 
 All notable changes to SecHelix are documented here.
 
+## [3.2.0-alpha.1] - 2026-09-01
+
+### Packaging
+
+- Removed the root `SKILL.md`. It made the Skills CLI treat the whole repository
+  as the skill, so `npx skills add` installed 354 files / 5.1 MB including tests,
+  evals, CI config and a recursive copy of `skills/`. The canonical entry point
+  is `skills/sechelix/SKILL.md`, and installs are now **109 files / 1.5 MB**.
+  `scripts/validate_skill.py` fails if a root `SKILL.md` reappears.
+- Moved the specialist-agent index out of `agents/` to
+  `docs/reference/specialist-agents.md`. It was being loaded as an 18th agent.
+- Split the plugin marketplace into `omarmohelal/sechelix-marketplace`.
+  Co-locating it shadowed plugin validation.
+
+### Security depth
+
+- **Untrusted-repository mode** (`sechelix_core/untrusted_repo.py`). Under
+  `UNTRUSTED_REPO`, repository content is data and never control: `CLAUDE.md`,
+  `AGENTS.md`, settings files, hooks and docstrings cannot grant a capability,
+  promote themselves to instructions, or widen scope. Trust resolution fails
+  closed, and wildcard promotions are refused outright.
+- **Differential review** (`sechelix_core/diff_review.py`). Classifies a change
+  as `NEW_RISK`, `RISK_REDUCED`, `UNCHANGED` or `UNKNOWN` across 18 delta rules.
+- **Attack chain correlation** (`sechelix_core/attack_chains.py`). Composes
+  verified findings into five named chains. Only `VERIFIED` findings compose;
+  severity comes from the chain's outcome rather than from raising a component;
+  unverified compositions are `POTENTIAL` and carry no severity.
+- **Revision binding** (`sechelix_core/revision.py`). A report records the tree
+  it inspected, and the release gate exits `2 INCOMPLETE` rather than reusing a
+  report that describes a different commit.
+
+### Evidence and honesty
+
+- The keyword baseline is now reproducible in one command
+  (`python evals/baselines/keyword_baseline.py --score`), and the result carries
+  its commit, suite version and a SHA-256 of the exact case file. The published
+  figure had been scored against the 19-fixture suite and never regenerated, so
+  it had silently become a number about a suite that no longer existed. Rescored
+  on the current balanced 33/33 suite: **precision 0.512, recall 0.636**. The
+  precision is a coin flip and the recall is bought by flagging 41 of 66 cases,
+  a 0.61 false-positive rate. Still `is_sechelix_result: false`.
+- `score()` now carries `result_kind` and `is_sechelix_result` through from the
+  prediction packet, defaulting to `UNDECLARED`. Regenerating the baseline had
+  dropped both fields, which would have published an unlabelled number.
+- Corrected count drift across the docs (fixtures, gold packs, adapters) and
+  broadened the `CONTAMINATED_EVALUATOR` statement, which had been pinned to the
+  old suite size.
+- Added `evals/blind-packet/` so an uncontaminated evaluator can be run without
+  access to this repository. Benchmarks remain **NOT_MEASURED**.
+
+### Fixed
+
+- `scripts/check_local_links.py` no longer reports Markdown quoted inside code
+  spans and fenced blocks as broken links.
+
 ## [3.0.0-alpha.5] - 2026-09-01
 
 ### Credibility and evidence program

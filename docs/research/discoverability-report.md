@@ -37,7 +37,7 @@ This matters more than any metadata change: it converts one page competing for a
 states the measurement blocker explicitly rather than showing an unexplained placeholder. Both are
 in the sitemap and cross-linked from docs and `llms.txt`.
 
-**`llms.txt` refreshed** with the current inventory (5 gold packs, 19 fixtures / 38 cases, 73-node
+**`llms.txt` refreshed** with the current inventory (12 gold packs, 33 fixtures / 66 cases, 73-node
 knowledge graph, 1 case study) and an explicit instruction that the committed keyword baseline must
 never be cited as SecHelix performance. Answer engines that read this file get the honest framing
 rather than inferring capability from catalog size.

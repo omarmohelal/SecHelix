@@ -29,7 +29,7 @@
   "scanner_contribution": "NOT_MEASURED",
   "blocker": {
     "reason": "CONTAMINATED_EVALUATOR",
-    "statement": "No uncontaminated SecHelix run exists yet. The fixture suite was expanded on 2026-09-01 by the same assistant session that would have acted as the evaluated model, so that session had prior knowledge of 11 of the 19 fixtures. Scoring it would measure recall of authored answers, not security-review capability.",
+    "statement": "No uncontaminated SecHelix run exists yet. The 33-fixture / 66-case suite was authored and expanded by assistant sessions working inside this repository, including the sessions that would have acted as the evaluated model. Those sessions know the fixtures, the pairings and the rationales, so scoring one of them would measure recall of authored answers rather than security-review capability. The disqualification is deliberately broad: any session that has read evals/fixtures/, scripts/build_eval_fixtures.py, or gold-packs/*/pack.json is excluded, because partial knowledge of a paired suite still leaks the answer to its twin.",
     "what_would_unblock_it": [
       "A run by a model or session that has not read evals/fixtures/, scripts/build_eval_fixtures.py, or gold-packs/*/pack.json.",
       "Copy evals/blind-packet/cases.json out of this repository and evaluate it in an isolated session.",
@@ -38,7 +38,8 @@
       "Publish only if sechelix_commit, agent_host, model and limitations are all present."
     ],
     "harness_status": "VALIDATED — see evals/results/baseline-keyword-v1.json",
-    "packet_ready": "evals/blind-packet/ — 66 blind cases with exact run instructions"
+    "packet_ready": "evals/blind-packet/ — 66 blind cases with exact run instructions",
+    "suite_at_time_of_record": "33 fixtures / 66 cases / 10 families"
   },
   "fixture_suite": {
     "fixture_count": 33,

@@ -20,7 +20,7 @@ unverifiable claims.
   verified, fixed, and regression-proved, and one plausible high-severity XSS
   candidate refuted by verification. It is **not** a trophy entry, because the
   target repository is private and a reader cannot independently check it.
-- **[Eval fixtures](../../evals/)** — 19 paired vulnerable/clean fixtures, 38 cases.
+- **[Eval fixtures](../../evals/)** — 33 paired vulnerable/clean fixtures, 66 cases.
 - **[Evaluation protocol](../../docs/EVALUATION.md)** and the
   **[`NOT_MEASURED` record](../../evals/results/not-measured.json)** — the metrics that
   will eventually be published, and the documented reason none of them are yet.

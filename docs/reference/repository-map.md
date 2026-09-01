@@ -24,7 +24,7 @@ SecHelix/
 ├── scripts/                   # validation + release gates
 ├── examples/                  # scope + report examples
 ├── extensions/                # community extension registry
-├── evals/                     # 19 paired fixtures + NOT_MEASURED baseline
+├── evals/                     # 33 paired fixtures + NOT_MEASURED baseline
 ├── artifacts/                 # case-study evidence artifacts
 ├── docs/                      # quickstart, commands, evaluation, case studies
 └── .github/                   # CI + contribution templates

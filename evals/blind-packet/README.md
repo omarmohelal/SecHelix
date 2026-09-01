@@ -128,7 +128,7 @@ rather than a misleading `0.0`.
 ## Reference point
 
 `evals/results/baseline-keyword-v1.json` is a deterministic regex matcher — no model, no network —
-scored through the same pipeline. It lands at chance (precision 0.512). It exists to validate the
+scored through the same pipeline. It lands at chance on precision (0.512) while its recall (0.636) is bought by flagging 41 of 66 cases — a 0.61 false-positive rate. It exists to validate the
 harness and to evidence that the suite resists pattern matching. It is labelled
 `result_kind: HARNESS_BASELINE` with `is_sechelix_result: false` and must never be cited as
 SecHelix performance.

@@ -16,6 +16,25 @@ MARKDOWN_LINK = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 HTML_LINK = re.compile(r"\b(?:href|src)=[\"']([^\"']+)[\"']", re.IGNORECASE)
 SKIP_SCHEMES = {"http", "https", "mailto", "data", "javascript"}
 
+FENCED_BLOCK = re.compile(r"^(?P<fence>```+|~~~+)[^\n]*\n.*?^(?P=fence)[^\n]*$", re.M | re.S)
+INLINE_CODE = re.compile(r"(?P<ticks>`+)(?!`).*?(?<!`)(?P=ticks)(?!`)", re.S)
+
+
+def _blank(match: re.Match[str]) -> str:
+    """Replace a span with spaces, keeping newlines so line numbers stay true."""
+    return "".join("\n" if char == "\n" else " " for char in match.group(0))
+
+
+def mask_code(text: str) -> str:
+    """Hide fenced blocks and inline code spans from link matching.
+
+    Documentation that quotes Markdown — a submission draft showing the entry
+    line it will post, for instance — contains link syntax that is displayed
+    literally and is never navigable. Treating it as a link reports a break in
+    someone else's repository as a break in this one.
+    """
+    return INLINE_CODE.sub(_blank, FENCED_BLOCK.sub(_blank, text))
+
 
 def tracked_paths(root: Path) -> list[Path]:
     result = subprocess.run(["git", "-C", str(root), "ls-files", "-z"], check=True, capture_output=True)
@@ -39,7 +58,10 @@ def check_file(path: Path) -> list[str]:
     if path.suffix.lower() not in {".md", ".html"}:
         return []
     text = path.read_text(encoding="utf-8")
-    pattern = MARKDOWN_LINK if path.suffix.lower() == ".md" else HTML_LINK
+    is_markdown = path.suffix.lower() == ".md"
+    if is_markdown:
+        text = mask_code(text)
+    pattern = MARKDOWN_LINK if is_markdown else HTML_LINK
     findings = []
     for match in pattern.finditer(text):
         target = _target_path(path, match.group(1))

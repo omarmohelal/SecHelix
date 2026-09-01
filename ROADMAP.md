@@ -91,8 +91,8 @@ repository.
   explicitly not a SecHelix result;
 - **done** — publish the first real end-to-end case study with artifacts,
   including a refuted candidate;
-- **partial** — expand paired vulnerable/clean fixtures (now 19 fixtures /
-  38 cases / 11 families; more families and more per-family depth still needed);
+- **partial** — expand paired vulnerable/clean fixtures (now 33 fixtures /
+  66 cases / 10 families; more families and more per-family depth still needed);
 - **partial** — add framework, database, cloud, container, supply-chain, and
   AI-security lesson cards (7 cards exist, all CWE-anchored; the
   framework/cloud/container set is not started);

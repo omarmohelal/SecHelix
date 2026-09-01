@@ -11,7 +11,7 @@
   <a href="https://github.com/omarmohelal/SecHelix/actions"><img src="https://img.shields.io/github/actions/workflow/status/omarmohelal/SecHelix/validate.yml?branch=main&style=flat-square&label=validate" alt="validation"/></a>
   <a href="skills/sechelix/SKILL.md"><img src="https://img.shields.io/badge/security%20hypotheses-546-7dd3fc?style=flat-square" alt="546 hypotheses"/></a>
   <a href="#evaluation-and-proof-status"><img src="https://img.shields.io/badge/benchmark-NOT__MEASURED-f59e0b?style=flat-square" alt="benchmark NOT_MEASURED"/></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-3.0.0--alpha.5-9b8cff?style=flat-square" alt="3.0.0 alpha 5"/></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-3.2.0--alpha.1-9b8cff?style=flat-square" alt="3.2.0 alpha 1"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-a78bfa?style=flat-square" alt="Apache-2.0"/></a>
 </p>
 
@@ -51,7 +51,7 @@ A trusted finding should establish attacker control, reachability, a failed secu
 | Specialist mesh | **17 model-neutral role profiles**, including an independent verifier |
 | Contracts | **15 JSON Schema Draft 2020-12 contracts** for scope, applicability, evidence, findings, reports, extensions, knowledge, and Gold Check Packs |
 | Gold Check Packs | **5 deep reference packs** (IDOR, SSRF, race/idempotency, money invariants, AI/MCP tool authority) |
-| Eval fixtures | **19 paired fixtures — 38 cases across 10 families**, each with a vulnerable and a clean variant |
+| Eval fixtures | **33 paired fixtures — 66 cases across 10 families**, each with a vulnerable and a clean variant |
 | Knowledge graph | **73 nodes, 96 edges**, provenance-backed, plus **7 lesson cards** |
 | Evidence adapters | Semgrep, CodeQL/SARIF, OSV, Gitleaks, Trivy, npm/pnpm audit, Playwright, ZAP, Nuclei |
 | Reports | Markdown, redacted JSON, SARIF 2.1.0, escaped standalone HTML |
@@ -274,11 +274,11 @@ See [SECURITY.md](SECURITY.md).
 
 SecHelix has **no measured accuracy number**, and the reason is written down rather than glossed over.
 
-**The blocker is `CONTAMINATED_EVALUATOR`.** The fixture suite was expanded on 2026-09-01 by the same assistant session that would have acted as the evaluated model, so that session had prior knowledge of 11 of the 19 fixtures. Scoring it would measure recall of authored answers, not security-review capability. Full record: [`evals/results/not-measured.json`](evals/results/not-measured.json).
+**The blocker is `CONTAMINATED_EVALUATOR`.** The fixture suite was expanded on 2026-09-01 by the same assistant session that would have acted as the evaluated model, so that session knew fixtures it had written itself. Scoring it would measure recall of authored answers, not security-review capability. Full record: [`evals/results/not-measured.json`](evals/results/not-measured.json).
 
 Unblocking it requires a run by a model or session that did not author the fixtures, using blind cases exported with `python evals/run_evals.py --export-cases`.
 
-**The harness itself is validated.** [`evals/results/baseline-keyword-v1.json`](evals/results/baseline-keyword-v1.json) records a naive regex keyword matcher run against all 38 cases. It carries `"is_sechelix_result": false` and **is not a SecHelix score.** It exists to prove two things: the scoring harness works, and the fixtures cannot be solved by pattern matching — the matcher lands at chance on a balanced 19/19 split. That is a statement about fixture difficulty, nothing else.
+**The harness itself is validated.** [`evals/results/baseline-keyword-v1.json`](evals/results/baseline-keyword-v1.json) records a naive regex keyword matcher run against all 66 cases. It carries `"is_sechelix_result": false` and **is not a SecHelix score.** It exists to prove two things: the scoring harness works, and the fixtures cannot be solved by pattern matching — the matcher lands at chance on a balanced 33/33 split. That is a statement about fixture difficulty, nothing else.
 
 Metrics are defined in **[docs/EVALUATION.md](docs/EVALUATION.md)**: verified precision, detection recall on known-ground-truth fixtures, false-positive rejection rate, applicability accuracy, regression-proof rate, and release-gate accuracy. A public score is allowed only after a reproducible run records the exact SecHelix commit, fixture version, model/provider configuration, enabled tools, ground truth, observed outcomes, false positives and negatives, `UNKNOWN`/`BLOCKED` cases, and supporting artifacts.
 
@@ -291,7 +291,7 @@ Read this before adopting.
 - **No benchmark.** See above. Any accuracy claim about SecHelix today would be unsupported.
 - **One case study, `n = 1`.** A ~600 LOC app with no authentication and no server-side state, audited by its own owner. It demonstrates the workflow; it measures nothing about general performance.
 - **No public third-party results.** The [trophy case](docs/research/trophy-case.md) is empty on purpose.
-- **Alpha.** `3.0.0-alpha.5`. Contracts are versioned, but they can still change.
+- **Alpha.** `3.2.0-alpha.1`. Contracts are versioned, but they can still change.
 - **SecHelix is a methodology, not a scanner.** Output quality depends on the host agent, the model, and the tools you enable. It does not run itself.
 - **It cannot verify what it cannot reach.** Missing evidence yields `UNKNOWN` or `BLOCKED`, never `NOT_APPLICABLE`. That is the design, but it means an under-instrumented run returns honest non-answers rather than coverage.
 - **Authorized targets only.** See [SECURITY.md](SECURITY.md).

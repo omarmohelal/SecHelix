@@ -46,7 +46,9 @@ Awesome Lists" table with `Stars | 7d | 30d | 90d` columns. It ends with a gener
 `/l` holds one generated page per tracked upstream list; `/r` holds one generated page per tracked
 repository. Each `/l` page links out to the list it mirrors. For example, `l/agent-skills.md`:
 
-> "[Home](../README.md) | [Live site ↗](https://patrickclery.com/awesomer/l/agent-skills/) | [Source ↗](https://github.com/VoltAgent/awesome-agent-skills)"
+```markdown
+[Home](../README.md) | [Live site ↗](https://patrickclery.com/awesomer/l/agent-skills/) | [Source ↗](https://github.com/VoltAgent/awesome-agent-skills)
+```
 
 and `l/claude-skills.md` sources from `https://github.com/ComposioHQ/awesome-claude-skills`.
 

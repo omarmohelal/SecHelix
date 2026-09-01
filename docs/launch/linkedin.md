@@ -85,14 +85,14 @@ Stated plainly, because I would rather you hear it from me than find it later:
 
 • Benchmarks are **NOT_MEASURED**. The blocker is documented: the eval fixture suite was expanded on
 2026-09-01 by the same assistant session that would have acted as the evaluated model, so it had
-prior knowledge of 11 of the 19 fixtures. Scoring that would have measured recall of answers it wrote
+prior knowledge of fixtures it had written itself. Scoring that would have measured recall of answers it wrote
 itself, not security-review capability. Unblocking it requires a run by a model or session that did
 not author the fixtures, on blind exported cases. I could have published a number. It would have been
 a dishonest number.
 
 • There is a harness baseline in the repo that is **explicitly not a SecHelix score**. It is a naive
 regex keyword matcher, run only to prove the scoring harness works and that the fixtures cannot be
-solved by pattern matching. It scored precision 0.5 and recall 0.53 on a balanced 19/19 split, which
+solved by pattern matching. It scored precision 0.512 and recall 0.636 on a balanced 33/33 split, which
 is chance level. Read that as evidence about **fixture difficulty**, not about how SecHelix performs.
 
 • This case study is **one** small application, roughly 600 lines, with no authentication and no
