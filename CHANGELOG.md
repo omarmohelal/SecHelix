@@ -32,6 +32,19 @@ All notable changes to SecHelix are documented here.
 - **Revision binding** (`sechelix_core/revision.py`). A report records the tree
   it inspected, and the release gate exits `2 INCOMPLETE` rather than reusing a
   report that describes a different commit.
+- **Patch mode** (`sechelix_core/patch_mode.py`). Emits a `.patch` and a `.md`
+  rationale for `VERIFIED` findings only, and never applies anything. A diff is
+  persuasive, so the persuasion has to be earned by verification first. Each
+  rationale states what the patch does *not* cover, and a `NOT_RUN` regression
+  status is never upgraded.
+- **Variant rule generation** (`sechelix_core/variant_rules.py`). Turns a
+  verified finding into a Semgrep rule so siblings of the same root cause can be
+  swept. Rules are `UNVALIDATED` until run, hits are `HYPOTHESIS`, and severity
+  is `INFO` regardless of the seed — a syntactic match inherits none of the
+  seed's evidence.
+- All six modules are now reachable from `skills/sechelix/SKILL.md`, which
+  previously referenced none of them. Capability the workflow cannot reach is
+  dead code.
 
 ### Evidence and honesty
 
@@ -52,10 +65,28 @@ All notable changes to SecHelix are documented here.
 - Added `evals/blind-packet/` so an uncontaminated evaluator can be run without
   access to this repository. Benchmarks remain **NOT_MEASURED**.
 
+### Discoverability
+
+- Recorded a **measured discovery baseline**: 6 queries run on 2026-09-01, 0
+  found, including the brand name itself. Absence is now falsifiable.
+- Shipped `.github/skills/sechelix/SKILL.md`, a documented Copilot repository
+  skill directory the README already claimed existed.
+
 ### Fixed
 
 - `scripts/check_local_links.py` no longer reports Markdown quoted inside code
   spans and fenced blocks as broken links.
+- `SKILL.md` documented `diff_review.classify_changes`, which never existed; the
+  module exports `review_diff`. Every gate passed while the skill pointed an
+  agent at nothing, because none of them read `SKILL.md` as code.
+  `tests/test_skill_references.py` now asserts every referenced module imports
+  and every referenced attribute exists.
+- The README claimed a `.codex/skills/` adapter that was never present, and that
+  this project's own compatibility matrix says not to rely on. The claim is gone
+  and the row reads `NOT_SHIPPED`.
+- `scripts/validate_skill.py` checked three adapter surfaces, so a deleted
+  adapter could leave the README asserting a directory nobody would notice was
+  missing. It now checks all four.
 
 ## [3.0.0-alpha.5] - 2026-09-01
 
