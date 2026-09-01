@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,6 +17,10 @@ from typing import Any, Mapping, Sequence
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from sechelix_core.revision import assess_freshness  # noqa: E402
+
 SEVERITIES = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"}
 FINDING_STATUSES = {
     "HYPOTHESIS", "VERIFIED", "LIKELY_BUT_UNPROVEN", "LIKELY_UNPROVEN",
@@ -339,9 +344,27 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("report", type=Path, help="canonical SecHelix JSON report")
     parser.add_argument("--policy", type=Path, default=ROOT / "policies/default.json", help="organization policy pack (JSON)")
     parser.add_argument("--json-output", action="store_true", help="emit the decision as JSON")
+    parser.add_argument(
+        "--current-commit",
+        help="commit being released; the gate refuses a report bound to a different revision",
+    )
+    parser.add_argument(
+        "--current-working-tree", choices=("CLEAN", "DIRTY"), default="CLEAN",
+        help="whether the tree being released has uncommitted changes",
+    )
     args = parser.parse_args(argv)
     try:
-        decision = evaluate(_load_json(args.report, "report"), _load_json(args.policy, "policy"))
+        report = _load_json(args.report, "report")
+        if args.current_commit:
+            # A report that describes another tree cannot gate this one.
+            verdict = assess_freshness(
+                report,
+                current_commit=args.current_commit,
+                current_working_tree=args.current_working_tree,
+            )
+            if not verdict.usable:
+                raise GateInputError(f"report is not current for this release: {verdict.reason}")
+        decision = evaluate(report, _load_json(args.policy, "policy"))
     except GateInputError as exc:
         decision = GateDecision("INCOMPLETE", (str(exc),), (), (str(exc),))
     if args.json_output:

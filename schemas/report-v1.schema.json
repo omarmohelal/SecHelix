@@ -173,6 +173,100 @@
       "minLength": 1,
       "maxLength": 64,
       "description": "Deployment state of the reviewed build; policies may forbid specific states."
+    },
+    "target_revision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "commit",
+        "working_tree"
+      ],
+      "description": "The exact tree this report inspected. A report is stale for any other revision.",
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,64}$"
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "working_tree": {
+          "enum": [
+            "CLEAN",
+            "DIRTY"
+          ],
+          "description": "DIRTY means uncommitted changes were present, so the commit alone does not identify what was inspected."
+        },
+        "dirty_paths": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sechelix_version",
+        "started_at",
+        "completed_at"
+      ],
+      "description": "Provenance of the run that produced this report.",
+      "properties": {
+        "sechelix_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "sechelix_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,64}$"
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "agent_host": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "completed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "verification_depth": {
+          "enum": [
+            "NONE",
+            "SELF_REVIEW",
+            "INDEPENDENT",
+            "INDEPENDENT_MULTI_MODEL"
+          ],
+          "description": "How material findings were challenged."
+        }
+      }
     }
   }
 }
