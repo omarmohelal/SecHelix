@@ -31,17 +31,18 @@
     "reason": "CONTAMINATED_EVALUATOR",
     "statement": "No uncontaminated SecHelix run exists yet. The fixture suite was expanded on 2026-09-01 by the same assistant session that would have acted as the evaluated model, so that session had prior knowledge of 11 of the 19 fixtures. Scoring it would measure recall of authored answers, not security-review capability.",
     "what_would_unblock_it": [
-      "A run by a model or session that did not author the fixtures.",
-      "Export blind cases with `python evals/run_evals.py --export-cases work/blind-cases.json`.",
-      "Produce predictions without access to this repository's evals/fixtures directory.",
-      "Score with `python evals/run_evals.py --predictions work/predictions.json --output work/result.json`.",
-      "Record every field in the run object, including sechelix_commit and agent_host."
+      "A run by a model or session that has not read evals/fixtures/, scripts/build_eval_fixtures.py, or gold-packs/*/pack.json.",
+      "Copy evals/blind-packet/cases.json out of this repository and evaluate it in an isolated session.",
+      "Produce a prediction packet with every field of the run record populated.",
+      "Score with: python evals/run_evals.py --predictions work/predictions.json --output work/result.json",
+      "Publish only if sechelix_commit, agent_host, model and limitations are all present."
     ],
-    "harness_status": "VALIDATED — see evals/results/baseline-keyword-v1.json"
+    "harness_status": "VALIDATED — see evals/results/baseline-keyword-v1.json",
+    "packet_ready": "evals/blind-packet/ — 66 blind cases with exact run instructions"
   },
   "fixture_suite": {
-    "fixture_count": 19,
-    "case_count": 38,
+    "fixture_count": 33,
+    "case_count": 66,
     "families": 10,
     "family_ids": [
       "AI",
