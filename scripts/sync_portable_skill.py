@@ -52,8 +52,8 @@ def copy_file(source: Path, destination: Path) -> None:
 
 def sync() -> list[Path]:
     copied: list[Path] = []
-    copy_file(ROOT / "SKILL.md", DEST / "SKILL.md")
-    copied.append(DEST / "SKILL.md")
+    # skills/sechelix/SKILL.md is the canonical Agent Skill entry point and is
+    # authored in place; the sync only mirrors the runtime resources around it.
     copy_file(ROOT / "docs" / "portable-skill.md", DEST / "README.md")
     copied.append(DEST / "README.md")
 

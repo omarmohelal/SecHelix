@@ -100,7 +100,7 @@ Do not claim one provider is the "best hacker" without eval evidence. Benchmark 
 If a coding agent has no native skill loader:
 
 1. place `skills/sechelix/` in the repository;
-2. point the agent at `skills/sechelix/SKILL.md` or the root `SKILL.md`;
+2. point the agent at `skills/sechelix/SKILL.md` or the canonical `skills/sechelix/SKILL.md`;
 3. use `AGENTS.md` for repository-level instructions;
 4. keep scanner, browser, and database tools outside the model-specific methodology.
 

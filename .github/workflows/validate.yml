@@ -31,15 +31,15 @@ jobs:
         run: |
           from pathlib import Path
           import re
-          p = Path('SKILL.md')
+          p = Path('skills/sechelix/SKILL.md')
           text = p.read_text(encoding='utf-8')
-          assert text.startswith('---\n'), 'SKILL.md must start with YAML frontmatter'
+          assert text.startswith('---\n'), 'skills/sechelix/SKILL.md must start with YAML frontmatter'
           front = text.split('---', 2)[1]
           name = re.search(r'^name:\s*(.+)$', front, re.M)
           desc = re.search(r'^description:\s*(.+)$', front, re.M)
           assert name and name.group(1).strip() == 'sechelix'
           assert desc and 0 < len(desc.group(1).strip()) <= 1024
-          assert len(text.splitlines()) < 500, 'Keep SKILL.md under 500 lines'
+          assert len(text.splitlines()) < 500, 'Keep skills/sechelix/SKILL.md under 500 lines'
           print('OK: canonical skill frontmatter and size')
       - name: Ensure adapter mirrors exist
         shell: python
@@ -48,9 +48,7 @@ jobs:
           required = [
             'skills/sechelix/SKILL.md',
             '.claude/skills/sechelix/SKILL.md',
-            '.codex/skills/sechelix/SKILL.md',
             '.agents/skills/sechelix/SKILL.md',
-            '.github/skills/sechelix/SKILL.md',
           ]
           missing = [p for p in required if not Path(p).is_file()]
           assert not missing, f'missing adapters: {missing}'

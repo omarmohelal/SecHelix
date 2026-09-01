@@ -5,7 +5,7 @@ description: Run SecHelix evidence-first application-security audits on authoriz
 
 # SecHelix for Claude Code
 
-Read and follow the repository root `SKILL.md` as the canonical workflow. Use the project-local supporting resources under `catalog/`, `references/`, `agents/`, `examples/`, and `scripts/`.
+Read and follow `skills/sechelix/SKILL.md` as the canonical workflow. Use the project-local supporting resources under `catalog/`, `references/`, `agents/`, `examples/`, and `scripts/`.
 
 Claude-specific orchestration guidance:
 
@@ -15,4 +15,4 @@ Claude-specific orchestration guidance:
 - For High/Critical candidates, spawn an independent verifier that is asked to refute the finding rather than confirm it.
 - Do not let dynamic testing leave authorized local/staging scope unless the operator explicitly authorizes a bounded production-safe check.
 
-The methodology, severity rules, safety policy, and evidence standard are defined only in the root `SKILL.md`; do not fork them here.
+The methodology, severity rules, safety policy, and evidence standard are defined only in the canonical `skills/sechelix/SKILL.md`; do not fork them here.

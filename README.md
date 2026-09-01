@@ -97,7 +97,7 @@ independently verify High/Critical candidates, fix root causes, add regression p
 and produce the final release gate.
 ```
 
-**Next:** [5-minute Quickstart](docs/QUICKSTART.md) · [Command cookbook](docs/COMMANDS.md) · [Compatibility](COMPATIBILITY.md)
+**Next:** [5-minute Quickstart](docs/QUICKSTART.md) · [Command cookbook](docs/COMMANDS.md) · [Compatibility](docs/reference/compatibility.md)
 
 <details>
 <summary><strong>Claude Code</strong></summary>
@@ -344,7 +344,7 @@ Read this before adopting.
 
 - **No benchmark.** See above. Any accuracy claim about SecHelix today would be unsupported.
 - **One case study, `n = 1`.** A ~600 LOC app with no authentication and no server-side state, audited by its own owner. It demonstrates the workflow; it measures nothing about general performance.
-- **No public third-party results.** The [trophy case](TROPHY_CASE.md) is empty on purpose.
+- **No public third-party results.** The [trophy case](docs/research/trophy-case.md) is empty on purpose.
 - **Alpha.** `3.0.0-alpha.5`. Contracts are versioned, but they can still change.
 - **SecHelix is a methodology, not a scanner.** Output quality depends on the host agent, the model, and the tools you enable. It does not run itself.
 - **It cannot verify what it cannot reach.** Missing evidence yields `UNKNOWN` or `BLOCKED`, never `NOT_APPLICABLE`. That is the design, but it means an under-instrumented run returns honest non-answers rather than coverage.
@@ -368,7 +368,7 @@ Recommended rollout:
 5. keep `UNKNOWN`/`BLOCKED` visible and fail closed where evidence is required;
 6. measure precision, recall on known fixtures, time to verification, regression-proof rate, and recurrence.
 
-Full guide: **[docs/ENTERPRISE-ADOPTION.md](docs/ENTERPRISE-ADOPTION.md)** · commercial boundary: [COMMERCIAL.md](COMMERCIAL.md)
+Full guide: **[docs/ENTERPRISE-ADOPTION.md](docs/ENTERPRISE-ADOPTION.md)** · commercial boundary: [COMMERCIAL.md](docs/business/commercial.md)
 
 ## Model mesh
 
@@ -422,13 +422,13 @@ SecHelix/
 - [Case study: gamingops-store](docs/case-studies/gamingops-store-2026-09-01.md)
 - [Evaluation protocol](docs/EVALUATION.md)
 - [Enterprise adoption](docs/ENTERPRISE-ADOPTION.md)
-- [Compatibility](COMPATIBILITY.md)
+- [Compatibility](docs/reference/compatibility.md)
 - [Architecture](ARCHITECTURE.md)
 - [Security policy](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
 - [Extensions](docs/EXTENSIONS.md)
 - [Roadmap](ROADMAP.md)
-- [Trophy case](TROPHY_CASE.md)
+- [Trophy case](docs/research/trophy-case.md)
 - [Live docs](https://sechelix.com/docs)
 - [FAQ](https://sechelix.com/faq)
 - [AI-readable llms.txt](https://sechelix.com/llms.txt)
@@ -469,7 +469,7 @@ The [gamingops-store case study](docs/case-studies/gamingops-store-2026-09-01.md
 
 Found a real bug using SecHelix? Open a [trophy-case submission](https://github.com/omarmohelal/SecHelix/issues/new?template=trophy-case.yml) with the public repository, SecHelix version, safe evidence, a public fix reference, and attribution permission.
 
-See [TROPHY_CASE.md](TROPHY_CASE.md).
+See [TROPHY_CASE.md](docs/research/trophy-case.md).
 
 ## Contributing
 
