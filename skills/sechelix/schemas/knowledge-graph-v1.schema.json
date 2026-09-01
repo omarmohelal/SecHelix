@@ -18,7 +18,12 @@
         "required": ["id", "type", "label", "provenance", "source_ids"],
         "properties": {
           "id": {"type": "string", "pattern": "^[A-Z][A-Z0-9._:-]{2,95}$"},
-          "type": {"enum": ["CWE", "CAPEC", "OWASP_TOP10", "OWASP_ASVS", "SECHELIX_FAMILY"]},
+          "type": {
+            "enum": [
+              "CWE", "CAPEC", "OWASP_TOP10", "OWASP_API_TOP10", "OWASP_LLM_TOP10",
+              "OWASP_ASVS", "NIST_SSDF", "SECHELIX_FAMILY"
+            ]
+          },
           "label": {"type": "string", "minLength": 2, "maxLength": 180},
           "provenance": {"enum": ["EXTERNAL", "INTERNAL"]},
           "source_ids": {

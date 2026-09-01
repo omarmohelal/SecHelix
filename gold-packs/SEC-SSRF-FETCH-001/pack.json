@@ -1,0 +1,203 @@
+{
+  "schema_version": "1.0",
+  "id": "SEC-SSRF-FETCH-001",
+  "version": "0.1.0",
+  "title": "Server-side fetch destination control across resolution and redirects",
+  "lifecycle": "REFERENCE",
+  "threat_model": {
+    "actor": "Any caller able to influence a URL, host, or stored callback target that the server later fetches",
+    "asset": "Internal network reachability and the authority the server holds by network position, including instance metadata and unauthenticated internal services",
+    "trust_boundary": "The validated URL to the destination the socket actually connects to",
+    "failure_mode": "Validation is applied to a parsed URL or a resolved address that is not the one used for the request, and is not repeated for each redirect hop",
+    "impact": "The server can be induced to issue requests to internal destinations and to return or act on the response, exposing internal services and credential-bearing endpoints"
+  },
+  "applicability": {
+    "capability_tags": ["outbound_http", "url_fetching", "webhooks", "link_preview", "remote_import"],
+    "rule": "ANY_CAPABILITY_PRESENT",
+    "required_evidence": [
+      "The server issues an outbound request to a destination derived from caller-supplied data",
+      "The destination is not restricted to a fixed set of hosts fixed at deployment time"
+    ]
+  },
+  "framework_fingerprints": [
+    {
+      "framework": "generic-http-client",
+      "versions": ["any"],
+      "signals": [
+        "A validated URL is handed to a client with redirect following enabled",
+        "Validation resolves the hostname separately from the connection, leaving a resolution gap",
+        "Only a denylist of literal hosts or prefixes is applied, without address-family and range checks"
+      ]
+    },
+    {
+      "framework": "webhook-delivery",
+      "versions": ["any"],
+      "signals": [
+        "A user-registered callback URL is validated at registration and fetched later without revalidation",
+        "Delivery retries reuse a stored URL that no current check has examined"
+      ]
+    },
+    {
+      "framework": "document-processor",
+      "versions": ["any"],
+      "signals": [
+        "A parser or renderer resolves subresources, external entities, or remote stylesheets on its own",
+        "A headless browser or converter navigates to caller-influenced URLs outside the validated fetch helper"
+      ]
+    },
+    {
+      "framework": "python-synthetic-fixture",
+      "versions": ["3.x"],
+      "signals": [
+        "A preview helper validates the parsed hostname and then calls the client with redirects enabled",
+        "A preview helper passes a caller-supplied URL straight into a URL opener"
+      ]
+    }
+  ],
+  "sources": {
+    "source_ids": ["mitre-cwe", "mitre-capec", "owasp-top-10", "owasp-api-top-10"],
+    "catalog_hypothesis_ids": ["SHX-SSRF-L01", "SHX-SSRF-L09", "SHX-SSRF-L17", "SHX-SSRF-L18"],
+    "references": [
+      "https://cwe.mitre.org/data/definitions/918.html",
+      "https://capec.mitre.org/data/definitions/664.html",
+      "https://owasp.org/www-project-top-ten/",
+      "https://owasp.org/API-Security/"
+    ]
+  },
+  "boundary": {
+    "type": "OUTBOUND_DESTINATION",
+    "subject": "the fetching component and the network position it occupies",
+    "object": "the destination finally connected to, after parsing, resolution, and redirects",
+    "action": "FETCH",
+    "invariant": "Every connection the fetch makes, including each redirect hop, terminates at an address that passed the destination policy immediately before that connection"
+  },
+  "sinks": [
+    {"kind": "HTTP_CLIENT_CALL", "examples": ["Link preview fetch", "Server-side image proxy", "Remote JWKS or metadata document retrieval"]},
+    {"kind": "WEBHOOK_DELIVERY", "examples": ["Customer-registered callback request", "Retry against a stored delivery target"]},
+    {"kind": "REMOTE_IMPORT", "examples": ["Import from URL", "Feed or dataset ingestion", "Avatar or attachment fetch by URL"]},
+    {"kind": "PARSER_SUBRESOURCE_FETCH", "examples": ["XML external entity resolution", "SVG or CSS subresource loading", "Headless browser navigation during rendering"]}
+  ],
+  "detection_layers": [
+    {
+      "layer": "STATIC",
+      "signals": [
+        "Trace the URL from the entrypoint to the client call and note every place it is re-parsed, joined, or rewritten",
+        "Record whether redirect following is enabled and whether each redirect target is revalidated before the next connection",
+        "Find fetches that bypass the validated helper entirely, including SDK clients, template renderers, and document parsers"
+      ]
+    },
+    {
+      "layer": "CONTRACT",
+      "signals": [
+        "State the destination policy as an allowlist over resolved addresses and compare it with what the code actually asserts",
+        "Look for the resolution gap where validation resolves the name once and the connection resolves it again",
+        "Decide whether status, body, timing, or error differences reach the caller, since that separates reflected from blind reachability"
+      ]
+    },
+    {
+      "layer": "DATA",
+      "signals": [
+        "Identify stored callback or import URLs that were validated once at registration and are fetched repeatedly afterwards",
+        "Establish the workload's egress policy and whether link-local or internal ranges are routable from it"
+      ]
+    },
+    {
+      "layer": "LOCAL_RUNTIME",
+      "signals": [
+        "Point the fetch at a locally controlled server that redirects to a loopback address and record whether the second hop is attempted",
+        "Replay normalization cases — userinfo, alternate encodings, non-HTTP schemes, IPv6 and IPv4-mapped forms — through the validator alone"
+      ]
+    },
+    {
+      "layer": "STAGING_SAFE",
+      "signals": [
+        "Within an authorized staging environment holding no production data, record only whether an internal destination is reachable, and stop there"
+      ]
+    }
+  ],
+  "validation": {
+    "default_mode": "LOCAL",
+    "destructive_actions": false,
+    "production_mutation": false,
+    "steps": [
+      "Confirm explicit authorization and aim every probe at a local server under your control, never at third-party or internal production hosts",
+      "Fetch an allowed local destination first, so a later denial can be distinguished from a broken harness",
+      "Serve a redirect from the allowed destination to a loopback or link-local address and record whether a second connection is attempted",
+      "Replay URL normalization variants through the validation function alone and record which inputs it accepts",
+      "Record the validation point, the client's redirect configuration, and whether response content reaches the caller"
+    ]
+  },
+  "false_positive_filters": [
+    "The destination set is a fixed allowlist known at deploy time and no caller input can introduce a new host",
+    "An egress proxy enforces the destination policy at connection time, evidenced in configuration rather than assumed from architecture diagrams",
+    "Redirect following is disabled and each hop is revalidated within the reviewed code",
+    "The workload has no route to internal ranges and the network policy is evidenced rather than inferred from the environment's name",
+    "The URL is server-derived from a trusted record and no caller-controlled path reaches the fetch",
+    "No status, body, timing, or error difference is observable to the caller, which reduces the claim to blind reachability and requires a separate impact argument"
+  ],
+  "verification": {
+    "independent_required": true,
+    "required_evidence": [
+      "The caller-controlled portion of the destination and the reachable path from the entrypoint to the client call",
+      "The validation point and the connection point side by side, showing the gap between them: a redirect, a re-resolution, or a re-parse",
+      "A safe reproduction against a locally controlled destination that demonstrates the unvalidated hop",
+      "What the caller learns from the fetch and which internal destination is reachable from the workload's network position"
+    ],
+    "refutation_tests": [
+      "Re-read the client configuration for disabled redirects, a hop limit, or a proxy that applies the policy at connect time",
+      "Establish whether the deployment can route to the claimed internal destination at all before asserting impact",
+      "Exercise the validator in isolation on the same inputs to separate a parser weakness from a request-time weakness",
+      "Check whether an equivalent unvalidated fetch already exists on a path the reviewer assumed safe, which would move the root cause rather than remove the finding"
+    ]
+  },
+  "root_causes": [
+    "Validation runs against a parsed URL while the request is issued from the original string, so parser differentials decide the destination",
+    "The name is resolved once for validation and again for the connection, so the address can change between them",
+    "Redirect handling is delegated to the client, which applies no destination policy",
+    "A denylist of literal addresses stands in for an allowlist over resolved destinations",
+    "A callback URL is validated at registration and trusted indefinitely afterwards",
+    "A second fetch path — parser, renderer, or SDK — never passes through the validated helper"
+  ],
+  "variant_strategy": {
+    "anchor_fields": ["invariant", "boundary", "action"],
+    "variant_dimensions": ["actor", "object", "identity_state", "enforcement_layer", "sink_kind", "framework"],
+    "result_contract": "EXACT | VARIANT | REFUTED | BLOCKED; exact and variant matches remain hypotheses until verified"
+  },
+  "remediation": {
+    "canonical_invariant": "Resolve the destination, apply the policy to the resolved address, connect to that address, and repeat the whole sequence for every redirect hop",
+    "patterns": [
+      "Disable automatic redirects and revalidate each hop explicitly inside a bounded loop",
+      "Pin the connection to the address that was validated so resolution cannot change between check and connect",
+      "Prefer an allowlist of destinations over a denylist of internal ranges, and reject non-HTTP schemes at the boundary",
+      "Route every outbound fetch through one egress proxy or fetch service that enforces the policy at connection time, and remove direct client use",
+      "Revalidate stored callback URLs at delivery time and on every retry, not only at registration",
+      "Remove ambient authority from the fetching workload's network position, including metadata endpoint access, so reachability alone yields little",
+      "Disable subresource and external-entity resolution in parsers and renderers, and bound what the response exposes to the caller"
+    ]
+  },
+  "regression": {
+    "fixture_ids": ["EVAL-SSRF-002", "EVAL-SSRF-001"],
+    "assertions": [
+      "The vulnerable link-preview variant validates the initial host and then follows a redirect to a private address without revalidating it",
+      "The remediated link-preview variant disables redirect following and revalidates every hop within a bounded loop",
+      "The vulnerable preview variant passes a caller-supplied URL to the fetch with no scheme or destination policy",
+      "The remediated preview variant enforces an https allowlist and delegates to a fetcher that blocks private networks",
+      "Remediated variants still fetch the allowed destination, so the assertion distinguishes enforcement from an unconditional refusal"
+    ]
+  },
+  "mappings": {
+    "cwe": ["CWE-918", "CWE-367", "CWE-441"],
+    "owasp": ["OWASP-A10:2021", "OWASP-API7:2023", "OWASP-ASVS:V5"]
+  },
+  "calibration": {
+    "measurement_status": "NOT_MEASURED",
+    "sample_size": 0,
+    "notes": "This pack has not completed a reproducible benchmark run and makes no precision or recall claim."
+  },
+  "limitations": [
+    "Local reproductions show code behaviour, not whether an internal destination exists or answers in the deployed environment",
+    "Egress proxies and network policies are frequently the real control and live outside the reviewed repository",
+    "Resolution behaviour depends on the resolver, client library, and platform, so fixture results may not transfer between runtimes",
+    "Blind reachability without an observable response needs its own impact argument and must not be reported as data exposure"
+  ]
+}

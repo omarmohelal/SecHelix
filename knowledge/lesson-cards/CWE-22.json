@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "lesson_id": "LC-CWE-22",
+  "title": "Path containment for file read, write, and extraction paths",
+  "updated_at": "2026-09-01T00:00:00Z",
+  "domains": ["web", "api"],
+  "summary": "Path traversal becomes plausible when attacker-influenced data participates in building a filesystem or object-store path and containment is judged before the path is fully resolved. Verification must establish the exact string that reaches the file operation, the resolution performed by the runtime and the operating system, whether the resolved location escapes the intended base directory, and what the process can actually read, write, or execute there.",
+  "detection_signals": [
+    "A filename, key, template name, archive entry, or storage prefix taken from a request, upload, or import is concatenated or joined into a path used by an open, copy, delete, or serve operation.",
+    "Containment is checked on the raw input before decoding, normalization, symlink resolution, or the platform's own separator and drive handling.",
+    "Archive extraction, backup restore, or bulk import code writes entries using the path recorded inside the archive rather than a path the server generates."
+  ],
+  "safe_local_tests": [
+    "Run the file operation against a disposable sandbox directory tree with a marker file outside the intended base, and assert on the fully resolved absolute path the code computes.",
+    "Cover encoding and platform variants explicitly, including percent and double encoding, mixed separators, absolute paths, and trailing dot or space forms, so the parser rather than a guess decides the outcome.",
+    "Record the raw input, the resolved path, the base directory, the containment decision, and whether any byte was read or written outside the base as regression evidence."
+  ],
+  "false_positive_traps": [
+    "User-supplied filenames are not a traversal finding when the server generates the stored path and keeps the original name only as untrusted metadata in a download header.",
+    "A rejected literal sequence proves that one filter works, not that containment holds, and equally a filter's absence is not proof until a resolved path escapes the base.",
+    "A traversal that lands inside a container, chroot, or object-store prefix that holds nothing sensitive is a real defect but not automatically a high-impact finding, so reachable content decides severity."
+  ],
+  "remediation_patterns": [
+    "Build the path from server-controlled data by mapping an opaque identifier to a stored location, so untrusted text never becomes a path component.",
+    "When a name must be used, resolve the candidate path to its canonical absolute form first and then verify that it stays under the intended base, rejecting rather than repairing anything outside.",
+    "Reject archive entries with absolute paths, parent references, or symlinks before extraction, and keep upload directories non-executable and outside the served document root."
+  ],
+  "regression_proof": [
+    "A test proves the previously escaping input is now rejected after canonical resolution while a legitimate in-base filename is still served.",
+    "Coverage includes encoded and platform-specific variants and the archive extraction path, so a later refactor that validates before normalizing fails the suite."
+  ],
+  "mapping_node_ids": [
+    "CWE-22",
+    "CAPEC-126",
+    "OWASP-TOP10-2021-A01",
+    "OWASP-ASVS-5.0.0-V5.3.2",
+    "SHX-FAMILY-FILE"
+  ],
+  "source_ids": ["mitre-cwe", "mitre-capec", "owasp-top-10", "owasp-asvs"]
+}

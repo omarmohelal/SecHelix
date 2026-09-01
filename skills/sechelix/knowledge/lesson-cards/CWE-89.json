@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "lesson_id": "LC-CWE-89",
+  "title": "Injection through query construction and dataflow gaps",
+  "updated_at": "2026-09-01T00:00:00Z",
+  "domains": ["web", "api", "database"],
+  "summary": "SQL and comparable query injection becomes plausible when untrusted data reaches a query, command, or template that the interpreter parses as structure rather than as a value. Verification must follow the real dataflow to the sink, establish whether the value is bound as a parameter or concatenated into the statement, identify the interpreter that actually parses it, and demonstrate a bounded change in query structure rather than assuming that any dynamic string is exploitable.",
+  "detection_signals": [
+    "Request, queue, file, or third-party data reaches a query builder, raw execution helper, stored procedure argument, or ORM escape hatch that accepts a statement fragment.",
+    "Identifiers that cannot be bound as parameters, such as table names, column names, sort keys, or direction tokens, are interpolated from request data instead of mapped from a fixed set.",
+    "Escaping, encoding, or sanitization is applied in a different layer, character set, or order than the interpreter that finally parses the statement."
+  ],
+  "safe_local_tests": [
+    "Exercise the sink against a disposable local database seeded with fixture rows, and assert on the statement the driver actually issues rather than on the rendered page alone.",
+    "Prove structure change with a benign, non-destructive payload such as a tautology or an added ordering term, and never run destructive, timing-abusive, or data-exfiltrating payloads on shared systems.",
+    "Record the source parameter, the executed statement text, the bound parameter list, and the resulting row set as the dataflow evidence for the finding."
+  ],
+  "false_positive_traps": [
+    "String concatenation is not proof when the concatenated value is a server-generated constant, an enum already validated against an allowlist, or a value the driver still binds as a parameter.",
+    "A database error message is evidence of parsing, not of an exploitable structure change, and error-based signals can also come from type coercion or a driver-level rejection.",
+    "A grep hit on a raw query helper may sit behind an unreachable role, a disabled feature flag, or a migration path that never receives untrusted input."
+  ],
+  "remediation_patterns": [
+    "Bind every value through parameterized queries, prepared statements, or the ORM's typed API, and treat any remaining concatenation as an exception that needs a documented justification.",
+    "Map non-bindable identifiers such as sort columns and table names through a server-side allowlist that translates a request token into a fixed, code-owned identifier.",
+    "Keep validation, encoding, and the executing interpreter aligned in one layer, and give the application's database account only the privileges the feature needs so a residual defect stays bounded."
+  ],
+  "regression_proof": [
+    "A test replays the exact payload that previously changed query structure and asserts that it is now treated as a literal value with an unchanged statement shape.",
+    "Coverage includes the non-bindable identifier paths, nested and batch queries, and a negative case proving that legitimate values with quotes or comment characters still work."
+  ],
+  "mapping_node_ids": [
+    "CWE-89",
+    "CAPEC-66",
+    "OWASP-TOP10-2021-A03",
+    "OWASP-ASVS-5.0.0-V1.2.4",
+    "SHX-FAMILY-INJ"
+  ],
+  "source_ids": ["mitre-cwe", "mitre-capec", "owasp-top-10", "owasp-asvs"]
+}

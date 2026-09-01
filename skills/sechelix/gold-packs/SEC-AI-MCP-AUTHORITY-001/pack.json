@@ -1,0 +1,207 @@
+{
+  "schema_version": "1.0",
+  "id": "SEC-AI-MCP-AUTHORITY-001",
+  "version": "0.1.0",
+  "title": "Tool authority for agents that consume untrusted content",
+  "lifecycle": "REFERENCE",
+  "threat_model": {
+    "actor": "Anyone able to place text into content the agent reads: a ticket, a document, a page, a repository file, or a tool result",
+    "asset": "The authority of the run's tool set — the credentials, data, and side effects reachable through the tools the agent may call",
+    "trust_boundary": "Retrieved or tool-returned content to the step that selects and executes a tool",
+    "failure_mode": "Untrusted content is concatenated into the same instruction channel as operator instructions, and the dispatcher executes whichever tool the model names",
+    "impact": "Third-party text can drive privileged tool calls under the operator's authority, exfiltrating data or causing irreversible effects the operator never requested"
+  },
+  "applicability": {
+    "capability_tags": ["llm_agent", "tool_invocation", "mcp_server", "retrieval_augmentation", "autonomous_action"],
+    "rule": "ANY_CAPABILITY_PRESENT",
+    "required_evidence": [
+      "A model's output selects or parameterizes an action that the system then executes",
+      "Content processed during the run can originate outside the operator's trust boundary"
+    ]
+  },
+  "framework_fingerprints": [
+    {
+      "framework": "generic-agent-loop",
+      "versions": ["any"],
+      "signals": [
+        "Retrieved document text is interpolated into the same string as the system or operator prompt",
+        "The dispatcher resolves the model-named tool from a single map with no per-run allowlist",
+        "Tool results are appended to the context and can themselves name the next tool",
+        "The loop bounds iteration count but not the authority available on each iteration"
+      ]
+    },
+    {
+      "framework": "mcp-host",
+      "versions": ["any"],
+      "signals": [
+        "Tools from several servers share one namespace, so a renamed or shadowed tool can capture a call",
+        "Server-supplied tool descriptions are placed in the system context and treated as trusted instructions",
+        "The host holds long-lived credentials that every connected server can reach through the agent"
+      ]
+    },
+    {
+      "framework": "retrieval-pipeline",
+      "versions": ["any"],
+      "signals": [
+        "The index ingests content from sources third parties can write to",
+        "Retrieved chunks carry no provenance label that survives into the assembled prompt"
+      ]
+    },
+    {
+      "framework": "python-synthetic-fixture",
+      "versions": ["3.x"],
+      "signals": [
+        "An agent loop concatenates fetched reference text with the operator prompt and dispatches any tool the model names",
+        "A handler executes a tool named by a field inside the document it is processing"
+      ]
+    }
+  ],
+  "sources": {
+    "source_ids": ["mitre-cwe", "owasp-top-10", "owasp-asvs"],
+    "catalog_hypothesis_ids": ["SHX-AI-L01", "SHX-AI-L08", "SHX-AI-L18", "SHX-AI-L25"],
+    "references": [
+      "https://cwe.mitre.org/data/definitions/77.html",
+      "https://cwe.mitre.org/data/definitions/829.html",
+      "https://genai.owasp.org/llm-top-10/",
+      "https://owasp.org/www-project-top-ten/"
+    ]
+  },
+  "boundary": {
+    "type": "TOOL_AUTHORITY",
+    "subject": "the principal on whose behalf the run executes and the authority granted to that run",
+    "object": "the set of tools, arguments, and credentials the run may reach",
+    "action": "INVOKE",
+    "invariant": "Content that entered the run as data can never widen the tool set, the arguments, or the credentials available to that run; every privileged invocation traces to operator intent"
+  },
+  "sinks": [
+    {"kind": "TOOL_DISPATCH", "examples": ["Model-named function call executed by the loop", "MCP tool invocation forwarded to a server"]},
+    {"kind": "OUTBOUND_MESSAGE", "examples": ["Agent-composed email or chat post", "Webhook call carrying retrieved context"]},
+    {"kind": "DATA_MUTATION", "examples": ["Record deletion or update through a tool", "File write or repository commit"]},
+    {"kind": "CODE_EXECUTION", "examples": ["Shell or interpreter tool", "Generated query executed against a database"]},
+    {"kind": "CONTEXT_APPEND", "examples": ["Tool result appended to the running prompt", "Retrieved chunk inserted into the instruction channel"]}
+  ],
+  "detection_layers": [
+    {
+      "layer": "MODEL",
+      "signals": [
+        "Assemble the full prompt exactly as the runtime does and mark each segment by who is able to write it",
+        "Ask what the most damaging single tool call reachable in this run would be, and what stands between retrieved text and that call"
+      ]
+    },
+    {
+      "layer": "STATIC",
+      "signals": [
+        "Trace every value reaching the prompt builder and label its origin: operator, end user, retrieved content, or tool output",
+        "Read the dispatcher and record whether the tool name is checked against a per-run allowlist before lookup",
+        "Determine which credentials each tool uses and whether they are scoped to the run's principal or ambient to the process"
+      ]
+    },
+    {
+      "layer": "CONTRACT",
+      "signals": [
+        "State which tools are read-only and which are privileged, then check whether the run's allowlist reflects that split",
+        "Check whether irreversible actions require an out-of-band confirmation that untrusted content cannot satisfy",
+        "Verify that tool results re-enter the context as labelled data rather than as instructions"
+      ]
+    },
+    {
+      "layer": "DATA",
+      "signals": [
+        "Enumerate which retrieval sources third parties can write to, and whether stored content is re-read by later runs",
+        "Check whether tool definitions, names, and descriptions are pinned or can change between runs"
+      ]
+    },
+    {
+      "layer": "LOCAL_RUNTIME",
+      "signals": [
+        "Run the loop against an isolated fixture in which retrieved content asks for a privileged tool, with every tool stubbed to record calls only",
+        "Assert on the recorded call log rather than on the model's narration, since a refusal in one sample is not a control"
+      ]
+    }
+  ],
+  "validation": {
+    "default_mode": "LOCAL",
+    "destructive_actions": false,
+    "production_mutation": false,
+    "steps": [
+      "Confirm explicit authorization and replace every tool with a stub that records the call and returns fixed data, so no real side effect is possible",
+      "Record a baseline run of the same task with benign retrieved content and keep its tool-call log",
+      "Introduce a synthetic instruction into the retrieved content only, never into the operator prompt, and repeat the same task",
+      "Compare the two call logs and treat a privileged call that appears only in the second run as the observation, independent of the model's text",
+      "Repeat the run several times and record how often the call occurs, since one refusal does not demonstrate a control"
+    ]
+  },
+  "false_positive_filters": [
+    "The dispatcher enforces a per-run allowlist that no model output can widen, so a tool outside the list cannot execute",
+    "Every privileged tool requires a human confirmation carrying context the untrusted content cannot influence",
+    "The retrieved content comes only from sources under the operator's control and no third party can write to them",
+    "The tool's own authorization independently rejects the action for the run's principal, evidenced at the tool rather than assumed from the agent",
+    "The model produced text describing a tool call that the loop never executed",
+    "The named tool reaches no data or effect beyond what the run's principal already holds"
+  ],
+  "verification": {
+    "independent_required": true,
+    "required_evidence": [
+      "The assembled context with each segment labelled by who can write it, showing untrusted text in an instruction position",
+      "The dispatcher path from model output to execution, showing where a per-run authority check is absent",
+      "A recorded tool-call log from an isolated run in which only the untrusted content differed",
+      "The authority the invoked tool carries: which credential, which data, and whether the effect is reversible"
+    ],
+    "refutation_tests": [
+      "Re-run with the same untrusted content while the allowlist is enforced, to confirm the dispatcher rather than the model is the deciding control",
+      "Attempt the same action directly as the run's principal to check whether the tool itself would have refused it",
+      "Repeat across several samples, since a non-deterministic refusal is not a control and a single success is not a reliability claim",
+      "Establish that the retrieval source is genuinely third-party writable before treating the path as reachable"
+    ]
+  },
+  "root_causes": [
+    "Data and instructions share one channel, so retrieved text occupies the same position as operator instructions",
+    "The dispatcher trusts the model's tool name, letting generated text rather than policy decide authority",
+    "Tools execute with ambient process credentials instead of credentials scoped to the run's principal",
+    "Irreversible tools sit in the same authority tier as read-only ones",
+    "Tool results and stored content re-enter later runs without provenance, creating a second-order path",
+    "The tool namespace is shared and unpinned, so a definition can be shadowed or altered between runs"
+  ],
+  "variant_strategy": {
+    "anchor_fields": ["invariant", "boundary", "action"],
+    "variant_dimensions": ["actor", "object", "identity_state", "enforcement_layer", "sink_kind", "framework"],
+    "result_contract": "EXACT | VARIANT | REFUTED | BLOCKED; exact and variant matches remain hypotheses until verified"
+  },
+  "remediation": {
+    "canonical_invariant": "Bind the authority of a run before it starts and enforce it in the dispatcher, so nothing the run reads can widen the tools, arguments, or credentials it may use",
+    "patterns": [
+      "Pass untrusted content as clearly delimited data with a provenance label, never as part of the instruction channel",
+      "Enforce a per-run allowlist in the dispatcher and reject an unlisted tool without re-asking the model",
+      "Split tools into read-only and privileged tiers and require operator confirmation, outside the model's context, for the privileged tier",
+      "Scope each tool credential to the run's principal so the tool's own authorization remains the final control",
+      "Pin tool servers and definitions by identity and version, and detect changes to tool names or descriptions between runs",
+      "Log every tool call with the run id, the principal, and the provenance of the content that preceded it, so second-order paths stay reconstructible",
+      "Make irreversible effects two-phase: proposed within the run, executed only after an out-of-band approval"
+    ]
+  },
+  "regression": {
+    "fixture_ids": ["EVAL-AI-002", "EVAL-AI-001"],
+    "assertions": [
+      "The vulnerable agent-loop variant concatenates fetched reference text with the operator prompt and dispatches any tool the model names, including a destructive one",
+      "The remediated agent-loop variant passes untrusted content as labelled data and refuses tools outside the per-run allowlist without executing them",
+      "The vulnerable document handler executes the tool named inside the document itself",
+      "The remediated document handler requires both an allowlisted read-only tool and an operator confirmation before execution",
+      "Remediated variants still complete the legitimate read-only task, so an authority control is distinguishable from a disabled agent"
+    ]
+  },
+  "mappings": {
+    "cwe": ["CWE-77", "CWE-829", "CWE-807"],
+    "owasp": ["OWASP-LLM01:2025", "OWASP-LLM06:2025", "OWASP-ASVS:V4"]
+  },
+  "calibration": {
+    "measurement_status": "NOT_MEASURED",
+    "sample_size": 0,
+    "notes": "This pack has not completed a reproducible benchmark run and makes no precision or recall claim."
+  },
+  "limitations": [
+    "Model behaviour is non-deterministic, so neither a successful injection nor a refusal generalizes from a single run",
+    "The fixture proves the dispatcher's contract, not any model's robustness against unseen phrasings",
+    "Injection resistance inside the model is mitigation, not a boundary; only the dispatcher and the tool's own authorization are enforceable",
+    "Tool-server behaviour, descriptions, and transport configuration live outside the reviewed repository and can change between runs"
+  ]
+}

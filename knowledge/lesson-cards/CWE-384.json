@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "lesson_id": "LC-CWE-384",
+  "title": "Session fixation and privilege transitions without token rotation",
+  "updated_at": "2026-09-01T00:00:00Z",
+  "domains": ["web", "auth"],
+  "summary": "Session fixation becomes plausible when a session identifier that existed before authentication remains valid afterwards, so a token an attacker planted or observed inherits the victim's authenticated state. Verification must establish where the token is issued, whether the server accepts a client-supplied identifier, whether a new identifier is minted at every privilege transition, and whether the pre-authentication token is genuinely invalidated on the server rather than only replaced in the browser.",
+  "detection_signals": [
+    "The identifier present before login is still accepted after login, or the framework's session regeneration call is absent from the authentication handler.",
+    "The application accepts a session identifier from a URL parameter, form field, or arbitrary client-set cookie instead of issuing every identifier itself.",
+    "Privilege transitions other than the initial login, such as step-up authentication, impersonation, tenant switching, or account linking, do not mint a new session identifier."
+  ],
+  "safe_local_tests": [
+    "Against a local instance, capture the pre-authentication identifier, complete a fixture login in the same client, and assert that the old identifier is rejected while the new one works.",
+    "Attempt to set a session identifier from the client and confirm the server issues its own value instead of adopting the supplied one.",
+    "Record the identifier before and after each privilege transition, the server-side invalidation outcome for the old value, and the cookie attributes in force, using fixture accounts only."
+  ],
+  "false_positive_traps": [
+    "A cookie value that looks unchanged may be an opaque wrapper around a rotated server-side session, so the server's acceptance of the old identifier is what decides the finding.",
+    "A stateless token architecture can rotate identity through a new signed token and a revoked reference token, and calling that fixation without checking revocation is a misdiagnosis.",
+    "Cookie flags such as Secure, HttpOnly, and SameSite reduce planting opportunities but do not substitute for rotation, and their presence alone does not clear the defect."
+  ],
+  "remediation_patterns": [
+    "Mint a new session identifier at authentication and at every privilege transition, and invalidate the previous server-side session in the same operation.",
+    "Never accept a session identifier from request-controlled locations, and issue every identifier from a cryptographically secure generator with sufficient entropy.",
+    "Bind session termination to logout, password or factor change, and administrative revocation, so an inherited or stolen identifier can be retired everywhere it is accepted."
+  ],
+  "regression_proof": [
+    "A test proves the pre-authentication identifier is rejected after login while the newly issued identifier authorizes the same request.",
+    "Coverage includes step-up authentication and other privilege transitions plus logout revocation, so a handler that stops regenerating the session fails the suite."
+  ],
+  "mapping_node_ids": [
+    "CWE-384",
+    "CAPEC-61",
+    "OWASP-TOP10-2021-A07",
+    "OWASP-ASVS-5.0.0-V7.2.4",
+    "SHX-FAMILY-SESS"
+  ],
+  "source_ids": ["mitre-cwe", "mitre-capec", "owasp-top-10", "owasp-asvs"]
+}
