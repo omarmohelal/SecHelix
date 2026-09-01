@@ -1,0 +1,29 @@
+{
+  "id": "EVAL-FILE-004",
+  "schema_version": "1.1",
+  "family": "Files / Uploads / Parsers",
+  "task": "Decide whether a cache entry can reach an unsafe decoder without authentication.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-502"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "job_payload_cache.py",
+      "source": "\"\"\"Background job payload cache.\"\"\"\n\nimport hashlib\nimport hmac\nimport pickle\n\nSIGNATURE_VERSION = \"v2\"\n\n\nclass PayloadCodec:\n    \"\"\"Serialises job payloads that carry worker-owned objects.\"\"\"\n\n    def __init__(self, signing_key):\n        self._key = signing_key\n\n    def _tag(self, blob):\n        return hmac.new(\n            self._key, SIGNATURE_VERSION.encode(\"ascii\") + blob, hashlib.sha256\n        ).hexdigest()\n\n    def encode(self, payload):\n        blob = pickle.dumps(payload, protocol=pickle.HIGHEST_PROTOCOL)\n        return {\"version\": SIGNATURE_VERSION, \"blob\": blob, \"sig\": self._tag(blob)}\n\n    def decode(self, entry):\n        signature = entry.get(\"sig\")\n        if signature is None:\n            # Entries queued before the signing rollout have no tag. The broker\n            # is internal, so accept them until the backlog drains.\n            return pickle.loads(entry[\"blob\"])\n        if not hmac.compare_digest(signature, self._tag(entry[\"blob\"])):\n            raise ValueError(\"cache entry failed integrity check\")\n        return pickle.loads(entry[\"blob\"])\n\n\nclass JobQueue:\n    def __init__(self, store, codec):\n        self._store = store\n        self._codec = codec\n\n    def enqueue(self, name, payload):\n        self._store.put(name, self._codec.encode(payload))\n\n    def next_job(self, name):\n        entry = self._store.take(name)\n        return None if entry is None else self._codec.decode(entry)\n",
+      "rationale": "The signed path is correct, but an entry that simply omits the sig field takes the legacy branch and is decoded unauthenticated. Anyone able to write into the shared queue — another tenant's worker, a misconfigured cache, or a request-forgery reaching the broker — writes an unsigned entry and reaches the decoder with attacker-chosen bytes."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "job_payload_cache.py",
+      "source": "\"\"\"Background job payload cache.\"\"\"\n\nimport hashlib\nimport hmac\nimport pickle\n\nSIGNATURE_VERSION = \"v2\"\n\n\nclass PayloadCodec:\n    \"\"\"Serialises job payloads that carry worker-owned objects.\n\n    pickle is deliberate: these payloads contain worker types that JSON cannot\n    express. It is only ever applied to bytes this process produced and tagged,\n    the tag is verified in constant time first, and there is no branch that\n    reaches the decoder without that verification.\n    \"\"\"\n\n    def __init__(self, signing_key):\n        self._key = signing_key\n\n    def _tag(self, blob):\n        return hmac.new(\n            self._key, SIGNATURE_VERSION.encode(\"ascii\") + blob, hashlib.sha256\n        ).hexdigest()\n\n    def encode(self, payload):\n        blob = pickle.dumps(payload, protocol=pickle.HIGHEST_PROTOCOL)\n        return {\"version\": SIGNATURE_VERSION, \"blob\": blob, \"sig\": self._tag(blob)}\n\n    def decode(self, entry):\n        if entry.get(\"version\") != SIGNATURE_VERSION:\n            raise ValueError(\"unsupported cache entry version\")\n        signature = entry.get(\"sig\")\n        if not isinstance(signature, str):\n            # A missing tag is a rejected entry, never a legacy exemption.\n            raise ValueError(\"unsigned cache entry\")\n        if not hmac.compare_digest(signature, self._tag(entry[\"blob\"])):\n            raise ValueError(\"cache entry failed integrity check\")\n        return pickle.loads(entry[\"blob\"])\n\n\nclass JobQueue:\n    def __init__(self, store, codec):\n        self._store = store\n        self._codec = codec\n\n    def enqueue(self, name, payload):\n        self._store.put(name, self._codec.encode(payload))\n\n    def next_job(self, name):\n        entry = self._store.take(name)\n        return None if entry is None else self._codec.decode(entry)\n",
+      "rationale": "pickle.loads is the alarming surface and it is reached only for bytes this process authenticated: the version is pinned, a missing or non-string tag is rejected rather than treated as legacy, and the constant-time comparison runs before the decoder. The compensating control is that the decoder has no unauthenticated path into it."
+    }
+  }
+}

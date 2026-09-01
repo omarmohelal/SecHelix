@@ -1,0 +1,199 @@
+{
+  "schema_version": "1.0",
+  "id": "SEC-SESSION-TOKEN-001",
+  "version": "0.1.0",
+  "title": "Session and token authority across issuance, verification, and revocation",
+  "lifecycle": "REFERENCE",
+  "threat_model": {
+    "actor": "Any caller who can present, plant, or forge a session identifier or bearer token, including a legitimate holder of an expired or revoked one",
+    "asset": "The authority a session or token confers: the subject it names, the scopes it carries, and the period for which it is honoured",
+    "trust_boundary": "The token as presented and the authority the verifier grants after reading it",
+    "failure_mode": "The verifier lets the token choose how it is verified, or the authority outlives the record that was supposed to govern it",
+    "impact": "A caller obtains or retains a session they were never granted or that was explicitly revoked, with the scopes attached to it"
+  },
+  "applicability": {
+    "capability_tags": ["sessions", "cookies", "tokens", "bearer_tokens", "token_revocation"],
+    "rule": "ANY_CAPABILITY_PRESENT",
+    "required_evidence": [
+      "The application issues a session identifier or token that a later request presents to establish identity",
+      "A verification step exists between the presented value and the authority granted from it"
+    ]
+  },
+  "framework_fingerprints": [
+    {
+      "framework": "jwt-verification",
+      "versions": ["any"],
+      "signals": [
+        "The algorithm is read from the token header rather than pinned by the verifier",
+        "One key map serves both symmetric and asymmetric verification, so a public key can be reached as a MAC secret",
+        "Claim checks are conditional on the claim being present, so an omitted exp, aud, or iss skips its check",
+        "A decode helper that does not verify is used somewhere on the request path"
+      ]
+    },
+    {
+      "framework": "server-side-session-store",
+      "versions": ["any"],
+      "signals": [
+        "A resolved principal is cached in process, in a sidecar, or at a CDN edge without an invalidation path",
+        "Global revocation deletes the stored rows but does not reach derived state held by each worker",
+        "The identifier issued before authentication is promoted in place rather than rotated on privilege change"
+      ]
+    },
+    {
+      "framework": "oauth-scope-mapping",
+      "versions": ["any"],
+      "signals": [
+        "Scopes are read from the token but the resource check compares only the subject",
+        "A refresh exchange widens scopes or extends lifetime beyond the original grant",
+        "Downstream services accept a token minted for a different audience"
+      ]
+    },
+    {
+      "framework": "python-synthetic-fixture",
+      "versions": ["3.x"],
+      "signals": [
+        "A verifier selects the signature algorithm from the token header and the key from a mixed key map",
+        "A gateway caches resolved principals in process while global revocation only deletes stored rows"
+      ]
+    }
+  ],
+  "sources": {
+    "source_ids": ["mitre-cwe", "mitre-capec", "owasp-asvs", "owasp-api-top-10"],
+    "catalog_hypothesis_ids": ["SHX-SESS-L01", "SHX-SESS-L08", "SHX-SESS-L09", "SHX-SESS-L15", "SHX-CRYPTO-L17"],
+    "references": [
+      "https://cwe.mitre.org/data/definitions/347.html",
+      "https://capec.mitre.org/data/definitions/593.html",
+      "https://owasp.org/www-project-application-security-verification-standard/",
+      "https://owasp.org/API-Security/"
+    ]
+  },
+  "boundary": {
+    "type": "SESSION_AUTHORITY",
+    "subject": "the principal and scopes a presented token is allowed to assert",
+    "object": "the authority the request executes with after verification",
+    "action": "AUTHENTICATE",
+    "invariant": "Authority is granted only from a token the verifier independently validated under its own pinned rules, and it ends when the governing record ends"
+  },
+  "sinks": [
+    {"kind": "TOKEN_VERIFICATION", "examples": ["Signature check on a bearer token", "Cookie signature or encryption check", "Introspection response handling"]},
+    {"kind": "PRINCIPAL_RESOLUTION", "examples": ["Session store lookup", "Cached principal read", "Header-derived identity at a trusted proxy"]},
+    {"kind": "SESSION_ISSUANCE", "examples": ["Identifier minted at login", "Refresh exchange", "Impersonation or support session"]},
+    {"kind": "SCOPE_DECISION", "examples": ["Scope-to-operation mapping", "Audience check before a downstream call"]},
+    {"kind": "REVOCATION_PATH", "examples": ["Single logout", "Global sign-out after a credential change", "Administrative lockout"]}
+  ],
+  "detection_layers": [
+    {
+      "layer": "STATIC",
+      "signals": [
+        "Find every place a token is decoded and separate the decoding helpers from the verifying ones",
+        "Record where the algorithm, key, issuer, and audience come from, and whether any of them can be influenced by the token itself",
+        "Trace the resolved principal forward and note every cache, memo, or context object that stores it beyond the request"
+      ]
+    },
+    {
+      "layer": "CONTRACT",
+      "signals": [
+        "State which claims are mandatory and compare that with the checks the verifier performs unconditionally",
+        "Follow every revocation path to the state it must invalidate, including state held by other processes",
+        "Decide whether the identifier is rotated at every privilege change, not only at login"
+      ]
+    },
+    {
+      "layer": "DATA",
+      "signals": [
+        "Establish the token lifetime, the revocation propagation delay, and what the gap between them permits",
+        "Identify long-lived artefacts that outlive the session: refresh tokens, API keys, device trust records"
+      ]
+    },
+    {
+      "layer": "LOCAL_RUNTIME",
+      "signals": [
+        "Present tokens with a substituted algorithm, an unknown key id, and omitted claims to the verifier in isolation and record which are accepted",
+        "Revoke a session and replay the same request against every process and cache tier that serves it"
+      ]
+    }
+  ],
+  "validation": {
+    "default_mode": "LOCAL",
+    "destructive_actions": false,
+    "production_mutation": false,
+    "steps": [
+      "Confirm explicit authorization and work only with synthetic accounts and locally generated keys",
+      "Establish a working authenticated control request first, so a later denial is distinguishable from a broken harness",
+      "Exercise the verification function in isolation with algorithm, key-id, and claim variants, and record exactly which inputs it accepts",
+      "Revoke the session through each documented revocation path and replay the control request against every serving tier",
+      "Record the verification point, the caching tiers, and the observed revocation delay without touching production credentials"
+    ]
+  },
+  "false_positive_filters": [
+    "The algorithm and key are pinned by the verifier and the token header is compared against them rather than consulted",
+    "The library in use rejects algorithm substitution by default and the configuration has been read rather than assumed",
+    "The cache is keyed and invalidated on every revocation path, evidenced in code rather than inferred from a comment",
+    "The token lifetime is short enough that the documented revocation model is stated as eventual and accepted with a rationale",
+    "The identifier is rotated at every privilege transition, so a planted value cannot become authenticated"
+  ],
+  "verification": {
+    "independent_required": true,
+    "required_evidence": [
+      "The exact input the verifier accepts and the authority it grants for it",
+      "A reachable path from a caller-controlled token to the protected operation",
+      "A safe local reproduction that distinguishes a verification weakness from a key-management weakness",
+      "The defective invariant stated as a verification, rotation, or revocation failure, with its concrete authority impact"
+    ],
+    "refutation_tests": [
+      "Exercise the verifier alone on the same inputs to separate a parsing weakness from a request-time weakness",
+      "Re-read the library configuration for a pinned algorithm list before concluding the header is trusted",
+      "Check every revocation path for cache invalidation before concluding revoked authority persists",
+      "Establish whether the claimed key material is actually reachable by the attacker, since alg confusion needs a published key to matter"
+    ]
+  },
+  "root_causes": [
+    "The verifier lets the token select its own verification algorithm",
+    "Symmetric secrets and asymmetric public keys share one lookup, so a public value can act as a secret",
+    "Claim validation is conditional on presence, so omitting a claim omits its check",
+    "A pre-authentication identifier is promoted in place instead of rotated at the privilege transition",
+    "Authority is derived once and cached, while revocation only updates the source record",
+    "Scopes are read but never compared against the operation being performed"
+  ],
+  "variant_strategy": {
+    "anchor_fields": ["invariant", "boundary", "action"],
+    "variant_dimensions": ["actor", "object", "identity_state", "enforcement_layer", "sink_kind", "framework"],
+    "result_contract": "EXACT | VARIANT | REFUTED | BLOCKED; exact and variant matches remain hypotheses until verified"
+  },
+  "remediation": {
+    "canonical_invariant": "Pin the algorithm, key, issuer, and audience in the verifier, require every security-relevant claim, and let revocation reach every tier that can grant authority",
+    "patterns": [
+      "Reject any token whose header does not match the single expected algorithm, and keep symmetric and asymmetric keys in separate stores",
+      "Require exp, iat, iss, aud, and sub rather than checking them only when present",
+      "Rotate the session identifier at every privilege transition and destroy the previous one",
+      "Prefer an authoritative lookup per request over a cached decision, or bind every cache entry to an invalidation event and a short ceiling",
+      "Make global revocation reach derived state in every process, edge, and sidecar that can answer a request",
+      "Compare the token's scopes and audience against the operation, not only its subject"
+    ]
+  },
+  "regression": {
+    "fixture_ids": ["EVAL-SESS-001", "EVAL-SESS-002"],
+    "assertions": [
+      "The vulnerable verifier accepts a token whose header selects a different algorithm from the one the issuer signed with",
+      "The vulnerable verifier accepts a token that omits the expiry claim entirely",
+      "The remediated verifier pins the algorithm, requires every security-relevant claim, and still accepts a correctly issued token",
+      "The vulnerable gateway keeps resolving a session that global revocation deleted, because the cached principal is never invalidated",
+      "The compensated gateway performs no explicit revocation check yet denies immediately after revocation, because the stored row is read on every request"
+    ]
+  },
+  "mappings": {
+    "cwe": ["CWE-347", "CWE-345", "CWE-384", "CWE-613"],
+    "owasp": ["OWASP-ASVS:V3", "OWASP-A07:2021", "OWASP-API2:2023"]
+  },
+  "calibration": {
+    "measurement_status": "NOT_MEASURED",
+    "sample_size": 0,
+    "notes": "This pack has not completed a reproducible benchmark run and makes no precision or recall claim."
+  },
+  "limitations": [
+    "Library defaults change between versions, so a verifier that looks permissive may be constrained by the version actually installed",
+    "Revocation behaviour depends on deployment topology: caches, edges, and sidecars outside the repository often decide the real delay",
+    "Fixtures demonstrate the verification contract, not the entropy or storage of production key material",
+    "A short token lifetime can be a deliberate, documented trade-off rather than a defect, and must be judged against the stated model"
+  ]
+}

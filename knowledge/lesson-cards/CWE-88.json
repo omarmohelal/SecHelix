@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0",
+  "lesson_id": "LC-CWE-88",
+  "title": "Argument injection where an argument vector is mistaken for a boundary",
+  "updated_at": "2026-09-01T00:00:00Z",
+  "domains": ["web", "api", "ai-agent"],
+  "summary": "Executing a list of arguments without a shell stops metacharacters from becoming syntax, and is frequently treated as the end of the problem. It is not, because many common binaries interpret some of their own arguments as a program, a hook, a preprocessor, or a configuration override. When the caller or a language model supplies arguments beyond the program name, an allowlist on the binary constrains which interpreter runs but not what it is told to do. Verification must establish which argument positions are caller-influenced, which of the reachable binaries accept option forms that name or configure another program, and whether the value could be parsed as an option at all.",
+  "detection_signals": [
+    "A command is executed from an argument vector where the program name is validated against an allowlist but the remaining elements come from request data, a job payload, or a model response.",
+    "Caller-influenced values are appended without a preceding end-of-options separator, so a value beginning with a dash is parsed as an option rather than as an operand.",
+    "The child process inherits the parent environment, so configuration, hook, pager, preprocessor, or plugin variables can redirect what the invoked binary executes."
+  ],
+  "safe_local_tests": [
+    "In an isolated fixture, replace the executor with a recorder and assert on the exact argument vector and environment that would have been passed, including whether an end-of-options separator is present.",
+    "Enumerate the reachable binaries and check each one's own documentation for options that name or configure another program, recording the specific option rather than asserting the class generally.",
+    "Exercise an operand beginning with a dash and confirm from the recorded vector whether it lands in an operand position or an option position."
+  ],
+  "false_positive_traps": [
+    "The absence of a shell is real and worth recording, but it refutes metacharacter injection only, not an argument that the binary itself treats as an instruction.",
+    "A binary may accept no option that names another program, in which case caller-supplied arguments are a lower-severity concern and the candidate should be narrowed rather than dropped or inflated.",
+    "An operand that must match a narrow pattern and is placed after an end-of-options separator cannot be parsed as an option, so the presence of caller data in a vector is not by itself a finding."
+  ],
+  "remediation_patterns": [
+    "Let the caller select a named operation rather than compose a command line, and keep every flag as a literal of the calling module so no option can originate outside it.",
+    "Validate each caller-supplied operand against a narrow pattern and place it after an end-of-options separator so a leading dash cannot change how it is parsed.",
+    "Run the child with a minimal, explicitly constructed environment so no inherited variable can reintroduce a hook, pager, or configuration command."
+  ],
+  "regression_proof": [
+    "A test proves that an operand crafted to look like a program-naming option is rejected or is carried into an operand position, while the legitimate operation still returns its expected output.",
+    "Coverage includes the environment passed to the child, so removing the minimal-environment construction fails the suite rather than silently widening the path."
+  ],
+  "mapping_node_ids": [
+    "CWE-88",
+    "CWE-77",
+    "CAPEC-88",
+    "OWASP-TOP10-2021-A03",
+    "OWASP-ASVS-5.0.0-V1.2.5",
+    "SHX-FAMILY-INJ",
+    "SHX-FAMILY-AI"
+  ],
+  "source_ids": ["mitre-cwe", "mitre-capec", "owasp-top-10", "owasp-asvs"]
+}

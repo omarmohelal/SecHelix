@@ -1,0 +1,197 @@
+{
+  "schema_version": "1.0",
+  "id": "SEC-IDENTITY-ATO-001",
+  "version": "0.1.0",
+  "title": "Account takeover through identity proofing and recovery flows",
+  "lifecycle": "REFERENCE",
+  "threat_model": {
+    "actor": "Anyone able to reach the login, registration, recovery, or step-up surface, including a caller holding a valid credential or reset token for an account they legitimately own",
+    "asset": "Control of an account and the identity assertions downstream systems derive from it",
+    "trust_boundary": "The proof the caller presented and the account the flow ultimately acts on",
+    "failure_mode": "A recovery, enrolment, or step-up path binds the operation to a subject taken from the request rather than from the proof, or applies its second factor on some paths and not on the one that completes the change",
+    "impact": "An account is taken over without its credential, or a second factor that is enrolled and believed effective is never actually required on the completing request"
+  },
+  "applicability": {
+    "capability_tags": ["authentication", "identity_lifecycle", "mfa", "account_recovery", "credential_reset"],
+    "rule": "ANY_CAPABILITY_PRESENT",
+    "required_evidence": [
+      "The application authenticates users and can change or restore a credential without an existing session",
+      "A recovery, verification, or step-up artefact is issued to one subject and later redeemed on a separate request"
+    ]
+  },
+  "framework_fingerprints": [
+    {
+      "framework": "generic-credential-recovery",
+      "versions": ["any"],
+      "signals": [
+        "A reset or recovery handler accepts both a token and an account identifier in the same request body",
+        "The account is loaded by email, username, or phone number after the token has already been validated",
+        "Completing a credential change does not revoke sessions, refresh tokens, or API keys issued before it"
+      ]
+    },
+    {
+      "framework": "route-table-dispatch",
+      "versions": ["any"],
+      "signals": [
+        "Step-up or re-authentication is applied from a list of paths kept separately from the route registrations",
+        "The dispatcher falls through to a handler when a path is absent from the enforcement list",
+        "A route has been renamed or versioned while the enforcement list still names the previous path"
+      ]
+    },
+    {
+      "framework": "multi-factor-enrolment",
+      "versions": ["any"],
+      "signals": [
+        "A factor can be enrolled, replaced, or disabled using only the primary credential",
+        "The verified state of a challenge is read from a client-supplied field rather than from server-side state",
+        "Backup codes, trusted devices, or remember-me records survive a credential reset"
+      ]
+    },
+    {
+      "framework": "python-synthetic-fixture",
+      "versions": ["3.x"],
+      "signals": [
+        "A reset service validates a token fingerprint and then resolves the account from the posted address",
+        "A recovery router enforces step-up from a path set that no longer matches the registered route"
+      ]
+    }
+  ],
+  "sources": {
+    "source_ids": ["mitre-cwe", "mitre-capec", "owasp-asvs", "owasp-top-10"],
+    "catalog_hypothesis_ids": ["SHX-AUTH-L01", "SHX-AUTH-L04", "SHX-AUTH-L09", "SHX-AUTH-L17", "SHX-AUTH-L21"],
+    "references": [
+      "https://cwe.mitre.org/data/definitions/640.html",
+      "https://capec.mitre.org/data/definitions/49.html",
+      "https://owasp.org/www-project-application-security-verification-standard/",
+      "https://owasp.org/www-project-top-ten/"
+    ]
+  },
+  "boundary": {
+    "type": "IDENTITY_PROOF_BINDING",
+    "subject": "the account the presented proof was issued for",
+    "object": "the account whose credential, factor, or contact address the request changes",
+    "action": "PROVE",
+    "invariant": "The account a recovery or step-up operation mutates is the account named by the proof, and every path that completes the mutation requires the same proof"
+  },
+  "sinks": [
+    {"kind": "CREDENTIAL_WRITE", "examples": ["Password set after reset", "Passkey or WebAuthn credential registration", "Recovery code regeneration"]},
+    {"kind": "FACTOR_MUTATION", "examples": ["Second-factor enrolment", "Factor removal or downgrade", "Trusted-device registration"]},
+    {"kind": "CONTACT_CHANGE", "examples": ["Email address update", "Phone number update used for one-time codes"]},
+    {"kind": "SESSION_ISSUANCE", "examples": ["Session minted at the end of a recovery flow", "Long-lived refresh token issued after step-up"]},
+    {"kind": "IDENTITY_PROBE", "examples": ["Registration collision response", "Reset request response that differs for known addresses", "Timing difference between known and unknown accounts"]}
+  ],
+  "detection_layers": [
+    {
+      "layer": "STATIC",
+      "signals": [
+        "Trace the subject from the presented proof to the write, and record every point where a request field could substitute for it",
+        "Enumerate every route that can complete a credential or factor change, including versioned, mobile, and administrative variants, and compare their guards",
+        "Find where the enforcement decision lives relative to the route registration, since a separate path list drifts when routes are renamed"
+      ]
+    },
+    {
+      "layer": "CONTRACT",
+      "signals": [
+        "State the intended proof for each transition of the account lifecycle and compare it with the guard the code actually applies",
+        "Decide whether an unknown route, an unresolved identity, or a failed lookup fails closed or falls through to the handler",
+        "Check whether a credential change is defined to invalidate prior sessions, refresh tokens, and device trust, and whether the code performs it"
+      ]
+    },
+    {
+      "layer": "DATA",
+      "signals": [
+        "Establish the lifetime, single-use property, and storage form of reset and challenge artefacts, and whether the record stores the subject",
+        "Look for long-lived artefacts that survive a credential change: remember-me cookies, API keys, backup codes, trusted devices"
+      ]
+    },
+    {
+      "layer": "LOCAL_RUNTIME",
+      "signals": [
+        "Use two synthetic accounts, request a proof for the first, and attempt to complete the flow against the second",
+        "Exercise the owned-account control first, so a later denial is distinguishable from a broken harness",
+        "Replay the completing request against every sibling route to see whether any of them omits the step-up requirement"
+      ]
+    }
+  ],
+  "validation": {
+    "default_mode": "LOCAL",
+    "destructive_actions": false,
+    "production_mutation": false,
+    "steps": [
+      "Confirm explicit authorization and create two isolated synthetic accounts that hold no real personal data",
+      "Complete the flow normally against the owned account first and record the exact request and response",
+      "Repeat the completing request with the proof for one account and the identifier of the other, and record which account changed",
+      "Enumerate sibling and legacy routes for the same operation and record which of them enforce the second factor",
+      "Record the artefact lifetime, whether it is consumed, and whether prior sessions still authenticate after the change"
+    ]
+  },
+  "false_positive_filters": [
+    "The account is loaded from the proof record and the request identifier is only compared against it, never used to select the subject",
+    "A gateway, middleware, or framework guard enforces step-up before the handler, evidenced in configuration rather than assumed from the architecture",
+    "The suspected route is unregistered, disabled by a flag, or unreachable from any caller-controlled entrypoint",
+    "The artefact is single-use and bound to the subject in storage, so a token for one account cannot select another",
+    "The observed difference between known and unknown accounts is required by the documented product behaviour and is accepted with a stated rationale"
+  ],
+  "verification": {
+    "independent_required": true,
+    "required_evidence": [
+      "The proof the caller must hold, and the field the code actually uses to select the account",
+      "A reachable path from an unauthenticated or lower-privileged entrypoint to the credential or factor write",
+      "A safe reproduction with two synthetic accounts that shows which account was mutated",
+      "The defective invariant stated as a binding or coverage failure, and the concrete impact on account control"
+    ],
+    "refutation_tests": [
+      "Re-read the handler for a comparison between the proof's subject and the request identifier before concluding the binding is missing",
+      "Look for the guard in middleware, a gateway, or the framework's route configuration rather than only in the handler body",
+      "Repeat the flow against the caller's own account to distinguish a general failure from an authorization decision",
+      "Check whether the artefact is already single-use and subject-bound in storage, which would make the request identifier inert"
+    ]
+  },
+  "root_causes": [
+    "The subject is taken from the request body while the proof carries its own subject, so the two can disagree",
+    "Step-up enforcement is keyed by a path list that is maintained separately from the routes it is meant to cover",
+    "An unknown or unlisted route falls through to its handler instead of failing closed",
+    "A credential change does not invalidate the sessions, tokens, and device trust issued before it",
+    "One flow in the account lifecycle is protected while a sibling flow that reaches the same sink is not"
+  ],
+  "variant_strategy": {
+    "anchor_fields": ["invariant", "boundary", "action"],
+    "variant_dimensions": ["actor", "object", "identity_state", "enforcement_layer", "sink_kind", "framework"],
+    "result_contract": "EXACT | VARIANT | REFUTED | BLOCKED; exact and variant matches remain hypotheses until verified"
+  },
+  "remediation": {
+    "canonical_invariant": "Derive the subject only from the proof, verify the request identifier against it rather than instead of it, and require the same proof on every route that completes the change",
+    "patterns": [
+      "Store the subject on the artefact and load the account from that record, treating any request identifier as a value to compare",
+      "Declare the step-up requirement as part of each route's registration so a rename cannot silently drop it",
+      "Fail closed for unknown routes rather than dispatching to a handler",
+      "Consume the artefact before the write and bound its lifetime, so a replay cannot reach the sink twice",
+      "Revoke sessions, refresh tokens, API keys, and device trust as part of the credential change transaction"
+    ]
+  },
+  "regression": {
+    "fixture_ids": ["EVAL-AUTH-003", "EVAL-AUTH-004"],
+    "assertions": [
+      "The vulnerable reset variant applies a credential change to the account named in the request rather than the one on the token record",
+      "The remediated reset variant loads the account from the token record, rejects a mismatched identifier, and revokes prior sessions",
+      "The vulnerable recovery router completes the flow with no second factor because the enforcement list names a path that is no longer registered",
+      "The compensated recovery router enforces step-up for a handler that contains no second-factor logic of its own, and fails closed on unknown routes",
+      "Both remediated variants still complete the legitimate flow, so the assertion distinguishes enforcement from an unconditional refusal"
+    ]
+  },
+  "mappings": {
+    "cwe": ["CWE-640", "CWE-287", "CWE-306", "CWE-613"],
+    "owasp": ["OWASP-ASVS:V2", "OWASP-A07:2021", "OWASP-API2:2023"]
+  },
+  "calibration": {
+    "measurement_status": "NOT_MEASURED",
+    "sample_size": 0,
+    "notes": "This pack has not completed a reproducible benchmark run and makes no precision or recall claim."
+  },
+  "limitations": [
+    "Rate limiting, bot defence, and delivery-channel controls frequently live outside the repository and change what an enumeration difference is worth",
+    "The synthetic fixtures prove the contract shape, not behaviour on an external identity provider or a hosted authentication service",
+    "Where identity is delegated to an external provider, the binding under review may be the provider's, and the code cannot answer it alone",
+    "Absence of a guard in a handler is not absence of enforcement until the middleware and gateway configuration has been read"
+  ]
+}

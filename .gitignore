@@ -1,2 +1,19 @@
 __pycache__/
 *.py[cod]
+
+# Intentionally NOT ignored: .agents/skills/ and .claude/skills/
+#
+# `gh skill publish --dry-run` warns that these directories "contain installed
+# skills" and suggests gitignoring them. That heuristic is correct for a
+# consumer repository, where those paths hold third-party skills pulled in by a
+# package manager and re-committing them would vendor someone else's code.
+#
+# SecHelix is the opposite case: it *is* the skill. `skills/sechelix/` is the
+# canonical source, and `.claude/skills/sechelix/` and `.agents/skills/sechelix/`
+# are first-party adapter mirrors of it, published deliberately so the skill
+# resolves in each harness without an install step. Nothing under them is
+# third-party. `scripts/validate_skill.py` and the "Ensure adapter mirrors
+# exist" step in .github/workflows/validate.yml both fail if they are missing,
+# so ignoring them would break CI as well as distribution.
+#
+# The warning is therefore acknowledged and rejected on purpose, not overlooked.

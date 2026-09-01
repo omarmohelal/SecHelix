@@ -1,0 +1,43 @@
+# SecHelix code owners
+#
+# Ownership here is only advisory until "Require review from Code Owners" is
+# enabled in the branch protection rule / ruleset for `main`. See
+# docs/project/github-security-posture.md for the exact click-path.
+#
+# Later rules override earlier ones, so the security-critical paths are listed
+# after the catch-all.
+
+# Default owner for everything in the repository.
+*                           @omarmohelal
+
+# --- Security-critical surfaces -------------------------------------------
+# Changes below alter what SecHelix asserts, what it gates on, or what runs
+# with repository credentials. They must never merge without explicit review.
+
+# CI/CD: anything here executes with GitHub-issued tokens.
+/.github/workflows/         @omarmohelal
+/.github/dependabot.yml     @omarmohelal
+/.github/CODEOWNERS         @omarmohelal
+
+# The canonical Agent Skill and its generated portable bundle: this is the
+# artifact users install and run against their own repositories.
+/skills/                    @omarmohelal
+
+# Harness adapter mirrors of the canonical skill.
+/.claude/skills/            @omarmohelal
+/.agents/skills/            @omarmohelal
+
+# Contract surface: schemas define what counts as valid evidence and findings.
+/schemas/                   @omarmohelal
+
+# Hypothesis catalog: the families x lenses model that drives review coverage.
+/catalog/                   @omarmohelal
+
+# Release gates: policy files decide what blocks a release.
+/policies/                  @omarmohelal
+
+# Gold check packs: regression fixtures that prove verification behaviour.
+/gold-packs/                @omarmohelal
+
+# Security policy and disclosure process.
+/SECURITY.md                @omarmohelal

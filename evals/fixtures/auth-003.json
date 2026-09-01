@@ -1,0 +1,30 @@
+{
+  "id": "EVAL-AUTH-003",
+  "schema_version": "1.1",
+  "family": "Authentication / Sessions",
+  "task": "Decide whether a password reset flow lets a caller take over another account.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-640",
+      "CWE-287"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "password_reset.py",
+      "source": "\"\"\"Password reset completion.\"\"\"\n\nimport hashlib\nimport secrets\nimport time\n\nTOKEN_TTL_SECONDS = 900\n\n\ndef _fingerprint(raw_token):\n    return hashlib.sha256(raw_token.encode(\"utf-8\")).hexdigest()\n\n\nclass PasswordResetService:\n    def __init__(self, accounts, tokens, sessions, mailer):\n        self._accounts = accounts\n        self._tokens = tokens\n        self._sessions = sessions\n        self._mailer = mailer\n\n    def request_reset(self, email):\n        account = self._accounts.find_by_email(email)\n        # Respond identically whether or not the address is registered.\n        if account is not None:\n            raw = secrets.token_urlsafe(32)\n            self._tokens.put({\n                \"fingerprint\": _fingerprint(raw),\n                \"user_id\": account[\"id\"],\n                \"created_at\": time.time(),\n                \"used\": False,\n            })\n            self._mailer.send_reset(account[\"email\"], raw)\n        return {\"status\": \"sent\"}\n\n    def complete_reset(self, email, raw_token, new_password):\n        record = self._tokens.get(_fingerprint(raw_token))\n        if record is None or record[\"used\"]:\n            raise PermissionError(\"invalid reset token\")\n        if time.time() - record[\"created_at\"] > TOKEN_TTL_SECONDS:\n            raise PermissionError(\"expired reset token\")\n\n        # The form posts back the address the user typed, so load the account\n        # from it and apply the new credential.\n        account = self._accounts.find_by_email(email)\n        if account is None:\n            raise LookupError(\"unknown account\")\n        self._accounts.set_password(account[\"id\"], new_password)\n        self._tokens.mark_used(record[\"fingerprint\"])\n        return {\"status\": \"reset\", \"user_id\": account[\"id\"]}\n",
+      "rationale": "The reset token is fingerprinted, checked for reuse, and checked for expiry, so the proof-of-possession side is sound. The account is then resolved from the email in the request body rather than from the user_id stored on the token record, so a valid token issued for the attacker's own address resets the credential of any account they name."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "password_reset.py",
+      "source": "\"\"\"Password reset completion.\"\"\"\n\nimport hashlib\nimport hmac\nimport secrets\nimport time\n\nTOKEN_TTL_SECONDS = 900\n\n\ndef _fingerprint(raw_token):\n    return hashlib.sha256(raw_token.encode(\"utf-8\")).hexdigest()\n\n\nclass PasswordResetService:\n    def __init__(self, accounts, tokens, sessions, mailer):\n        self._accounts = accounts\n        self._tokens = tokens\n        self._sessions = sessions\n        self._mailer = mailer\n\n    def request_reset(self, email):\n        account = self._accounts.find_by_email(email)\n        # Respond identically whether or not the address is registered.\n        if account is not None:\n            raw = secrets.token_urlsafe(32)\n            self._tokens.put({\n                \"fingerprint\": _fingerprint(raw),\n                \"user_id\": account[\"id\"],\n                \"created_at\": time.time(),\n                \"used\": False,\n            })\n            self._mailer.send_reset(account[\"email\"], raw)\n        return {\"status\": \"sent\"}\n\n    def complete_reset(self, email, raw_token, new_password):\n        record = self._tokens.get(_fingerprint(raw_token))\n        if record is None or record[\"used\"]:\n            raise PermissionError(\"invalid reset token\")\n        if time.time() - record[\"created_at\"] > TOKEN_TTL_SECONDS:\n            raise PermissionError(\"expired reset token\")\n\n        # The subject comes from the token, never from the request body.\n        account = self._accounts.get(record[\"user_id\"])\n        if account is None:\n            raise LookupError(\"unknown account\")\n        if not hmac.compare_digest(account[\"email\"].lower(), str(email).lower()):\n            raise PermissionError(\"token does not belong to this account\")\n\n        self._tokens.mark_used(record[\"fingerprint\"])\n        self._accounts.set_password(account[\"id\"], new_password)\n        # A credential change invalidates everything issued before it.\n        self._sessions.revoke_all_for_user(account[\"id\"])\n        return {\"status\": \"reset\", \"user_id\": account[\"id\"]}\n",
+      "rationale": "The token record is the only binding between the proof and the subject: the account is loaded by record['user_id'], the posted address must match that account, the token is consumed before the write, and every session issued before the credential change is revoked."
+    }
+  }
+}

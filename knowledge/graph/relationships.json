@@ -123,6 +123,27 @@
       "source_ids": ["mitre-cwe"]
     },
     {
+      "id": "CWE-88",
+      "type": "CWE",
+      "label": "Improper Neutralization of Argument Delimiters in a Command ('Argument Injection')",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "CWE-829",
+      "type": "CWE",
+      "label": "Inclusion of Functionality from Untrusted Control Sphere",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "CWE-807",
+      "type": "CWE",
+      "label": "Reliance on Untrusted Inputs in a Security Decision",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
       "id": "CAPEC-664",
       "type": "CAPEC",
       "label": "Server Side Request Forgery",
@@ -762,6 +783,13 @@
       "source_ids": ["mitre-cwe"]
     },
     {
+      "id": "KGE-CWE77-CWE88",
+      "from": "CWE-77",
+      "to": "CWE-88",
+      "relation": "INCLUDES",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
       "id": "KGE-CWE89-CAPEC66",
       "from": "CWE-89",
       "to": "CAPEC-66",
@@ -1150,6 +1178,27 @@
       "id": "KGE-SHXAI-CWE77",
       "from": "SHX-FAMILY-AI",
       "to": "CWE-77",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXAI-CWE88",
+      "from": "SHX-FAMILY-AI",
+      "to": "CWE-88",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXAI-CWE829",
+      "from": "SHX-FAMILY-AI",
+      "to": "CWE-829",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXAI-CWE807",
+      "from": "SHX-FAMILY-AI",
+      "to": "CWE-807",
       "relation": "CLASSIFIES_WITH",
       "source_ids": ["mitre-cwe"]
     },

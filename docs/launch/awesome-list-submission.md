@@ -61,8 +61,9 @@ before it is reported.
 
 Structurally it ships: 546 structured security hypotheses (21 families x 26 verification lenses), 17
 model-neutral specialist role profiles including an independent verifier, 15 JSON Schema Draft
-2020-12 contracts, 5 Gold Check Packs, 19 paired eval fixtures (38 cases across 11 families), and a
-knowledge graph of 73 nodes, 96 edges, and 7 lesson cards. Applicability resolves to APPLICABLE,
+2020-12 contracts, 18 Gold Check Packs, 11 read-only evidence adapters, 38 paired eval fixtures
+(76 cases across 10 families), and a
+knowledge graph of 76 nodes, 100 edges, and 11 lesson cards. Applicability resolves to APPLICABLE,
 NOT_APPLICABLE, UNKNOWN, or BLOCKED — missing evidence is never treated as absence — and the release
 gate returns PASS, PASS_WITH_KNOWN_RISK, BLOCKED, or a fail-closed INCOMPLETE.
 
@@ -73,7 +74,7 @@ Install: `npx skills@latest add omarmohelal/SecHelix --skill sechelix`
 - I am the author of this project.
 - **Benchmarks are NOT_MEASURED.** The blocker is documented in the repository: the eval fixture
   suite was expanded on 2026-09-01 by the same assistant session that would have acted as the
-  evaluated model, so it had prior knowledge of 11 of the 19 fixtures. Scoring that would measure
+  evaluated model, so it had prior knowledge of the fixtures it authored. Scoring that would measure
   recall of authored answers, not capability. Unblocking requires a run by a model/session that did
   not author the fixtures, on blind exported cases. The entry makes no performance claim.
 - The repository contains a keyword baseline (`evals/results/baseline-keyword-v1.json`) that is
@@ -85,7 +86,7 @@ Install: `npx skills@latest add omarmohelal/SecHelix --skill sechelix`
   high-severity XSS that did not survive verification). It is a worked example, not a performance
   claim.
 - The trophy case is currently empty on purpose; it only accepts public, attributable results.
-- Release 3.0.0-alpha.4 — alpha software.
+- Release 3.2.0-alpha.1 — alpha software.
 
 ### Checklist
 
@@ -130,7 +131,7 @@ submit to a list where the fit is arguable.
 - [ ] `hesreallyhim/awesome-claude-code` — verify current scope (commands, hooks, skills, plugins) and
       whether Agent Skills have their own section.
 - [ ] Any `awesome-claude-skills` / `awesome-agent-skills` list — likely the strongest fit, since
-      SecHelix ships a portable Agent Skills bundle and adapters for multiple hosts.
+      SecHelix ships a portable Agent Skills bundle plus a Claude Code plugin and marketplace entry.
 - [ ] `punkpeye/awesome-mcp-servers` and similar MCP lists — **probably out of scope.** SecHelix is a
       skill, not an MCP server. Do not submit unless the list explicitly covers skills.
 - [ ] `e2b-dev/awesome-ai-agents` or comparable agent directories — verify whether a methodology/skill
@@ -160,12 +161,12 @@ get an entry merged.
 
 - **Benchmarks are NOT_MEASURED.** The documented blocker is `CONTAMINATED_EVALUATOR`: the fixture
   suite was expanded on 2026-09-01 by the same assistant session that would have acted as the
-  evaluated model, giving it prior knowledge of 11 of the 19 fixtures. Scoring it would measure recall
+  evaluated model, giving it prior knowledge of the fixtures it authored. Scoring it would measure recall
   of authored answers, not security-review capability. Unblocking requires a run by a model/session
   that did not author the fixtures, using blind exported cases.
 - The repository's keyword baseline is **explicitly not a SecHelix score**
-  (`is_sechelix_result: false`). It is a naive regex matcher that scored precision 0.5 / recall 0.53
-  on a balanced 19/19 split — chance level — proving the harness works and the fixtures resist
+  (`is_sechelix_result: false`). It is a naive regex matcher that scored precision 0.511 / recall 0.632
+  on a balanced 38/38 split — chance level — proving the harness works and the fixtures resist
   pattern matching. That is a **fixture-difficulty** statement, not a performance claim, and it must
   never appear in the entry line.
 - The single case study is **one** small ~600 LOC app with no authentication and no server-side state.

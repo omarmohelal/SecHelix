@@ -1,0 +1,210 @@
+{
+  "schema_version": "1.0",
+  "id": "SEC-BROWSER-DOM-001",
+  "version": "0.1.0",
+  "title": "Browser trust boundaries across DOM sinks, origins, and framing",
+  "lifecycle": "REFERENCE",
+  "threat_model": {
+    "actor": "Anyone who can place content the page later renders, host a document that frames or messages the application, or induce a user to visit a page they control",
+    "asset": "The application's origin: its DOM, its cookies and storage, and any action the user's session can perform from it",
+    "trust_boundary": "The origin that authored a script or a message and the origin whose authority it ends up executing with",
+    "failure_mode": "Content reaches a sink that parses it as markup or script, or a cross-document channel accepts a peer it never actually identified, or an isolation attribute is granted away",
+    "impact": "Script runs in the application's origin, or a foreign document drives privileged behaviour, reads state, or captures user intent"
+  },
+  "applicability": {
+    "capability_tags": ["browser_client", "html_rendering", "cross_origin", "embedded_frames", "client_storage"],
+    "rule": "ANY_CAPABILITY_PRESENT",
+    "required_evidence": [
+      "The application renders content in a browser and at least some of that content originates outside the codebase",
+      "A client-side trust decision exists: a rendering sink, a cross-document channel, a framing policy, or a storage read"
+    ]
+  },
+  "framework_fingerprints": [
+    {
+      "framework": "dom-rendering",
+      "versions": ["any"],
+      "signals": [
+        "Markup is assembled as a string and assigned to a parsing sink rather than built as nodes",
+        "An escaping helper handles element text but the value is interpolated into an attribute or a URL position",
+        "A URL is written to href, src, or an action attribute without a scheme allowlist"
+      ]
+    },
+    {
+      "framework": "component-framework",
+      "versions": ["any"],
+      "signals": [
+        "A framework escape hatch for raw HTML is used for content the server did not author",
+        "A dynamic component, tag, or property name is chosen from data rather than from a fixed map",
+        "Server-rendered state is embedded in the page as script rather than as inert data"
+      ]
+    },
+    {
+      "framework": "cross-document-messaging",
+      "versions": ["any"],
+      "signals": [
+        "The message origin is compared with a prefix, a substring, or a regular expression instead of an exact match",
+        "The sending window is never compared with the frame the application created",
+        "A reply is posted with a wildcard target origin, or carries state the peer should not receive"
+      ]
+    },
+    {
+      "framework": "framing-and-policy",
+      "versions": ["any"],
+      "signals": [
+        "A sandbox attribute grants allow-scripts together with allow-same-origin",
+        "An isolation attribute is applied after the content is assigned or after the element joins the document",
+        "A content security policy allows unsafe-inline, or is delivered only on some responses"
+      ]
+    },
+    {
+      "framework": "javascript-synthetic-fixture",
+      "versions": ["es2020"],
+      "signals": [
+        "A message handler admits an origin by prefix and dispatches to a privileged command table",
+        "A preview renders unsanitised markup into a frame whose sandbox is granted away"
+      ]
+    }
+  ],
+  "sources": {
+    "source_ids": ["mitre-cwe", "mitre-capec", "owasp-asvs", "owasp-top-10"],
+    "catalog_hypothesis_ids": ["SHX-WEB-L01", "SHX-WEB-L08", "SHX-WEB-L18", "SHX-WEB-L24"],
+    "references": [
+      "https://cwe.mitre.org/data/definitions/79.html",
+      "https://cwe.mitre.org/data/definitions/346.html",
+      "https://capec.mitre.org/data/definitions/591.html",
+      "https://owasp.org/www-project-application-security-verification-standard/",
+      "https://owasp.org/www-project-top-ten/"
+    ]
+  },
+  "boundary": {
+    "type": "BROWSER_ORIGIN",
+    "subject": "the origin that authored the content or the message",
+    "object": "the DOM, storage, and session authority of the application's origin",
+    "action": "RENDER",
+    "invariant": "Content that the application did not author never becomes script or markup in the application's origin, and every cross-document peer is identified exactly before it is trusted"
+  },
+  "sinks": [
+    {"kind": "MARKUP_SINK", "examples": ["innerHTML or outerHTML assignment", "Framework raw-HTML escape hatch", "Document write during hydration"]},
+    {"kind": "URL_SINK", "examples": ["href or src assignment", "Client-side redirect target", "Form action attribute"]},
+    {"kind": "SCRIPT_SINK", "examples": ["Dynamic script element", "Function constructor or timer string argument", "Server-rendered state embedded as script"]},
+    {"kind": "MESSAGE_CHANNEL", "examples": ["Cross-document message handler", "Broadcast or worker channel", "Storage event listener"]},
+    {"kind": "FRAMING_SURFACE", "examples": ["Embedded frame sandbox attribute", "Frame-ancestors policy", "Overlay or drag-and-drop target"]},
+    {"kind": "CLIENT_STORAGE", "examples": ["Token written to local storage", "State restored from storage and rendered"]}
+  ],
+  "detection_layers": [
+    {
+      "layer": "STATIC",
+      "signals": [
+        "Enumerate every parsing and URL sink and trace each argument back to whoever authored it",
+        "Check the escaping context at each interpolation: element text, attribute value, URL, and script positions are different problems",
+        "Read every isolation attribute together with where and when it is applied relative to content assignment and insertion"
+      ]
+    },
+    {
+      "layer": "CONTRACT",
+      "signals": [
+        "State which origins may message the application and compare that with the comparison the handler performs",
+        "Decide what a message peer is permitted to do and compare it with the command table it can reach",
+        "Establish whether the policy header, sandbox attribute, or framing rule is delivered on every response that matters"
+      ]
+    },
+    {
+      "layer": "DATA",
+      "signals": [
+        "Identify stored fields rendered into markup or URL positions later, especially profile and comment content",
+        "Determine what the page keeps in client storage and whether it is rendered back without treatment"
+      ]
+    },
+    {
+      "layer": "LOCAL_RUNTIME",
+      "signals": [
+        "Load the page locally, send messages from a controlled document, and record which origins and command names are accepted",
+        "Render a benign marker payload through the suspected sink and observe whether it is parsed or shown as text"
+      ]
+    }
+  ],
+  "validation": {
+    "default_mode": "LOCAL",
+    "destructive_actions": false,
+    "production_mutation": false,
+    "steps": [
+      "Confirm explicit authorization and run against a local build with synthetic content only",
+      "Render a benign marker through the ordinary feature first, so a later difference is attributable to the payload",
+      "Use an inert marker that proves parsing without exfiltration, and never target a live user or a third-party site",
+      "Send messages from a locally controlled document with related and unrelated origins, and record which are accepted",
+      "Record the sink, the escaping context, the delivered policy headers, and the isolation attributes actually present at load time"
+    ]
+  },
+  "false_positive_filters": [
+    "The value is inserted as a text node or through a framework binding that escapes for the context it lands in",
+    "The markup is produced by a sanitizer whose configuration and output context have been read, not assumed from its name",
+    "The framed content is isolated by a sandbox that grants neither scripts nor same-origin, applied before the content is assigned",
+    "A content security policy that actually blocks the sink is delivered on the response in question, evidenced by the header rather than a configuration file alone",
+    "The message handler compares the origin exactly and verifies the sending window, so a foreign document cannot be the peer",
+    "The sink is unreachable in the built bundle, or renders content the application itself authored"
+  ],
+  "verification": {
+    "independent_required": true,
+    "required_evidence": [
+      "The sink, the escaping context it lands in, and the author of the value that reaches it",
+      "A reachable path from a place an attacker can write to the render or the message handler",
+      "A local reproduction using an inert marker that shows the content being parsed rather than displayed",
+      "The defective invariant stated as an authorship or peer-identity failure, and what the executing content can reach"
+    ],
+    "refutation_tests": [
+      "Re-read the render for a text-node or framework-escaped path that the surrounding string building disguises",
+      "Check the delivered response headers for a policy that blocks the sink before asserting execution",
+      "Inspect the sandbox attribute value and the order of assignment before concluding framed content is contained",
+      "Send a message from an unrelated origin to confirm the handler's comparison really admits it"
+    ]
+  },
+  "root_causes": [
+    "Markup is assembled as a string, so escaping must be correct for several contexts at once",
+    "An escaping helper written for element text is reused in attribute or URL positions",
+    "Origin checks use prefix or substring comparison, so a longer hostile hostname satisfies them",
+    "The sending window is never verified, so any document that can reach the page can be the peer",
+    "An isolation attribute grants scripts and same-origin together, or is applied after the content has been assigned",
+    "A privileged command table is reachable from a channel whose peer is a document rather than an authenticated caller"
+  ],
+  "variant_strategy": {
+    "anchor_fields": ["invariant", "boundary", "action"],
+    "variant_dimensions": ["actor", "object", "identity_state", "enforcement_layer", "sink_kind", "framework"],
+    "result_contract": "EXACT | VARIANT | REFUTED | BLOCKED; exact and variant matches remain hypotheses until verified"
+  },
+  "remediation": {
+    "canonical_invariant": "Build the DOM from nodes and validated URLs rather than from markup strings, and identify every cross-document peer exactly before granting it anything",
+    "patterns": [
+      "Insert untrusted values as text nodes and set attributes through explicit APIs rather than through interpolation",
+      "Validate URL schemes against an allowlist before assigning any navigational attribute",
+      "Compare message origins with equality against a fixed list and verify the sending window, and reply to an exact origin",
+      "Keep cross-document channels limited to presentation commands, so a channel compromise cannot reach privileged operations",
+      "Render content that cannot be sanitized inside a frame whose sandbox grants neither scripts nor same-origin, set before the content is assigned",
+      "Deliver a content security policy without unsafe-inline as defence in depth, and verify it on the responses that carry the sink"
+    ]
+  },
+  "regression": {
+    "fixture_ids": ["EVAL-WEB-003", "EVAL-WEB-004"],
+    "assertions": [
+      "The vulnerable bridge admits an origin that merely begins with the trusted origin and reaches a privileged command table",
+      "The vulnerable bridge replies with a wildcard target origin carrying session state",
+      "The remediated bridge requires an exact origin and the expected sending window, and still serves the legitimate resize command",
+      "The vulnerable preview grants allow-scripts together with allow-same-origin and applies the attribute after the content is assigned",
+      "The compensated preview assigns unsanitised markup to a frame whose empty sandbox is set before assignment and before insertion, so the markup cannot execute in the application's origin"
+    ]
+  },
+  "mappings": {
+    "cwe": ["CWE-79", "CWE-346", "CWE-1021", "CWE-601"],
+    "owasp": ["OWASP-ASVS:V14", "OWASP-A03:2021", "OWASP-A05:2021"]
+  },
+  "calibration": {
+    "measurement_status": "NOT_MEASURED",
+    "sample_size": 0,
+    "notes": "This pack has not completed a reproducible benchmark run and makes no precision or recall claim."
+  },
+  "limitations": [
+    "Browser behaviour varies by engine and version, so a fixture result does not establish behaviour everywhere",
+    "Bundlers, server-side rendering, and hydration can change which sink actually executes, so source review alone can mislead",
+    "Response headers and framing policies are often set by infrastructure outside the repository and must be observed rather than inferred",
+    "A sanitizer's effectiveness depends on its configuration and the context it writes into, neither of which its presence proves"
+  ]
+}

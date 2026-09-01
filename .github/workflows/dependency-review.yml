@@ -1,0 +1,63 @@
+name: Dependency Review
+
+on:
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-review:
+    name: Review dependency changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      # SecHelix currently ships zero third-party runtime dependencies and
+      # therefore has no package manifest for the dependency graph to parse.
+      # Running dependency-review-action against a repository with no supported
+      # manifest fails the job for a reason that is not a security signal, so we
+      # detect manifests first and degrade to an explicit skip notice instead.
+      # The moment a manifest is added, this gate opens automatically.
+      - name: Detect dependency manifests
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Filenames the GitHub dependency graph knows how to parse. The
+          # `(^|/)` anchor matches the basename of a tracked path at any depth.
+          manifest_re='(^|/)(package\.json|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|requirements[^/]*\.txt|pyproject\.toml|Pipfile|Pipfile\.lock|poetry\.lock|setup\.py|setup\.cfg|go\.mod|go\.sum|Cargo\.toml|Cargo\.lock|Gemfile|Gemfile\.lock|pom\.xml|build\.gradle|build\.gradle\.kts|composer\.json|composer\.lock|[^/]+\.csproj|[^/]+\.vbproj|packages\.config|paket\.dependencies|pubspec\.yaml|mix\.exs|conanfile\.txt|cabal\.project)$'
+
+          found="$(git ls-files | grep -E "${manifest_re}" || true)"
+
+          if [ -n "${found}" ]; then
+            echo "has_manifests=true" >> "${GITHUB_OUTPUT}"
+            echo "Dependency manifests found:"
+            printf '%s\n' "${found}"
+          else
+            echo "has_manifests=false" >> "${GITHUB_OUTPUT}"
+            echo "No dependency manifests are tracked in this repository."
+          fi
+
+      - name: Dependency review
+        if: steps.detect.outputs.has_manifests == 'true'
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: moderate
+          # Reject licences that are incompatible with the project's Apache-2.0
+          # distribution terms.
+          deny-licenses: AGPL-1.0-or-later, AGPL-3.0-or-later, GPL-2.0-or-later, GPL-3.0-or-later, LGPL-3.0-or-later
+
+      - name: No manifests to review
+        if: steps.detect.outputs.has_manifests != 'true'
+        run: |
+          echo "::notice title=Dependency review skipped::SecHelix tracks no package manifests (Python standard library only), so there is no dependency graph to diff. This job re-enables itself automatically once a manifest is committed."

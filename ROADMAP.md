@@ -79,7 +79,7 @@ Status is per item. Nothing here is marked done without an artifact in the
 repository.
 
 - **done** — expand CWE ↔ CAPEC ↔ OWASP ↔ ASVS graph coverage from verified
-  release mappings (73 nodes, 96 edges, provenance-backed);
+  release mappings (76 nodes, 100 edges, provenance-backed);
 - **done** — grow Gold Check Packs from one to five: IDOR, SSRF,
   race/idempotency, money invariants, AI/MCP tool authority;
 - **done** — reconcile the report contract with the renderer, gates, and
@@ -91,10 +91,11 @@ repository.
   explicitly not a SecHelix result;
 - **done** — publish the first real end-to-end case study with artifacts,
   including a refuted candidate;
-- **partial** — expand paired vulnerable/clean fixtures (now 19 fixtures /
-  38 cases / 11 families; more families and more per-family depth still needed);
+- **partial** — expand paired vulnerable/clean fixtures (now 38 fixtures /
+  76 cases / 10 families; more families and more per-family depth still needed);
 - **partial** — add framework, database, cloud, container, supply-chain, and
-  AI-security lesson cards (7 cards exist, all CWE-anchored; the
+  AI-security lesson cards (11 cards exist, all CWE-anchored; the AI and
+  agent set landed alongside `docs/reference/ai-agent-security.md`, and the
   framework/cloud/container set is not started);
 - **not started** — pin and rights-review selected NIST SARD suites and OWASP
   Benchmark repositories;

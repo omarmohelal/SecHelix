@@ -1,0 +1,29 @@
+{
+  "id": "EVAL-INJ-003",
+  "schema_version": "1.1",
+  "family": "Injection / Dataflow",
+  "task": "Decide whether stored user input can reach a query as syntax on a later read.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-89"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "saved_view_repository.py",
+      "source": "\"\"\"Saved report views.\"\"\"\n\nALLOWED_TABLES = {\"orders\", \"invoices\"}\n\n\nclass SavedViewRepository:\n    def __init__(self, connection):\n        self._conn = connection\n\n    def save_view(self, tenant_id, name, table_name, expression):\n        if table_name not in ALLOWED_TABLES:\n            raise ValueError(\"unsupported table\")\n        # The write is fully parameterised, so storing the view is safe.\n        self._conn.execute(\n            \"INSERT INTO saved_views (tenant_id, name, table_name, expression) \"\n            \"VALUES (?, ?, ?, ?)\",\n            [tenant_id, name, table_name, expression],\n        )\n\n    def _load(self, tenant_id, view_id):\n        return self._conn.execute(\n            \"SELECT id, table_name, expression FROM saved_views \"\n            \"WHERE id = ? AND tenant_id = ?\",\n            [view_id, tenant_id],\n        ).fetchone()\n\n    def run_view(self, tenant_id, view_id, limit=100):\n        view = self._load(tenant_id, view_id)\n        if view is None:\n            raise LookupError(\"unknown view\")\n        if view[\"table_name\"] not in ALLOWED_TABLES:\n            raise ValueError(\"unsupported table\")\n        # The expression was written by an authenticated user of this tenant and\n        # has been round-tripped through our own database, so it is trusted here.\n        sql = (\n            f\"SELECT * FROM {view['table_name']} \"\n            f\"WHERE tenant_id = ? AND ({view['expression']}) \"\n            \"LIMIT ?\"\n        )\n        return self._conn.execute(sql, [tenant_id, int(limit)]).fetchall()\n",
+      "rationale": "The write path is parameterised, which is what makes the module look safe. The stored expression is later concatenated into the WHERE clause because it came from the application's own database, so an expression saved earlier by any tenant user closes the tenant predicate and reopens it — second-order injection across the isolation boundary."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "saved_view_repository.py",
+      "source": "\"\"\"Saved report views.\"\"\"\n\nimport json\n\nALLOWED_TABLES = {\"orders\", \"invoices\"}\nCOLUMNS = {\n    \"orders\": {\"status\": \"status\", \"total\": \"total\", \"created\": \"created_at\"},\n    \"invoices\": {\"status\": \"status\", \"amount\": \"amount\", \"issued\": \"issued_at\"},\n}\nOPERATORS = {\"eq\": \"=\", \"gt\": \">\", \"lt\": \"<\"}\n\n\ndef _compile(table_name, predicates):\n    clauses = []\n    params = []\n    for item in predicates:\n        column = COLUMNS[table_name].get(item.get(\"field\"))\n        operator = OPERATORS.get(item.get(\"op\"))\n        if column is None or operator is None:\n            raise ValueError(\"unsupported predicate\")\n        clauses.append(f\"{column} {operator} ?\")\n        params.append(item.get(\"value\"))\n    return (\" AND \".join(clauses) or \"1=1\"), params\n\n\nclass SavedViewRepository:\n    def __init__(self, connection):\n        self._conn = connection\n\n    def save_view(self, tenant_id, name, table_name, predicates):\n        if table_name not in ALLOWED_TABLES:\n            raise ValueError(\"unsupported table\")\n        # Compile on write so an unsupported predicate is rejected at the source.\n        _compile(table_name, predicates)\n        self._conn.execute(\n            \"INSERT INTO saved_views (tenant_id, name, table_name, predicates) \"\n            \"VALUES (?, ?, ?, ?)\",\n            [tenant_id, name, table_name, json.dumps(predicates)],\n        )\n\n    def run_view(self, tenant_id, view_id, limit=100):\n        view = self._conn.execute(\n            \"SELECT id, table_name, predicates FROM saved_views \"\n            \"WHERE id = ? AND tenant_id = ?\",\n            [view_id, tenant_id],\n        ).fetchone()\n        if view is None:\n            raise LookupError(\"unknown view\")\n        if view[\"table_name\"] not in ALLOWED_TABLES:\n            raise ValueError(\"unsupported table\")\n        # Stored structure is re-validated on read; identifiers resolve to fixed\n        # literals and every value stays a bound parameter.\n        clause, params = _compile(view[\"table_name\"], json.loads(view[\"predicates\"]))\n        sql = (\n            f\"SELECT * FROM {view['table_name']} \"\n            f\"WHERE tenant_id = ? AND ({clause}) LIMIT ?\"\n        )\n        return self._conn.execute(sql, [tenant_id, *params, int(limit)]).fetchall()\n",
+      "rationale": "Views are stored as structured predicates rather than SQL text, the same compiler runs on write and on read so nothing is trusted merely because it was stored, fields and operators map to fixed literals, and values are bound as parameters."
+    }
+  }
+}

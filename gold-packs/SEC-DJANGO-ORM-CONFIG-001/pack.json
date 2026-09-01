@@ -1,0 +1,279 @@
+{
+  "schema_version": "1.0",
+  "id": "SEC-DJANGO-ORM-CONFIG-001",
+  "version": "0.1.0",
+  "title": "Django: queryset construction, deployment settings, and the signing key",
+  "lifecycle": "REFERENCE",
+  "threat_model": {
+    "actor": "An authenticated user of the application, an unauthenticated caller reaching a view that no decorator or middleware covers, and anyone able to choose the Host header the deployment accepts",
+    "asset": "The rows a queryset reaches, the fields a caller can filter or order by, the values the error page renders, and everything the signing key authenticates — sessions on the cookie backend, password reset tokens, and signed messages",
+    "trust_boundary": "The line between values the application chose and values the caller chose: a bound query parameter is data, a field name or a fragment of SQL is structure, and the two are frequently mixed by the same helper",
+    "failure_mode": "Caller-supplied text becomes query structure rather than a bound value, or a caller-supplied key becomes a lookup path into related models, or a deployment setting intended for development is still in force where the application is reachable",
+    "impact": "Data outside the intended queryset is read or ordered into view, an error page discloses configuration and local state, the accepted Host is used to build links the application sends elsewhere, or a leaked signing key lets an attacker mint what the framework treats as authentic"
+  },
+  "applicability": {
+    "capability_tags": [
+      "django",
+      "django_orm",
+      "django_settings",
+      "django_views",
+      "django_sessions",
+      "django_rest_framework"
+    ],
+    "rule": "ANY_CAPABILITY_PRESENT",
+    "required_evidence": [
+      "A Django project layout: a `settings` module defining `INSTALLED_APPS` and `MIDDLEWARE`, with `manage.py` or an ASGI/WSGI entry point beside it",
+      "At least one view, serializer, or manager method that builds a queryset, renders a response, or reads a value from `request.GET`, `request.POST`, or the URL kwargs"
+    ]
+  },
+  "framework_fingerprints": [
+    {
+      "framework": "django-orm-and-raw-sql",
+      "versions": ["4.2 LTS", "5.0", "5.1", "5.2"],
+      "signals": [
+        "`QuerySet.raw`, `QuerySet.extra`, `RawSQL`, or `connection.cursor().execute` with a string built by formatting or concatenation rather than by the `params` argument",
+        "`extra(select=...)` or `extra(where=...)` whose expression text contains a request-derived value, which the documentation warns must be passed through `params` and never manually quoted",
+        "`order_by` or `values` given a field name taken from the request, so the caller selects the structure of the query",
+        "`filter(**request.GET.dict())` or an equivalent that expands caller-supplied keys into lookup arguments, letting `__` traverse to related models and to lookup types the view never intended",
+        "`annotate` or `aggregate` combined with a raw expression whose text is assembled at request time"
+      ]
+    },
+    {
+      "framework": "django-view-authorization",
+      "versions": [
+        "before 5.1 a view carries no authentication requirement unless it is decorated or its class mixes in an access mixin",
+        "5.1 adds `LoginRequiredMiddleware`, which makes authentication the default for every view once it is listed in `MIDDLEWARE` after `AuthenticationMiddleware`, with `login_not_required()` marking the intentional exceptions"
+      ],
+      "signals": [
+        "A view that mutates or discloses data with no `login_required`, no `permission_required`, and no access mixin, in a project whose `MIDDLEWARE` does not include `LoginRequiredMiddleware`",
+        "`login_not_required()` applied more widely than the small set of genuinely public views, which reintroduces the pre-5.1 situation one view at a time",
+        "An authentication check that establishes who the caller is without an object-level check that they may reach this particular record",
+        "A Django REST Framework view whose `permission_classes` is left at the project default, where that default is permissive"
+      ]
+    },
+    {
+      "framework": "django-csrf",
+      "versions": [
+        "4.0 and later require `CSRF_TRUSTED_ORIGINS` entries to include the scheme, and a value that used to start with a dot must now also carry an asterisk before it, so `.example.com` becomes `https://*.example.com`; an entry carried over from an older project is not the entry the developer thinks it is, and the framework's own system check reports the ones that need changing"
+      ],
+      "signals": [
+        "`@csrf_exempt` on a view that performs a state change, particularly one reached by a session cookie",
+        "`CsrfViewMiddleware` absent from `MIDDLEWARE` entirely, which disables the protection project-wide rather than per view",
+        "`CSRF_TRUSTED_ORIGINS` containing a wildcard subdomain entry, which extends trust to every host under that domain including ones the team does not control",
+        "A DRF view using a token or header authentication class, where the framework's CSRF enforcement does not apply, combined with a browser client that still sends the session cookie"
+      ]
+    },
+    {
+      "framework": "django-deployment-settings",
+      "versions": ["4.2 LTS", "5.0", "5.1", "5.2"],
+      "signals": [
+        "`DEBUG` true, or read from an environment variable in a way that makes the string `\"False\"` truthy, in a settings module used where the application is reachable",
+        "`ALLOWED_HOSTS` set to `[\"*\"]`, which accepts any Host header and makes any absolute URL the application builds caller-influenced",
+        "`ALLOWED_HOSTS` left empty while `DEBUG` is true, where the framework validates against a small fixed set of local names instead — a development convenience that is not a production control",
+        "`SECURE_PROXY_SSL_HEADER` set without evidence that the proxy strips the header from inbound requests",
+        "`SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, or `SECURE_HSTS_SECONDS` unset in a deployment that is served over TLS"
+      ]
+    },
+    {
+      "framework": "django-signing-and-sessions",
+      "versions": [
+        "4.1 and later support `SECRET_KEY_FALLBACKS`, which makes key rotation possible without invalidating everything at once"
+      ],
+      "signals": [
+        "`SECRET_KEY` written literally in a settings module that is committed, or defaulted to a hard-coded value when the environment variable is absent",
+        "`SESSION_ENGINE` set to the cookie backend, where the session contents are signed but not encrypted and are therefore readable by whoever holds the cookie",
+        "The cookie session backend combined with a requirement to log a user out immediately, which that backend cannot satisfy server-side because there is no server record to delete",
+        "`django.core.signing` used to protect a value whose compromise matters, with no separate salt distinguishing it from other signed values"
+      ]
+    }
+  ],
+  "sources": {
+    "source_ids": ["mitre-cwe", "owasp-top-10", "owasp-asvs", "owasp-api-top-10"],
+    "catalog_hypothesis_ids": [
+      "SHX-INJ-L01",
+      "SHX-INJ-L18",
+      "SHX-AUTHZ-L01",
+      "SHX-AUTHZ-L07",
+      "SHX-SESS-L09",
+      "SHX-CRYPTO-L20",
+      "SHX-WEB-L01",
+      "SHX-REL-L21"
+    ],
+    "references": [
+      "https://docs.djangoproject.com/en/5.2/topics/db/sql/",
+      "https://docs.djangoproject.com/en/5.2/ref/models/querysets/",
+      "https://docs.djangoproject.com/en/5.2/ref/settings/",
+      "https://docs.djangoproject.com/en/5.2/ref/middleware/",
+      "https://docs.djangoproject.com/en/5.2/ref/csrf/",
+      "https://docs.djangoproject.com/en/5.2/topics/http/sessions/",
+      "https://docs.djangoproject.com/en/5.2/topics/auth/default/",
+      "https://docs.djangoproject.com/en/5.2/topics/security/",
+      "https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/",
+      "https://cwe.mitre.org/data/definitions/89.html",
+      "https://cwe.mitre.org/data/definitions/489.html",
+      "https://cwe.mitre.org/data/definitions/352.html"
+    ]
+  },
+  "boundary": {
+    "type": "QUERY_AND_CONFIG_TRUST",
+    "subject": "the authenticated user the view resolved, and the deployment configuration in force where the application is reachable",
+    "object": "the rows and fields a queryset can reach, the response an error path renders, and the values the signing key authenticates",
+    "action": "QUERY",
+    "invariant": "Caller-supplied text is bound as a value and never becomes query structure, caller-supplied keys are mapped through an allowlist before they become lookups, and no development-time setting is in force where the application accepts requests"
+  },
+  "sinks": [
+    {"kind": "RAW_SQL", "examples": ["`QuerySet.raw` with a formatted string", "`extra(where=...)` carrying request text", "`connection.cursor().execute` with concatenated SQL"]},
+    {"kind": "QUERY_STRUCTURE", "examples": ["`order_by` given a request-supplied field name", "`filter(**request.GET.dict())` expanding caller keys into lookups", "`values` selecting caller-named columns"]},
+    {"kind": "DEBUG_RESPONSE", "examples": ["Technical 500 page rendered to a caller", "Traceback or query log in an API error body"]},
+    {"kind": "HOST_DERIVED_URL", "examples": ["Password reset link built from the request host", "Absolute URL placed in an outbound email or webhook"]},
+    {"kind": "SIGNED_ARTIFACT", "examples": ["Cookie-backend session payload", "Password reset token", "Value produced by `django.core.signing`"]},
+    {"kind": "UNGUARDED_VIEW", "examples": ["Mutating view with no decorator or access mixin", "`@csrf_exempt` state-changing endpoint"]}
+  ],
+  "detection_layers": [
+    {
+      "layer": "MODEL",
+      "signals": [
+        "For each queryset, ask which parts the caller chose — the values, the field names, or the SQL text — and which of those the framework binds",
+        "Ask what a caller can learn by choosing a filter key rather than a filter value, including traversal into related models",
+        "Ask what the deployment accepts as its own Host, and where the application turns that into a URL it sends somewhere else"
+      ]
+    },
+    {
+      "layer": "STATIC",
+      "signals": [
+        "Find every `raw`, `extra`, `RawSQL`, and direct cursor use and record whether request-derived text reaches the SQL string or only the `params` argument",
+        "Find every place a request value becomes a field name, lookup key, or ordering term, and record whether an allowlist maps it to a fixed identifier first",
+        "List every view and record its authentication and object-level authorization, then check whether `MIDDLEWARE` includes `LoginRequiredMiddleware` and how often `login_not_required` appears",
+        "Read the settings module actually used in the deployment, following any environment overrides, and record `DEBUG`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `SESSION_ENGINE`, and how `SECRET_KEY` is obtained",
+        "Find every `@csrf_exempt` and every removal of `CsrfViewMiddleware`, and record what state change sits behind it"
+      ]
+    },
+    {
+      "layer": "CONTRACT",
+      "signals": [
+        "State, per view, which principal may call it and which objects they may reach, then check the code enforces both rather than only the first",
+        "State which fields callers may filter and order by, and check that statement exists as an allowlist in code rather than as an expectation",
+        "Record the Django version, because whether an undecorated view is protected depends on whether the project uses the 5.1 login-required middleware"
+      ]
+    },
+    {
+      "layer": "DATA",
+      "signals": [
+        "Establish which related models are reachable by lookup traversal from the model the caller can filter, and what those models hold",
+        "Establish where the signing key is stored, who can read it, and whether the same key protects sessions, reset tokens, and other signed values at once",
+        "Establish whether the cookie session backend is in use and what the application would have to do to end a session immediately"
+      ]
+    },
+    {
+      "layer": "LOCAL_RUNTIME",
+      "signals": [
+        "Against a local instance with two synthetic accounts, send filter keys the view never documented and record which are accepted and what they return",
+        "Request each view without authenticating and record which respond with data rather than a redirect or a rejection",
+        "Send an unexpected Host header locally and record whether the response is a rejection and what host any generated absolute URL contains",
+        "Trigger an error and record whether the response is the technical page or a generic one"
+      ]
+    }
+  ],
+  "validation": {
+    "default_mode": "LOCAL",
+    "destructive_actions": false,
+    "production_mutation": false,
+    "steps": [
+      "Confirm explicit authorization and run a local instance with synthetic data, using the same settings module the deployment uses with only credentials substituted",
+      "Record a baseline as the owning account for each view, so a later difference is attributable to the boundary rather than to a malformed request",
+      "Send filter, ordering, and field-selection parameters the interface never offers, including lookup traversal into related models, and record which are accepted",
+      "Repeat each request unauthenticated and as a second synthetic account, and record the status and the rows returned",
+      "Send a Host header the deployment should not accept and record both the response and the host inside any absolute URL the application generates, without sending mail anywhere real",
+      "Trigger an error path and record what the response body contains, alongside the `DEBUG` value the instance ran with",
+      "Read raw-SQL call sites and confirm from the executed statement, not from the source string, whether the caller's text arrived as a bound parameter",
+      "Keep every step to reads and to synthetic records the test created, and never point the instance at a production database"
+    ]
+  },
+  "false_positive_filters": [
+    "The raw query passes every caller-derived value through the `params` argument, which is the documented safe form; the presence of `raw` or `extra` alone is not the finding",
+    "The only caller-derived text in the SQL is mapped through an allowlist to a fixed identifier before interpolation, so nothing the caller wrote reaches the statement",
+    "The filter keys are taken from an explicit allowlist, or the view uses a form or serializer that declares the filterable fields, so `filter(**...)` cannot expand into an unintended lookup",
+    "The queryset the caller filters is already narrowed to their own rows by the manager or by `get_queryset`, so a wider lookup key still cannot cross the ownership boundary — check `get_queryset` before concluding otherwise",
+    "The project runs Django 5.1 or later with `LoginRequiredMiddleware` in `MIDDLEWARE` after `AuthenticationMiddleware`, so a view with no decorator is authenticated by default and the missing decorator is not the finding; confirm the middleware is present rather than assuming the version implies it",
+    "The view is decorated but the decorator is applied at the URL configuration or on the class rather than on the method the reviewer read, so the check exists at a different layer",
+    "The `@csrf_exempt` endpoint authenticates with a mechanism that a browser will not attach automatically and verifies a signature or bearer token itself, so cross-site request forgery is not the applicable threat",
+    "`DEBUG` is false in the settings module the deployment actually loads; a `True` in a development settings file that production never imports is not a production finding, and the import chain has to be read to tell",
+    "`ALLOWED_HOSTS` names concrete hosts, so the host-derived URL is constrained regardless of what the caller sends",
+    "The cookie session backend is not in use — a database, cache, or file backend is configured — so the session contents are not readable by the client and can be deleted server-side",
+    "The signing key is read from the environment or a secret store with no hard-coded fallback, so its presence in the settings module is a reference rather than the value"
+  ],
+  "verification": {
+    "independent_required": true,
+    "required_evidence": [
+      "The queryset construction with the caller-derived component identified, and the executed statement or the `params` argument showing whether it was bound",
+      "The view, its decorators, its class mixins, and the project `MIDDLEWARE` list together, since which of these carries the check differs by project and by version",
+      "The settings module the deployment loads, resolved through its import chain and environment overrides, showing the value actually in force",
+      "A recorded request and response demonstrating the reached rows, the accepted Host, or the rendered error detail, alongside the same request in its intended form",
+      "The Django version, because the default authentication posture for an undecorated view and the accepted form of trusted origins both differ by version"
+    ],
+    "refutation_tests": [
+      "Read `get_queryset`, the model manager, and any base view before concluding a filter reaches rows outside the caller's scope, since narrowing frequently lives there",
+      "Check `MIDDLEWARE` for the login-required middleware before reporting an undecorated view, because on 5.1 and later that middleware makes authentication the default",
+      "Follow the settings import chain to the module the deployment loads before reporting a development-time setting as a production one",
+      "Confirm the caller's text arrived as a bound parameter by reading the executed statement rather than the source expression",
+      "Attempt the same lookup traversal as the owning account to confirm the endpoint responds at all, so a rejection is attributable to the boundary",
+      "Establish whether the session backend is the cookie backend before asserting that session contents are client-readable or that revocation is impossible"
+    ]
+  },
+  "root_causes": [
+    "A helper accepts both values and structure through the same argument, so binding protects one and not the other",
+    "Filter keys are forwarded from the request because it is convenient, which hands the caller the lookup language including traversal into related models",
+    "Authorization stops at authentication, so a view that knows who the caller is still does not check which object they may reach",
+    "The default posture for an undecorated view changed between versions, so a habit formed on one version misreads the other",
+    "Development-time settings survive into a reachable deployment because the settings module that is loaded is not the one that was reviewed",
+    "Host validation is widened to make an environment work and never narrowed again, leaving generated URLs caller-influenced",
+    "One signing key protects several unrelated artifacts, so its compromise is not contained and rotation is avoided because it invalidates everything at once",
+    "The cookie session backend is chosen for statelessness without accounting for its consequence that a session cannot be ended server-side"
+  ],
+  "variant_strategy": {
+    "anchor_fields": ["invariant", "boundary", "action"],
+    "variant_dimensions": ["actor", "object", "identity_state", "enforcement_layer", "sink_kind", "framework"],
+    "result_contract": "EXACT | VARIANT | REFUTED | BLOCKED; exact and variant matches remain hypotheses until verified"
+  },
+  "remediation": {
+    "canonical_invariant": "Let the caller choose values and never structure, narrow every queryset to the caller's own rows before any caller-supplied filtering is applied, and make the deployed settings module the one that is reviewed",
+    "patterns": [
+      "Pass every caller-derived value through the `params` argument of the raw query API, and never quote a placeholder by hand",
+      "Map caller-supplied field names, ordering terms, and lookup keys through an explicit allowlist to fixed identifiers, or accept them only through a form or serializer that declares them",
+      "Narrow in `get_queryset` or in the manager so the caller's filtering operates on an already-scoped queryset, making a wide lookup key harmless",
+      "Adopt the login-required middleware where the version supports it and reserve `login_not_required()` for a short, reviewed list, so the default is protected rather than open",
+      "Keep object-level authorization as a separate, explicit check rather than an implication of authentication",
+      "Keep one settings module per environment with a shared base, resolve booleans explicitly rather than by truthiness of a string, and assert the deployed values in a startup check",
+      "Name concrete hosts in the allowed-host setting and build outbound absolute URLs from configuration rather than from the request",
+      "Read the signing key from the environment or a secret store with no fallback, use distinct salts per signed purpose, and use the fallback-key setting to rotate it without invalidating everything at once",
+      "Choose a server-side session backend when immediate revocation is required, and treat the cookie backend as readable by the client"
+    ]
+  },
+  "regression": {
+    "fixture_ids": ["EVAL-INJ-002", "EVAL-INJ-003", "EVAL-SESS-002"],
+    "assertions": [
+      "The vulnerable ordering fixture parameterises every value and still concatenates the caller's sort column and direction into the statement after a helper that only strips whitespace — the framework-neutral form of a request-supplied `order_by` or `extra` term",
+      "The remediated ordering fixture maps the sort column and direction through allowlists to fixed literals while still supporting the legitimate sort options, so the control is distinguishable from a removed feature",
+      "The vulnerable second-order fixture writes with parameters and then concatenates the stored expression on read because it came from the application's own database, closing and reopening the isolation predicate",
+      "The remediated second-order fixture stores structured predicates, runs the same compiler on write and on read, and binds values as parameters, so nothing is trusted merely because it was stored",
+      "The vulnerable session fixture keeps resolving a session that was revoked, because the cached principal is only invalidated by one of the two revocation paths",
+      "The compensated session fixture has no explicit revocation branch at all and is safe because the stored record is the authority and is re-read on every request, so absence of a revocation branch is not by itself the finding"
+    ]
+  },
+  "mappings": {
+    "cwe": ["CWE-89", "CWE-863", "CWE-862", "CWE-352", "CWE-489", "CWE-200", "CWE-522"],
+    "owasp": ["OWASP-A01:2021", "OWASP-A03:2021", "OWASP-A05:2021", "OWASP-API1:2023", "OWASP-ASVS:V4"]
+  },
+  "calibration": {
+    "measurement_status": "NOT_MEASURED",
+    "sample_size": 0,
+    "notes": "This pack has not completed a reproducible benchmark run and makes no precision or recall claim."
+  },
+  "limitations": [
+    "The referenced fixtures are framework-neutral synthetic cases in plain Python; they exercise the invariants this pack anchors on and contain no Django code",
+    "The default authentication posture for an undecorated view depends on both the Django version and whether the project lists the login-required middleware, so a version number alone does not settle it",
+    "The settings actually in force are decided by the import chain and the environment, which a repository does not fully determine; a settings conclusion drawn without the deployment's environment is provisional",
+    "Documentation links here are pinned to one Django version; behaviour named as version-dependent must be re-read against the version the project uses",
+    "Third-party packages — API frameworks, filter libraries, admin extensions — supply their own permission and filtering defaults that this pack does not describe"
+  ]
+}

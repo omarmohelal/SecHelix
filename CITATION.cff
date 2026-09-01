@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: "If you use SecHelix in academic work, tooling, or a security program, please cite it as below."
+title: SecHelix
+abstract: >-
+  An evidence-first application-security Agent Skill for authorized
+  repositories and environments. SecHelix maps attack surfaces, selects
+  applicable security hypotheses from a structured catalog of security
+  families and verification lenses, independently verifies material
+  findings, fixes root causes, requires regression proof, and produces
+  explicit release decisions. Every catalog record is an unverified
+  hypothesis until an evidence chain supports it; High and Critical
+  severity claims require independent verification.
+type: software
+version: 3.2.0-alpha.1
+date-released: 2026-09-01
+license: Apache-2.0
+repository-code: 'https://github.com/omarmohelal/SecHelix'
+url: 'https://sechelix.com'
+authors:
+  - given-names: Omar Mohamed Helal
+    family-names: Emam
+keywords:
+  - application-security
+  - agent-skills
+  - security-audit
+  - evidence-based-verification
+  - authorization
+  - business-logic
+  - ai-security
+  - mcp-security
+  - supply-chain-security

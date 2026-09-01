@@ -77,9 +77,9 @@ python -m unittest discover -s adapters/tests
 
 If your change affects reports or gates, run the relevant example gate as well.
 
-### The canonical skill and its five mirrors
+### The canonical skill and its adapter mirrors
 
-The root `SKILL.md` is canonical. CI requires five mirrors to exist and stay in
+`skills/sechelix/SKILL.md` is canonical. CI requires the adapter mirrors to exist and stay in
 step: `skills/sechelix/`, `.claude/skills/sechelix/`, `.codex/skills/sechelix/`,
 `.agents/skills/sechelix/`, and `.github/skills/sechelix/`.
 

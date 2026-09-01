@@ -1,0 +1,30 @@
+{
+  "id": "EVAL-AI-004",
+  "schema_version": "1.1",
+  "family": "AI / Agent / MCP",
+  "task": "Decide whether an agent-selected command can reach execution as something other than data.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-88",
+      "CWE-77"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "command_tool.py",
+      "source": "\"\"\"Repository inspection tool exposed to the agent.\"\"\"\n\nimport subprocess\n\nALLOWED_BINARIES = {\"git\", \"rg\", \"sed\"}\nTIMEOUT_SECONDS = 30\nMAX_OUTPUT = 4000\n\n\ndef run_command(step, workdir):\n    \"\"\"Run a command the model composed.\n\n    The argument vector goes straight to exec with no shell, so quoting, pipes,\n    and semicolons inside the arguments are inert.\n    \"\"\"\n    argv = [str(part) for part in step[\"argv\"]]\n    if not argv:\n        raise ValueError(\"empty command\")\n    if argv[0] not in ALLOWED_BINARIES:\n        raise PermissionError(f\"{argv[0]} is not an allowed binary\")\n    completed = subprocess.run(\n        argv,\n        cwd=workdir,\n        shell=False,\n        capture_output=True,\n        timeout=TIMEOUT_SECONDS,\n        check=False,\n        text=True,\n    )\n    return {\"returncode\": completed.returncode, \"stdout\": completed.stdout[:MAX_OUTPUT]}\n",
+      "rationale": "shell=False, an argv list, and a binary allowlist are all present, which is the shape reviewers accept as the hardened form of command execution. Everything after argv[0] still comes from the model, and each allowed binary interprets some of its own arguments as a program or a configuration override, so the model can name a subprocess without any shell being involved. The allowlist constrains which interpreter runs, not what it is told to do."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "command_tool.py",
+      "source": "\"\"\"Repository inspection tool exposed to the agent.\"\"\"\n\nimport re\nimport subprocess\n\nTIMEOUT_SECONDS = 30\nMAX_OUTPUT = 4000\n\n# The model picks an operation, never a command line. Every flag below is a\n# literal of this module, so no option can originate in model output.\nOPERATIONS = {\n    \"log\": [\"git\", \"--no-pager\", \"log\", \"--max-count=50\", \"--format=%H %s\"],\n    \"show\": [\"git\", \"--no-pager\", \"show\", \"--stat\"],\n    \"grep\": [\"rg\", \"--no-config\", \"--fixed-strings\", \"--max-count=200\"],\n}\nOPERAND = re.compile(\"[A-Za-z0-9._/-]{1,120}\")\nCHILD_ENV = {\"PATH\": \"/usr/bin:/bin\", \"LC_ALL\": \"C\"}\n\n\ndef run_command(step, workdir):\n    base = OPERATIONS.get(step.get(\"operation\"))\n    if base is None:\n        raise PermissionError(\"operation is not available\")\n    operand = str(step.get(\"operand\", \"\"))\n    if not OPERAND.fullmatch(operand):\n        raise ValueError(\"operand is not a plain identifier\")\n    # The single model-supplied value goes after \"--\", so a leading dash cannot\n    # be read as an option by a binary that treats some options as programs.\n    argv = [*base, \"--\", operand]\n    completed = subprocess.run(\n        argv,\n        cwd=workdir,\n        shell=False,\n        capture_output=True,\n        timeout=TIMEOUT_SECONDS,\n        check=False,\n        text=True,\n        # A minimal environment: no inherited config, hook, or pager variable.\n        env=CHILD_ENV,\n    )\n    return {\"returncode\": completed.returncode, \"stdout\": completed.stdout[:MAX_OUTPUT]}\n",
+      "rationale": "The model selects an operation rather than composing a command line. Every flag is a literal of this module, the one model-supplied value must match a plain-identifier pattern and is placed after a double dash so it cannot be parsed as an option, and the child runs with a minimal environment so no inherited variable can reintroduce a hook, pager, or config command. The legitimate read-only inspection still works."
+    }
+  }
+}

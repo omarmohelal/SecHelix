@@ -1,10 +1,12 @@
 ---
 name: sechelix
-description: Evidence-first AppSec review workflow for authorized repositories and environments. Use for security audits of code, APIs, business logic, authorization, races, payments, supply chain, AI/MCP, cloud/config, and release readiness.
+description: Portable evidence-first application-security audit workflow for authorized systems. Use to review codebases, APIs, web apps, auth/authz, business logic, races, payments, supply chain, AI/MCP integrations, cloud/config, and releases.
 ---
 
-# SecHelix GitHub/Copilot adapter
+# SecHelix GitHub Copilot adapter
 
-Use the repository root `SKILL.md` as the canonical methodology. This mirror exists for GitHub/VS Code agent environments that discover skills from `.github/skills/`.
+Follow `skills/sechelix/SKILL.md` as the canonical workflow. This mirror exists because GitHub documents `.github/skills/` as a repository skill directory for Copilot.
 
-All scope, safety, verification, severity, and regression requirements come from the root skill and must remain unchanged.
+Loading has not been observed in a Copilot session; the compatibility status is `DOCUMENTED`, not `VERIFIED`. See `docs/reference/compatibility.md`.
+
+Do not fork or weaken the root scope, authorization, evidence, independent-verification, or regression requirements.

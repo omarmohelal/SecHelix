@@ -41,7 +41,7 @@ SecHelix is deliberately split into seven layers so the methodology can remain p
 
 ## Canonical truth
 
-The root `SKILL.md` owns methodology. Vendor adapters may add invocation/orchestration hints but must not fork safety, severity, evidence, or verification semantics.
+The canonical `skills/sechelix/SKILL.md` owns methodology. Vendor adapters may add invocation/orchestration hints but must not fork safety, severity, evidence, or verification semantics.
 
 ## Coverage model
 

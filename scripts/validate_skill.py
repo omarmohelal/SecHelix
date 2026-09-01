@@ -8,10 +8,12 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+#: Every discovery path a host is documented to read. Listing them here means a
+#: deleted adapter fails the build instead of quietly becoming a README claim
+#: about a directory that is no longer there.
 ADAPTERS = (
     "skills/sechelix/SKILL.md",
     ".claude/skills/sechelix/SKILL.md",
-    ".codex/skills/sechelix/SKILL.md",
     ".agents/skills/sechelix/SKILL.md",
     ".github/skills/sechelix/SKILL.md",
 )
@@ -61,9 +63,15 @@ def validate_skill_file(path: Path) -> list[str]:
 
 
 def main() -> int:
-    errors = validate_skill_file(ROOT / "SKILL.md")
-    if len((ROOT / "SKILL.md").read_text(encoding="utf-8").splitlines()) >= 500:
-        errors.append("SKILL.md must remain under 500 lines")
+    canonical = ROOT / "skills" / "sechelix" / "SKILL.md"
+    errors = validate_skill_file(canonical)
+    if len(canonical.read_text(encoding="utf-8").splitlines()) >= 500:
+        errors.append("skills/sechelix/SKILL.md must remain under 500 lines")
+    if (ROOT / "SKILL.md").exists():
+        errors.append(
+            "a root SKILL.md makes the Skills CLI package the whole repository; "
+            "the canonical entry point is skills/sechelix/SKILL.md"
+        )
     for relative in ADAPTERS:
         errors.extend(validate_skill_file(ROOT / relative))
     portable = ROOT / "skills" / "sechelix"

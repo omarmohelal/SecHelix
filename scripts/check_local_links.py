@@ -16,6 +16,51 @@ MARKDOWN_LINK = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 HTML_LINK = re.compile(r"\b(?:href|src)=[\"']([^\"']+)[\"']", re.IGNORECASE)
 SKIP_SCHEMES = {"http", "https", "mailto", "data", "javascript"}
 
+FENCED_BLOCK = re.compile(r"^(?P<fence>```+|~~~+)[^\n]*\n.*?^(?P=fence)[^\n]*$", re.M | re.S)
+INLINE_CODE = re.compile(r"(?P<ticks>`+)(?!`).*?(?<!`)(?P=ticks)(?!`)", re.S)
+
+
+def _blank(match: re.Match[str]) -> str:
+    """Replace a span with spaces, keeping newlines so line numbers stay true."""
+    return "".join("\n" if char == "\n" else " " for char in match.group(0))
+
+
+def mask_code(text: str) -> str:
+    """Hide fenced blocks and inline code spans from link matching.
+
+    Documentation that quotes Markdown — a submission draft showing the entry
+    line it will post, for instance — contains link syntax that is displayed
+    literally and is never navigable. Treating it as a link reports a break in
+    someone else's repository as a break in this one.
+    """
+    return INLINE_CODE.sub(_blank, FENCED_BLOCK.sub(_blank, text))
+
+
+FENCE_LINE = re.compile(r"^(?P<fence>```+|~~~+)(?P<info>[^\n]*)$", re.M)
+
+
+def unclosed_fence(text: str) -> int | None:
+    """Return the line number of a fence that is never closed, if there is one.
+
+    Masking is faithful to CommonMark, which is exactly why this matters: when a
+    fence is left open, everything after it really is inside a code block, so the
+    links in it stop rendering *and* stop being checked. Both failures are
+    silent. Reporting the fence turns a document that quietly went dark into a
+    build error.
+    """
+    open_fence: str | None = None
+    open_line = 0
+    for match in FENCE_LINE.finditer(text):
+        fence = match.group("fence")
+        line = text.count("\n", 0, match.start()) + 1
+        if open_fence is None:
+            open_fence, open_line = fence, line
+        elif fence[0] == open_fence[0] and len(fence) >= len(open_fence):
+            # A closing fence carries no info string; one that does opens a block.
+            if not match.group("info").strip():
+                open_fence = None
+    return open_line if open_fence is not None else None
+
 
 def tracked_paths(root: Path) -> list[Path]:
     result = subprocess.run(["git", "-C", str(root), "ls-files", "-z"], check=True, capture_output=True)
@@ -39,8 +84,17 @@ def check_file(path: Path) -> list[str]:
     if path.suffix.lower() not in {".md", ".html"}:
         return []
     text = path.read_text(encoding="utf-8")
-    pattern = MARKDOWN_LINK if path.suffix.lower() == ".md" else HTML_LINK
+    is_markdown = path.suffix.lower() == ".md"
     findings = []
+    if is_markdown:
+        opened_at = unclosed_fence(text)
+        if opened_at is not None:
+            findings.append(
+                f"{path}:{opened_at}: code fence is never closed, so everything after it "
+                "stops rendering and stops being link-checked"
+            )
+        text = mask_code(text)
+    pattern = MARKDOWN_LINK if is_markdown else HTML_LINK
     for match in pattern.finditer(text):
         target = _target_path(path, match.group(1))
         if target is not None and not target.exists():

@@ -1,0 +1,613 @@
+{
+  "cases": [
+    {
+      "case_id": "CASE-017BEFFEE21C2E76",
+      "family": "SSRF / URL Fetching",
+      "filename": "preview.py",
+      "language": "python",
+      "source": "from urllib.parse import urlparse\n\ndef preview(url, approved_fetcher):\n    parsed = urlparse(url)\n    if parsed.scheme != 'https' or parsed.hostname not in {'assets.example.test'}:\n        raise ValueError('unapproved destination')\n    return approved_fetcher.fetch(parsed.geturl(), block_private_networks=True)\n",
+      "task": "Review whether caller-controlled URLs can reach non-approved hosts or schemes."
+    },
+    {
+      "case_id": "CASE-03456A1C27CDE920",
+      "family": "Browser / XSS",
+      "filename": "comment-view.js",
+      "language": "javascript",
+      "source": "// Renders a stored comment thread.\nexport function escapeHtml(value) {\n  return String(value)\n    .replace(/&/g, \"&amp;\")\n    .replace(/</g, \"&lt;\")\n    .replace(/>/g, \"&gt;\");\n}\n\nexport function renderComment(node, comment) {\n  const body = escapeHtml(comment.body);\n  const name = escapeHtml(comment.author.name);\n  // The author's homepage is optional and supplied at signup.\n  const link = comment.author.homepage || \"#\";\n  node.innerHTML = `\n    <article class=\"comment\">\n      <a class=\"author\" href=\"${link}\">${name}</a>\n      <p>${body}</p>\n    </article>`;\n  return node;\n}\n",
+      "task": "Decide whether stored user content reaches the DOM without contextual escaping."
+    },
+    {
+      "case_id": "CASE-0351D1EAEE37C430",
+      "family": "Injection / Dataflow",
+      "filename": "search_repository.py",
+      "language": "python",
+      "source": "\"\"\"Product search repository.\"\"\"\n\nALLOWED_FILTERS = {\"category\", \"vendor\"}\nSORT_COLUMNS = {\"name\": \"name\", \"price\": \"price\", \"created\": \"created_at\"}\nSORT_DIRECTIONS = {\"asc\": \"ASC\", \"desc\": \"DESC\"}\n\n\nclass SearchRepository:\n    def __init__(self, connection):\n        self._conn = connection\n\n    def search(self, filters, sort_by, direction, limit=50):\n        where = []\n        params = []\n        for key, value in filters.items():\n            if key not in ALLOWED_FILTERS:\n                continue\n            where.append(f\"{key} = ?\")\n            params.append(value)\n\n        clause = \" AND \".join(where) or \"1=1\"\n        # Identifiers resolve to fixed literals; unknown input is rejected.\n        column = SORT_COLUMNS.get(str(sort_by).lower())\n        order_dir = SORT_DIRECTIONS.get(str(direction).lower())\n        if column is None or order_dir is None:\n            raise ValueError(\"unsupported sort\")\n        sql = f\"SELECT id, name, price FROM products WHERE {clause} ORDER BY {column} {order_dir} LIMIT ?\"\n        params.append(int(limit))\n        return self._conn.execute(sql, params).fetchall()\n",
+      "task": "Decide whether caller-controlled input reaches a query without parameterization."
+    },
+    {
+      "case_id": "CASE-035797A498293B4F",
+      "family": "Browser / XSS",
+      "filename": "comment-view.js",
+      "language": "javascript",
+      "source": "// Renders a stored comment thread.\nconst SAFE_SCHEMES = new Set([\"http:\", \"https:\", \"mailto:\"]);\n\nexport function safeHref(value) {\n  if (!value) return null;\n  try {\n    return SAFE_SCHEMES.has(new URL(value).protocol) ? value : null;\n  } catch {\n    return null;\n  }\n}\n\nexport function renderComment(node, comment) {\n  const article = document.createElement(\"article\");\n  article.className = \"comment\";\n\n  const href = safeHref(comment.author.homepage);\n  const author = document.createElement(href ? \"a\" : \"span\");\n  author.className = \"author\";\n  if (href) author.setAttribute(\"href\", href);\n  author.textContent = comment.author.name;\n\n  const body = document.createElement(\"p\");\n  body.textContent = comment.body;\n\n  article.append(author, body);\n  node.replaceChildren(article);\n  return node;\n}\n",
+      "task": "Decide whether stored user content reaches the DOM without contextual escaping."
+    },
+    {
+      "case_id": "CASE-08CE65FAF8B7E6F2",
+      "family": "SSRF / URL Fetching",
+      "filename": "link_preview.py",
+      "language": "python",
+      "source": "\"\"\"Link preview fetcher.\"\"\"\n\nimport ipaddress\nimport socket\nfrom urllib.parse import urlparse\n\nBLOCKED_NETS = [\n    ipaddress.ip_network(\"127.0.0.0/8\"),\n    ipaddress.ip_network(\"10.0.0.0/8\"),\n    ipaddress.ip_network(\"169.254.0.0/16\"),\n]\n\n\ndef _is_public(host):\n    addr = ipaddress.ip_address(socket.gethostbyname(host))\n    return not any(addr in net for net in BLOCKED_NETS)\n\n\ndef fetch_preview(url, http_client):\n    parsed = urlparse(url)\n    if parsed.scheme != \"https\":\n        raise ValueError(\"https required\")\n    if not _is_public(parsed.hostname):\n        raise ValueError(\"private destination\")\n    # Validated, so let the client resolve redirects for us.\n    response = http_client.get(url, allow_redirects=True, timeout=3)\n    return {\"status\": response.status_code, \"body\": response.text[:4096]}\n",
+      "task": "Decide whether a validated URL can still reach an internal destination."
+    },
+    {
+      "case_id": "CASE-0B169D6C93A1ABB8",
+      "family": "Injection / Dataflow",
+      "filename": "transcode_worker.py",
+      "language": "python",
+      "source": "\"\"\"Media transcode worker.\"\"\"\n\nimport shlex\nimport subprocess\n\nPRESETS = {\n    \"web-720\": [\"-vf\", \"scale=-2:720\", \"-c:v\", \"libx264\", \"-crf\", \"23\"],\n    \"audio-only\": [\"-vn\", \"-c:a\", \"aac\", \"-b:a\", \"128k\"],\n    \"watermark\": [\"-c:v\", \"libx264\", \"-crf\", \"23\"],\n}\nTIMEOUT_SECONDS = 600\n\n\ndef _watermark_args(text):\n    # The filter value is one argv element; ffmpeg parses it, no shell does.\n    escaped = str(text).replace(\":\", \"\").replace(\"'\", \"\")\n    return [\"-vf\", f\"drawtext=text={escaped}\"] if escaped else []\n\n\nclass TranscodeWorker:\n    def __init__(self, assets, output_root):\n        self._assets = assets\n        self._output_root = output_root\n\n    def _resolve_input(self, tenant_id, asset_id):\n        # Server-derived: the caller supplies an opaque id, never a path.\n        row = self._assets.get_for_tenant(asset_id, tenant_id)\n        if row is None:\n            raise LookupError(\"unknown asset\")\n        return row[\"storage_path\"]\n\n    def run(self, job):\n        preset = PRESETS.get(job[\"preset\"])\n        if preset is None:\n            raise ValueError(\"unknown preset\")\n        source = self._resolve_input(job[\"tenant_id\"], job[\"asset_id\"])\n        target = f\"{self._output_root}/{job['tenant_id']}/{job['asset_id']}.mp4\"\n        argv = [\"ffmpeg\", \"-nostdin\", \"-i\", source, *preset]\n        if job[\"preset\"] == \"watermark\":\n            argv.extend(_watermark_args(job.get(\"watermark_text\", \"\")))\n        argv.append(target)\n\n        # No shell on any path: argv is a list, so caller data stays data.\n        completed = subprocess.run(\n            argv, shell=False, capture_output=True,\n            timeout=TIMEOUT_SECONDS, check=False,\n        )\n        return {\n            \"asset_id\": job[\"asset_id\"],\n            \"returncode\": completed.returncode,\n            # Rendered for the job log only; this string is never executed.\n            \"command\": shlex.join(argv),\n        }\n",
+      "task": "Decide whether a transcode worker can execute caller-influenced shell syntax."
+    },
+    {
+      "case_id": "CASE-0F830A7691E26A34",
+      "family": "AI / Agent / MCP",
+      "filename": "command_tool.py",
+      "language": "python",
+      "source": "\"\"\"Repository inspection tool exposed to the agent.\"\"\"\n\nimport re\nimport subprocess\n\nTIMEOUT_SECONDS = 30\nMAX_OUTPUT = 4000\n\n# The model picks an operation, never a command line. Every flag below is a\n# literal of this module, so no option can originate in model output.\nOPERATIONS = {\n    \"log\": [\"git\", \"--no-pager\", \"log\", \"--max-count=50\", \"--format=%H %s\"],\n    \"show\": [\"git\", \"--no-pager\", \"show\", \"--stat\"],\n    \"grep\": [\"rg\", \"--no-config\", \"--fixed-strings\", \"--max-count=200\"],\n}\nOPERAND = re.compile(\"[A-Za-z0-9._/-]{1,120}\")\nCHILD_ENV = {\"PATH\": \"/usr/bin:/bin\", \"LC_ALL\": \"C\"}\n\n\ndef run_command(step, workdir):\n    base = OPERATIONS.get(step.get(\"operation\"))\n    if base is None:\n        raise PermissionError(\"operation is not available\")\n    operand = str(step.get(\"operand\", \"\"))\n    if not OPERAND.fullmatch(operand):\n        raise ValueError(\"operand is not a plain identifier\")\n    # The single model-supplied value goes after \"--\", so a leading dash cannot\n    # be read as an option by a binary that treats some options as programs.\n    argv = [*base, \"--\", operand]\n    completed = subprocess.run(\n        argv,\n        cwd=workdir,\n        shell=False,\n        capture_output=True,\n        timeout=TIMEOUT_SECONDS,\n        check=False,\n        text=True,\n        # A minimal environment: no inherited config, hook, or pager variable.\n        env=CHILD_ENV,\n    )\n    return {\"returncode\": completed.returncode, \"stdout\": completed.stdout[:MAX_OUTPUT]}\n",
+      "task": "Decide whether an agent-selected command can reach execution as something other than data."
+    },
+    {
+      "case_id": "CASE-103F6D4C75EC9636",
+      "family": "Authentication / Sessions",
+      "filename": "password_reset.py",
+      "language": "python",
+      "source": "\"\"\"Password reset completion.\"\"\"\n\nimport hashlib\nimport hmac\nimport secrets\nimport time\n\nTOKEN_TTL_SECONDS = 900\n\n\ndef _fingerprint(raw_token):\n    return hashlib.sha256(raw_token.encode(\"utf-8\")).hexdigest()\n\n\nclass PasswordResetService:\n    def __init__(self, accounts, tokens, sessions, mailer):\n        self._accounts = accounts\n        self._tokens = tokens\n        self._sessions = sessions\n        self._mailer = mailer\n\n    def request_reset(self, email):\n        account = self._accounts.find_by_email(email)\n        # Respond identically whether or not the address is registered.\n        if account is not None:\n            raw = secrets.token_urlsafe(32)\n            self._tokens.put({\n                \"fingerprint\": _fingerprint(raw),\n                \"user_id\": account[\"id\"],\n                \"created_at\": time.time(),\n                \"used\": False,\n            })\n            self._mailer.send_reset(account[\"email\"], raw)\n        return {\"status\": \"sent\"}\n\n    def complete_reset(self, email, raw_token, new_password):\n        record = self._tokens.get(_fingerprint(raw_token))\n        if record is None or record[\"used\"]:\n            raise PermissionError(\"invalid reset token\")\n        if time.time() - record[\"created_at\"] > TOKEN_TTL_SECONDS:\n            raise PermissionError(\"expired reset token\")\n\n        # The subject comes from the token, never from the request body.\n        account = self._accounts.get(record[\"user_id\"])\n        if account is None:\n            raise LookupError(\"unknown account\")\n        if not hmac.compare_digest(account[\"email\"].lower(), str(email).lower()):\n            raise PermissionError(\"token does not belong to this account\")\n\n        self._tokens.mark_used(record[\"fingerprint\"])\n        self._accounts.set_password(account[\"id\"], new_password)\n        # A credential change invalidates everything issued before it.\n        self._sessions.revoke_all_for_user(account[\"id\"])\n        return {\"status\": \"reset\", \"user_id\": account[\"id\"]}\n",
+      "task": "Decide whether a password reset flow lets a caller take over another account."
+    },
+    {
+      "case_id": "CASE-1BFD3048E49762D7",
+      "family": "AI / Agent / MCP",
+      "filename": "context_builder.py",
+      "language": "python",
+      "source": "\"\"\"Assemble the model context for one agent step.\"\"\"\n\nFENCE = \"<<<UNTRUSTED>>>\"\n\n\ndef _block(label, text):\n    # Untrusted material is labelled and delimited so the model can tell it\n    # apart from the operator's instructions.\n    return f\"{FENCE} BEGIN {label}\\n{text}\\n{FENCE} END {label}\"\n\n\ndef build_context(operator_prompt, user_message, tool_results):\n    sections = [operator_prompt, _block(\"user_message\", user_message)]\n    for result in tool_results:\n        sections.append(_block(f\"tool_result:{result['tool']}\", str(result[\"content\"])))\n    return [{\"role\": \"system\", \"content\": \"\\n\\n\".join(sections)}]\n",
+      "task": "Decide whether a tool result can reach the model inside the operator's channel."
+    },
+    {
+      "case_id": "CASE-1DA1A8B268F201A7",
+      "family": "AI / Agent / MCP",
+      "filename": "agent_memory.py",
+      "language": "python",
+      "source": "\"\"\"Durable per-user agent memory.\"\"\"\n\nOPERATOR = \"OPERATOR\"\nTHIRD_PARTY = \"THIRD_PARTY\"\n\n\nclass MemoryStore:\n    def __init__(self, rows, clock):\n        self._rows = rows\n        self._clock = clock\n\n    def remember(self, user_id, text, origins):\n        # Provenance is where the content came from, not who last wrote it\n        # down: a summary of third-party text is still third-party text.\n        origins = sorted(set(origins))\n        self._rows.insert({\n            \"user_id\": user_id,\n            \"text\": text,\n            \"origin\": OPERATOR if origins == [OPERATOR] else THIRD_PARTY,\n            \"derived_from\": origins,\n            \"created_at\": self._clock.now(),\n        })\n\n    def operator_preferences(self, user_id):\n        return [\n            row[\"text\"]\n            for row in self._rows.for_user(user_id)\n            if row[\"origin\"] == OPERATOR\n        ]\n\n    def recalled_notes(self, user_id):\n        return [\n            {\n                \"text\": row[\"text\"],\n                \"origin\": row[\"origin\"],\n                \"derived_from\": row[\"derived_from\"],\n            }\n            for row in self._rows.for_user(user_id)\n        ]\n\n\ndef close_session(session, memory, model):\n    summary = model.summarize(session.transcript)\n    for fact in summary[\"durable_facts\"]:\n        # origins_for maps a fact back to the transcript segments it was drawn\n        # from, so a fact touching a retrieved chunk stays labelled as such.\n        memory.remember(session.user_id, fact[\"text\"], session.origins_for(fact))\n\n\ndef build_context(user_id, memory, operator_prompt, model):\n    preferences = \"\\n\".join(memory.operator_preferences(user_id))\n    return model.build_prompt(\n        system=operator_prompt + \"\\n\\nStanding preferences:\\n\" + preferences,\n        untrusted={\"recalled_notes\": memory.recalled_notes(user_id)},\n    )\n",
+      "task": "Decide whether content from an untrusted source can become a durable trusted instruction."
+    },
+    {
+      "case_id": "CASE-1F16B5530F0FE7C2",
+      "family": "Files / Uploads / Parsers",
+      "filename": "attachment_store.py",
+      "language": "python",
+      "source": "\"\"\"Attachment storage.\"\"\"\n\nimport os\nfrom urllib.parse import unquote\n\nBASE = os.path.realpath(\"/srv/attachments\")\n\n\ndef save(name, data):\n    # Decode first, then reduce to a single path component.\n    decoded = unquote(name)\n    leaf = os.path.basename(decoded)\n    if not leaf or leaf in {\".\", \"..\"}:\n        raise ValueError(\"invalid name\")\n    path = os.path.realpath(os.path.join(BASE, leaf))\n    # Containment is asserted on the resolved path, not the input string.\n    if os.path.commonpath([BASE, path]) != BASE:\n        raise ValueError(\"path escapes storage root\")\n    with open(path, \"wb\") as handle:\n        handle.write(data)\n    return path\n",
+      "task": "Decide whether a caller-supplied name can escape the storage directory."
+    },
+    {
+      "case_id": "CASE-22E3C1DC0B96F8C5",
+      "family": "Authorization / BOLA / BFLA",
+      "filename": "admin_routes.py",
+      "language": "python",
+      "source": "\"\"\"Administrative routes.\"\"\"\n\nfrom functools import wraps\n\n\ndef require_role(role):\n    def decorator(handler):\n        @wraps(handler)\n        def wrapper(request, *args, **kwargs):\n            # Roles arrive with the request so the UI can pre-render menus.\n            claimed = request.get(\"body\", {}).get(\"roles\", [])\n            if role not in claimed:\n                raise PermissionError(\"forbidden\")\n            return handler(request, *args, **kwargs)\n        return wrapper\n    return decorator\n\n\nclass Billing:\n    def __init__(self, ledger):\n        self._ledger = ledger\n\n    @require_role(\"admin\")\n    def issue_refund(self, request, order_id, amount):\n        session = request[\"session\"]\n        return self._ledger.refund(order_id, amount, actor=session[\"user_id\"])\n",
+      "task": "Decide whether a non-administrative role can reach an administrative action."
+    },
+    {
+      "case_id": "CASE-235E7528E78BBF3E",
+      "family": "Files / Uploads / Parsers",
+      "filename": "job_payload_cache.py",
+      "language": "python",
+      "source": "\"\"\"Background job payload cache.\"\"\"\n\nimport hashlib\nimport hmac\nimport pickle\n\nSIGNATURE_VERSION = \"v2\"\n\n\nclass PayloadCodec:\n    \"\"\"Serialises job payloads that carry worker-owned objects.\n\n    pickle is deliberate: these payloads contain worker types that JSON cannot\n    express. It is only ever applied to bytes this process produced and tagged,\n    the tag is verified in constant time first, and there is no branch that\n    reaches the decoder without that verification.\n    \"\"\"\n\n    def __init__(self, signing_key):\n        self._key = signing_key\n\n    def _tag(self, blob):\n        return hmac.new(\n            self._key, SIGNATURE_VERSION.encode(\"ascii\") + blob, hashlib.sha256\n        ).hexdigest()\n\n    def encode(self, payload):\n        blob = pickle.dumps(payload, protocol=pickle.HIGHEST_PROTOCOL)\n        return {\"version\": SIGNATURE_VERSION, \"blob\": blob, \"sig\": self._tag(blob)}\n\n    def decode(self, entry):\n        if entry.get(\"version\") != SIGNATURE_VERSION:\n            raise ValueError(\"unsupported cache entry version\")\n        signature = entry.get(\"sig\")\n        if not isinstance(signature, str):\n            # A missing tag is a rejected entry, never a legacy exemption.\n            raise ValueError(\"unsigned cache entry\")\n        if not hmac.compare_digest(signature, self._tag(entry[\"blob\"])):\n            raise ValueError(\"cache entry failed integrity check\")\n        return pickle.loads(entry[\"blob\"])\n\n\nclass JobQueue:\n    def __init__(self, store, codec):\n        self._store = store\n        self._codec = codec\n\n    def enqueue(self, name, payload):\n        self._store.put(name, self._codec.encode(payload))\n\n    def next_job(self, name):\n        entry = self._store.take(name)\n        return None if entry is None else self._codec.decode(entry)\n",
+      "task": "Decide whether a cache entry can reach an unsafe decoder without authentication."
+    },
+    {
+      "case_id": "CASE-25EEB6C18869C279",
+      "family": "AI / Agent / MCP",
+      "filename": "confirmation_gate.py",
+      "language": "python",
+      "source": "\"\"\"Out-of-band confirmation for privileged agent actions.\"\"\"\n\nimport hashlib\nimport json\nimport secrets\n\nAPPROVAL_TTL_SECONDS = 300\nPRIVILEGED_TOOLS = {\"send_email\", \"delete_records\", \"issue_refund\"}\n\n\ndef action_digest(run_id, tool, args):\n    canonical = json.dumps(\n        {\"run_id\": run_id, \"tool\": tool, \"args\": args},\n        sort_keys=True,\n        separators=(\",\", \":\"),\n        default=str,\n    )\n    return hashlib.sha256(canonical.encode(\"utf-8\")).hexdigest()\n\n\nclass ConfirmationGate:\n    \"\"\"The operator answers in a channel the agent run cannot write to.\"\"\"\n\n    def __init__(self, approvals, notifier, clock):\n        self._approvals = approvals\n        self._notifier = notifier\n        self._clock = clock\n\n    def propose(self, run_id, step, operator_id):\n        token = secrets.token_urlsafe(32)\n        # The proposal itself is stored, not a reference to a live step.\n        self._approvals.put(token, {\n            \"run_id\": run_id,\n            \"tool\": step[\"tool\"],\n            \"args\": step[\"args\"],\n            \"digest\": action_digest(run_id, step[\"tool\"], step[\"args\"]),\n            \"operator_id\": operator_id,\n            \"issued_at\": self._clock.now(),\n        })\n        self._notifier.ask(operator_id, step[\"tool\"], step[\"args\"], token)\n        return token\n\n    def execute(self, run_id, token, tools):\n        # Consumed on read, so one answer authorizes exactly one call.\n        record = self._approvals.consume(token)\n        if record is None or not record.get(\"approved\"):\n            raise PermissionError(\"action was not approved\")\n        if record[\"run_id\"] != run_id:\n            raise PermissionError(\"approval belongs to another run\")\n        if self._clock.now() - record[\"issued_at\"] > APPROVAL_TTL_SECONDS:\n            raise PermissionError(\"approval expired\")\n        if record[\"digest\"] != action_digest(run_id, record[\"tool\"], record[\"args\"]):\n            raise PermissionError(\"approved action was altered in storage\")\n        # What executes is the stored proposal the operator saw. Nothing the run\n        # emits after the answer can change the tool or the arguments.\n        return tools[record[\"tool\"]](record[\"args\"])\n\n\ndef run_privileged_step(gate, run_id, step, token, tools):\n    if step[\"tool\"] not in PRIVILEGED_TOOLS:\n        return tools[step[\"tool\"]](step[\"args\"])\n    return gate.execute(run_id, token, tools)\n",
+      "task": "Decide whether a human confirmation binds the action that finally executes."
+    },
+    {
+      "case_id": "CASE-29F0117036C82418",
+      "family": "Business Logic / Payments",
+      "filename": "refunds.py",
+      "language": "python",
+      "source": "\"\"\"Refund processing.\"\"\"\n\n\nclass RefundService:\n    def __init__(self, orders, ledger):\n        self._orders = orders\n        self._ledger = ledger\n\n    def refund(self, order_id, amount, actor):\n        if amount <= 0:\n            raise ValueError(\"amount must be positive\")\n        with self._orders.transaction() as tx:\n            order = tx.lock_order(order_id)\n            if order is None:\n                raise LookupError(\"unknown order\")\n            already = sum(r[\"amount\"] for r in tx.refunds_for(order_id))\n            remaining = order[\"total\"] - already\n            # The invariant is cumulative, not per-request.\n            if amount > remaining:\n                raise ValueError(\"refund exceeds remaining refundable balance\")\n            self._ledger.credit(order[\"customer_id\"], amount)\n            tx.append_refund(order_id, amount, actor)\n        return {\"order_id\": order_id, \"refunded\": amount}\n",
+      "task": "Decide whether a refund flow can return more value than was captured."
+    },
+    {
+      "case_id": "CASE-2BF004EF89530A0B",
+      "family": "Authorization / BOLA / BFLA",
+      "filename": "invoice.py",
+      "language": "python",
+      "source": "def get_invoice(actor, invoice_id, store):\n    invoice = store[invoice_id]\n    return invoice\n",
+      "task": "Determine whether a caller can read an invoice owned by another tenant and identify the controlling invariant."
+    },
+    {
+      "case_id": "CASE-30B36723E0A4B41B",
+      "family": "AI / Agent / MCP",
+      "filename": "confirmation_gate.py",
+      "language": "python",
+      "source": "\"\"\"Out-of-band confirmation for privileged agent actions.\"\"\"\n\nimport secrets\n\nAPPROVAL_TTL_SECONDS = 300\nPRIVILEGED_TOOLS = {\"send_email\", \"delete_records\", \"issue_refund\"}\n\n\nclass ConfirmationGate:\n    \"\"\"The operator answers in a channel the agent run cannot write to.\"\"\"\n\n    def __init__(self, approvals, notifier, clock):\n        self._approvals = approvals\n        self._notifier = notifier\n        self._clock = clock\n\n    def request(self, run_id, step, operator_id):\n        token = secrets.token_urlsafe(32)\n        self._approvals.put(token, {\n            \"run_id\": run_id,\n            \"tool\": step[\"tool\"],\n            \"operator_id\": operator_id,\n            \"issued_at\": self._clock.now(),\n        })\n        # The operator sees the tool and the arguments before answering.\n        self._notifier.ask(operator_id, step[\"tool\"], step[\"args\"], token)\n        return token\n\n    def execute(self, run_id, step, token, tools):\n        record = self._approvals.get(token)\n        if record is None or not record.get(\"approved\"):\n            raise PermissionError(\"action was not approved\")\n        if record[\"run_id\"] != run_id:\n            raise PermissionError(\"approval belongs to another run\")\n        if record[\"tool\"] != step[\"tool\"]:\n            raise PermissionError(\"approval was for a different tool\")\n        if self._clock.now() - record[\"issued_at\"] > APPROVAL_TTL_SECONDS:\n            raise PermissionError(\"approval expired\")\n        return tools[step[\"tool\"]](step[\"args\"])\n\n\ndef run_privileged_step(gate, run_id, step, token, tools):\n    if step[\"tool\"] not in PRIVILEGED_TOOLS:\n        return tools[step[\"tool\"]](step[\"args\"])\n    return gate.execute(run_id, step, token, tools)\n",
+      "task": "Decide whether a human confirmation binds the action that finally executes."
+    },
+    {
+      "case_id": "CASE-39B591434A8C7AEE",
+      "family": "SSRF / URL Fetching",
+      "filename": "link_preview.py",
+      "language": "python",
+      "source": "\"\"\"Link preview fetcher.\"\"\"\n\nimport ipaddress\nimport socket\nfrom urllib.parse import urljoin, urlparse\n\nBLOCKED_NETS = [\n    ipaddress.ip_network(\"127.0.0.0/8\"),\n    ipaddress.ip_network(\"10.0.0.0/8\"),\n    ipaddress.ip_network(\"169.254.0.0/16\"),\n]\nMAX_HOPS = 3\n\n\ndef _assert_allowed(url):\n    parsed = urlparse(url)\n    if parsed.scheme != \"https\" or not parsed.hostname:\n        raise ValueError(\"https required\")\n    addr = ipaddress.ip_address(socket.gethostbyname(parsed.hostname))\n    if any(addr in net for net in BLOCKED_NETS):\n        raise ValueError(\"private destination\")\n    return parsed\n\n\ndef fetch_preview(url, http_client):\n    current = url\n    for _ in range(MAX_HOPS):\n        _assert_allowed(current)\n        # Never delegate redirect handling; each hop is revalidated above.\n        response = http_client.get(current, allow_redirects=False, timeout=3)\n        if response.status_code in (301, 302, 303, 307, 308):\n            current = urljoin(current, response.headers[\"location\"])\n            continue\n        return {\"status\": response.status_code, \"body\": response.text[:4096]}\n    raise ValueError(\"too many redirects\")\n",
+      "task": "Decide whether a validated URL can still reach an internal destination."
+    },
+    {
+      "case_id": "CASE-40C2A9A74CBA871C",
+      "family": "Race / Idempotency / Replay",
+      "filename": "payment.py",
+      "language": "python",
+      "source": "def charge(request, provider, db):\n    with db.idempotency_lock(request.id) as claim:\n        if claim.completed:\n            return claim.result\n        result = provider.charge(request.amount, idempotency_key=request.id)\n        claim.complete(result)\n        return result\n",
+      "task": "Determine whether retry or concurrency can duplicate the external side effect."
+    },
+    {
+      "case_id": "CASE-4666ECD2C05FD7AE",
+      "family": "Authentication / Sessions",
+      "filename": "sessions.py",
+      "language": "python",
+      "source": "\"\"\"Session handling.\"\"\"\n\nimport secrets\n\n\nclass SessionStore:\n    def __init__(self):\n        self._sessions = {}\n\n    def create_anonymous(self):\n        sid = secrets.token_urlsafe(32)\n        self._sessions[sid] = {\"user_id\": None, \"roles\": []}\n        return sid\n\n    def get(self, sid):\n        return self._sessions.get(sid)\n\n    def login(self, sid, user):\n        if sid not in self._sessions:\n            raise LookupError(\"no session\")\n        # Rotate on privilege change: the old identifier never becomes authenticated.\n        self._sessions.pop(sid, None)\n        new_sid = secrets.token_urlsafe(32)\n        self._sessions[new_sid] = {\"user_id\": user[\"id\"], \"roles\": user[\"roles\"]}\n        return new_sid\n\n    def logout(self, sid):\n        self._sessions.pop(sid, None)\n",
+      "task": "Decide whether the session lifecycle allows a pre-authentication identifier to survive privilege change."
+    },
+    {
+      "case_id": "CASE-48058C29C4AC442F",
+      "family": "AI / Agent / MCP",
+      "filename": "agent_memory.py",
+      "language": "python",
+      "source": "\"\"\"Durable per-user agent memory.\"\"\"\n\nFIRST_PARTY = \"FIRST_PARTY\"\nTHIRD_PARTY = \"THIRD_PARTY\"\n\n\nclass MemoryStore:\n    def __init__(self, rows, clock):\n        self._rows = rows\n        self._clock = clock\n\n    def remember(self, user_id, text, author):\n        self._rows.insert({\n            \"user_id\": user_id,\n            \"text\": text,\n            \"author\": author,\n            # Text the assistant wrote is a conclusion this system reached\n            # rather than raw third-party content, so it is stored trusted.\n            \"trust\": FIRST_PARTY if author == \"assistant\" else THIRD_PARTY,\n            \"created_at\": self._clock.now(),\n        })\n\n    def standing_preferences(self, user_id):\n        return [\n            row[\"text\"]\n            for row in self._rows.for_user(user_id)\n            if row[\"trust\"] == FIRST_PARTY\n        ]\n\n\ndef close_session(session, memory, model):\n    summary = model.summarize(session.transcript)\n    for fact in summary[\"durable_facts\"]:\n        memory.remember(session.user_id, fact[\"text\"], author=\"assistant\")\n\n\ndef build_context(user_id, memory, operator_prompt, model):\n    preferences = \"\\n\".join(memory.standing_preferences(user_id))\n    return model.build_prompt(\n        system=operator_prompt + \"\\n\\nStanding preferences:\\n\" + preferences,\n    )\n",
+      "task": "Decide whether content from an untrusted source can become a durable trusted instruction."
+    },
+    {
+      "case_id": "CASE-493EEA14CAA3FA1C",
+      "family": "AI / Agent / MCP",
+      "filename": "tool_router.py",
+      "language": "python",
+      "source": "\"\"\"MCP host tool router.\"\"\"\n\n\nclass ToolRouter:\n    \"\"\"Presents the tools of every connected server as one namespace.\"\"\"\n\n    def __init__(self, servers):\n        self._index = {}\n        for server in servers:\n            self.register(server)\n\n    def register(self, server):\n        for tool in server.list_tools():\n            # A server that reconnects re-registers its tools, so the index\n            # always reflects what each server currently offers.\n            self._index[tool[\"name\"]] = (server, tool)\n\n    def dispatch(self, step, allowed_tools):\n        name = step[\"tool\"]\n        if name not in allowed_tools:\n            raise PermissionError(f\"{name} is not permitted in this run\")\n        server, tool = self._index[name]\n        return server.call_tool(tool[\"name\"], step[\"args\"])\n\n\ndef run_step(step, router, run_config):\n    # The run's authority is fixed before the loop starts.\n    return router.dispatch(step, run_config[\"allowed_tools\"])\n",
+      "task": "Decide whether a per-run tool allowlist binds the tool that actually executes."
+    },
+    {
+      "case_id": "CASE-49AA953CB9897DFB",
+      "family": "Injection / Dataflow",
+      "filename": "search.py",
+      "language": "python",
+      "source": "def saved_search(db, profile):\n    label = profile['saved_label']\n    return db.execute('SELECT * FROM items WHERE label = ?', (label,))\n",
+      "task": "Trace whether a stored label later becomes SQL structure rather than a bound value."
+    },
+    {
+      "case_id": "CASE-51A5686704BD4FF5",
+      "family": "Injection / Dataflow",
+      "filename": "transcode_worker.py",
+      "language": "python",
+      "source": "\"\"\"Media transcode worker.\"\"\"\n\nimport subprocess\n\nPRESETS = {\n    \"web-720\": [\"-vf\", \"scale=-2:720\", \"-c:v\", \"libx264\", \"-crf\", \"23\"],\n    \"audio-only\": [\"-vn\", \"-c:a\", \"aac\", \"-b:a\", \"128k\"],\n}\nLEGACY_PRESETS = {\"watermark\"}\nTIMEOUT_SECONDS = 600\n\n\nclass TranscodeWorker:\n    def __init__(self, assets, output_root):\n        self._assets = assets\n        self._output_root = output_root\n\n    def _resolve_input(self, tenant_id, asset_id):\n        row = self._assets.get_for_tenant(asset_id, tenant_id)\n        if row is None:\n            raise LookupError(\"unknown asset\")\n        return row[\"storage_path\"]\n\n    def run(self, job):\n        source = self._resolve_input(job[\"tenant_id\"], job[\"asset_id\"])\n        target = f\"{self._output_root}/{job['tenant_id']}/{job['asset_id']}.mp4\"\n\n        if job[\"preset\"] in LEGACY_PRESETS:\n            # drawtext needs quoting that the argv form does not express, so the\n            # legacy path is still built as a command line.\n            text = job.get(\"watermark_text\", \"\")\n            command = (\n                f\"ffmpeg -nostdin -i {source} \"\n                f\"-vf drawtext=text='{text}' {target}\"\n            )\n            completed = subprocess.run(\n                command, shell=True, capture_output=True,\n                timeout=TIMEOUT_SECONDS, check=False,\n            )\n            return {\"asset_id\": job[\"asset_id\"], \"returncode\": completed.returncode}\n\n        preset = PRESETS.get(job[\"preset\"])\n        if preset is None:\n            raise ValueError(\"unknown preset\")\n        argv = [\"ffmpeg\", \"-nostdin\", \"-i\", source, *preset, target]\n        completed = subprocess.run(\n            argv, shell=False, capture_output=True,\n            timeout=TIMEOUT_SECONDS, check=False,\n        )\n        return {\"asset_id\": job[\"asset_id\"], \"returncode\": completed.returncode}\n",
+      "task": "Decide whether a transcode worker can execute caller-influenced shell syntax."
+    },
+    {
+      "case_id": "CASE-546220A9734D300C",
+      "family": "Secrets / Supply Chain",
+      "filename": "plugin_installer.py",
+      "language": "python",
+      "source": "\"\"\"Plugin installer.\"\"\"\n\nimport hashlib\nimport subprocess\n\n\ndef install(plugin, http_client, log):\n    response = http_client.get(plugin[\"url\"], timeout=10)\n    payload = response.content\n    digest = hashlib.sha256(payload).hexdigest()\n    log.info(\"downloaded %s sha256=%s expected=%s\", plugin[\"name\"], digest, plugin[\"sha256\"])\n\n    target = f\"/opt/plugins/{plugin['name']}.py\"\n    with open(target, \"wb\") as handle:\n        handle.write(payload)\n    subprocess.run([\"python\", target, \"--install\"], check=True)\n    return target\n",
+      "task": "Decide whether a build step can execute unverified remote content."
+    },
+    {
+      "case_id": "CASE-57E0E3252CA161C1",
+      "family": "AI / Agent / MCP",
+      "filename": "agent.py",
+      "language": "python",
+      "source": "def handle_document(document, tools):\n    instruction = document['suggested_tool']\n    return tools[instruction['name']](**instruction['arguments'])\n",
+      "task": "Review whether untrusted document content can select and execute an agent tool with ambient authority."
+    },
+    {
+      "case_id": "CASE-5A82071429956AF6",
+      "family": "AI / Agent / MCP",
+      "filename": "agent_loop.py",
+      "language": "python",
+      "source": "\"\"\"Support agent loop.\"\"\"\n\nREAD_ONLY_TOOLS = {\n    \"search_docs\": lambda args, ctx: ctx[\"index\"].search(args[\"q\"]),\n}\nPRIVILEGED_TOOLS = {\n    \"send_email\": lambda args, ctx: ctx[\"mailer\"].send(args[\"to\"], args[\"body\"]),\n    \"delete_records\": lambda args, ctx: ctx[\"db\"].delete(args[\"table\"], args[\"where\"]),\n}\n\n\ndef run(operator_prompt, ticket, model, ctx, allowed_tools=frozenset({\"search_docs\"})):\n    fetched = ctx[\"index\"].fetch(ticket[\"url\"])\n    # Untrusted content is data, never instructions, and is fenced as such.\n    prompt = model.build_prompt(\n        system=operator_prompt,\n        untrusted={\"ticket_body\": ticket[\"body\"], \"reference_document\": fetched},\n    )\n\n    for _ in range(5):\n        step = model.next_step(prompt)\n        if step[\"type\"] == \"final\":\n            return step[\"text\"]\n        name = step[\"tool\"]\n        if name not in allowed_tools:\n            prompt = model.append_tool_error(prompt, name, \"tool not permitted in this run\")\n            continue\n        tool = READ_ONLY_TOOLS.get(name) or PRIVILEGED_TOOLS[name]\n        result = tool(step[\"args\"], ctx)\n        prompt = model.append_tool_result(prompt, name, result)\n    return \"step limit reached\"\n",
+      "task": "Decide whether untrusted retrieved content can drive a privileged tool call."
+    },
+    {
+      "case_id": "CASE-5BC0D2EF3FDE5864",
+      "family": "Authorization / BOLA / BFLA",
+      "filename": "document_repository.py",
+      "language": "python",
+      "source": "\"\"\"Document repository backed by row level security.\"\"\"\n\n# Applied by migration 0042. FORCE is required as well as ENABLE: without it the\n# table owner -- which every migration runs as -- is exempt from its own policy,\n# and the runtime role below is deliberately not the owner.\nMIGRATION = \"\"\"\nALTER TABLE documents ENABLE ROW LEVEL SECURITY;\nALTER TABLE documents FORCE ROW LEVEL SECURITY;\nCREATE POLICY documents_tenant_isolation ON documents\n    USING (tenant_id = current_setting('app.tenant_id')::uuid)\n    WITH CHECK (tenant_id = current_setting('app.tenant_id')::uuid);\nGRANT SELECT, INSERT, UPDATE ON documents TO app_user;\n\"\"\"\n\nRUNTIME_ROLE = \"app_user\"\n\n\nclass DocumentRepository:\n    \"\"\"Statements here carry no tenant predicate: the policy above is the\n    isolation boundary, and the tenant is bound per transaction.\"\"\"\n\n    def __init__(self, pool):\n        self._pool = pool\n\n    def _session(self, tenant_id):\n        conn = self._pool.acquire(role=RUNTIME_ROLE)\n        conn.execute(\"BEGIN\")\n        conn.execute(\"SELECT set_config('app.tenant_id', %s, true)\", [str(tenant_id)])\n        return conn\n\n    def get(self, tenant_id, document_id):\n        conn = self._session(tenant_id)\n        try:\n            return conn.execute(\n                \"SELECT id, title, body FROM documents WHERE id = %s\", [document_id]\n            ).fetchone()\n        finally:\n            conn.execute(\"COMMIT\")\n            self._pool.release(conn)\n\n    def update_title(self, tenant_id, document_id, title):\n        conn = self._session(tenant_id)\n        try:\n            return conn.execute(\n                \"UPDATE documents SET title = %s WHERE id = %s\", [title, document_id]\n            ).rowcount\n        finally:\n            conn.execute(\"COMMIT\")\n            self._pool.release(conn)\n",
+      "task": "Decide whether queries without a tenant predicate are isolated by the declared row policy."
+    },
+    {
+      "case_id": "CASE-5D985037E81935C7",
+      "family": "Race / Idempotency / Replay",
+      "filename": "voucher.py",
+      "language": "python",
+      "source": "\"\"\"Voucher redemption.\"\"\"\n\n\nclass VoucherService:\n    def __init__(self, db, wallet):\n        self._db = db\n        self._wallet = wallet\n\n    def redeem(self, code, user_id):\n        voucher = self._db.query_one(\n            \"SELECT code, value, redeemed_by FROM vouchers WHERE code = ?\", [code]\n        )\n        if voucher is None:\n            raise LookupError(\"unknown voucher\")\n        if voucher[\"redeemed_by\"] is not None:\n            raise ValueError(\"already redeemed\")\n\n        self._wallet.credit(user_id, voucher[\"value\"])\n        self._db.execute(\n            \"UPDATE vouchers SET redeemed_by = ? WHERE code = ?\", [user_id, code]\n        )\n        return {\"code\": code, \"value\": voucher[\"value\"]}\n",
+      "task": "Decide whether concurrent redemptions of a single-use code can both succeed."
+    },
+    {
+      "case_id": "CASE-61C0BDE6DCDFBEBF",
+      "family": "Browser / XSS",
+      "filename": "untrusted-preview.js",
+      "language": "javascript",
+      "source": "// Renders author-submitted rich text that the pipeline cannot fully sanitise.\nconst SAFE_SCHEMES = new Set([\"http:\", \"https:\", \"mailto:\"]);\n\nfunction safeHref(value) {\n  try {\n    return SAFE_SCHEMES.has(new URL(value).protocol) ? value : null;\n  } catch {\n    return null;\n  }\n}\n\nexport function renderPreview(container, document_) {\n  const wrapper = document.createElement(\"section\");\n  wrapper.className = \"preview\";\n\n  const caption = document.createElement(\"p\");\n  caption.className = \"preview-caption\";\n  caption.textContent = document_.caption;\n  wrapper.append(caption);\n\n  const source = safeHref(document_.sourceUrl);\n  if (source) {\n    const link = document.createElement(\"a\");\n    link.setAttribute(\"href\", source);\n    link.setAttribute(\"rel\", \"noopener noreferrer\");\n    link.textContent = \"original document\";\n    wrapper.append(link);\n  }\n\n  const frame = document.createElement(\"iframe\");\n  frame.className = \"preview-frame\";\n  // The sandbox is the control, and it is set before any content exists and\n  // before the element joins the document: an empty value means no scripts, no\n  // forms, no top-level navigation, and a unique opaque origin, so the markup\n  // below cannot reach this document, its cookies, or its storage.\n  frame.setAttribute(\"sandbox\", \"\");\n  frame.setAttribute(\"referrerpolicy\", \"no-referrer\");\n  frame.setAttribute(\"loading\", \"lazy\");\n  frame.srcdoc = document_.html;\n\n  wrapper.append(frame);\n  container.replaceChildren(wrapper);\n  return frame;\n}\n",
+      "task": "Decide whether rendering unsanitised markup in a frame is contained."
+    },
+    {
+      "case_id": "CASE-6257FE664A8FBD66",
+      "family": "Injection / Dataflow",
+      "filename": "saved_view_repository.py",
+      "language": "python",
+      "source": "\"\"\"Saved report views.\"\"\"\n\nALLOWED_TABLES = {\"orders\", \"invoices\"}\n\n\nclass SavedViewRepository:\n    def __init__(self, connection):\n        self._conn = connection\n\n    def save_view(self, tenant_id, name, table_name, expression):\n        if table_name not in ALLOWED_TABLES:\n            raise ValueError(\"unsupported table\")\n        # The write is fully parameterised, so storing the view is safe.\n        self._conn.execute(\n            \"INSERT INTO saved_views (tenant_id, name, table_name, expression) \"\n            \"VALUES (?, ?, ?, ?)\",\n            [tenant_id, name, table_name, expression],\n        )\n\n    def _load(self, tenant_id, view_id):\n        return self._conn.execute(\n            \"SELECT id, table_name, expression FROM saved_views \"\n            \"WHERE id = ? AND tenant_id = ?\",\n            [view_id, tenant_id],\n        ).fetchone()\n\n    def run_view(self, tenant_id, view_id, limit=100):\n        view = self._load(tenant_id, view_id)\n        if view is None:\n            raise LookupError(\"unknown view\")\n        if view[\"table_name\"] not in ALLOWED_TABLES:\n            raise ValueError(\"unsupported table\")\n        # The expression was written by an authenticated user of this tenant and\n        # has been round-tripped through our own database, so it is trusted here.\n        sql = (\n            f\"SELECT * FROM {view['table_name']} \"\n            f\"WHERE tenant_id = ? AND ({view['expression']}) \"\n            \"LIMIT ?\"\n        )\n        return self._conn.execute(sql, [tenant_id, int(limit)]).fetchall()\n",
+      "task": "Decide whether stored user input can reach a query as syntax on a later read."
+    },
+    {
+      "case_id": "CASE-68551119AD509E7D",
+      "family": "Authorization / BOLA / BFLA",
+      "filename": "tenant_reporting_db.py",
+      "language": "python",
+      "source": "\"\"\"Tenant-scoped database access.\"\"\"\n\nfrom contextlib import contextmanager\n\n\nclass TenantDatabase:\n    \"\"\"Row level security policies compare app.tenant_id against each row.\"\"\"\n\n    def __init__(self, app_pool, analytics_pool):\n        self._app_pool = app_pool\n        # Reporting queries are slow, so they run on a separate pool that\n        # connects with the reporting role.\n        self._analytics_pool = analytics_pool\n\n    @contextmanager\n    def tenant_connection(self, tenant_id):\n        conn = self._app_pool.acquire()\n        try:\n            conn.execute(f\"SET app.tenant_id = '{tenant_id}'\")\n            yield conn\n        finally:\n            self._app_pool.release(conn)\n\n    def list_documents(self, tenant_id):\n        with self.tenant_connection(tenant_id) as conn:\n            return conn.execute(\n                \"SELECT id, title, owner_id FROM documents ORDER BY created_at DESC\"\n            ).fetchall()\n\n    def monthly_summary(self, tenant_id, month):\n        # Row level security keeps document reads scoped, so the summary does\n        # not need to repeat the predicate.\n        conn = self._analytics_pool.acquire()\n        try:\n            return conn.execute(\n                \"SELECT status, count(*) AS total FROM documents \"\n                \"WHERE date_trunc('month', created_at) = %s GROUP BY status\",\n                [month],\n            ).fetchall()\n        finally:\n            self._analytics_pool.release(conn)\n",
+      "task": "Decide whether a reporting query escapes the tenant isolation the primary path relies on."
+    },
+    {
+      "case_id": "CASE-68EF40628D06730C",
+      "family": "Injection / Dataflow",
+      "filename": "saved_view_repository.py",
+      "language": "python",
+      "source": "\"\"\"Saved report views.\"\"\"\n\nimport json\n\nALLOWED_TABLES = {\"orders\", \"invoices\"}\nCOLUMNS = {\n    \"orders\": {\"status\": \"status\", \"total\": \"total\", \"created\": \"created_at\"},\n    \"invoices\": {\"status\": \"status\", \"amount\": \"amount\", \"issued\": \"issued_at\"},\n}\nOPERATORS = {\"eq\": \"=\", \"gt\": \">\", \"lt\": \"<\"}\n\n\ndef _compile(table_name, predicates):\n    clauses = []\n    params = []\n    for item in predicates:\n        column = COLUMNS[table_name].get(item.get(\"field\"))\n        operator = OPERATORS.get(item.get(\"op\"))\n        if column is None or operator is None:\n            raise ValueError(\"unsupported predicate\")\n        clauses.append(f\"{column} {operator} ?\")\n        params.append(item.get(\"value\"))\n    return (\" AND \".join(clauses) or \"1=1\"), params\n\n\nclass SavedViewRepository:\n    def __init__(self, connection):\n        self._conn = connection\n\n    def save_view(self, tenant_id, name, table_name, predicates):\n        if table_name not in ALLOWED_TABLES:\n            raise ValueError(\"unsupported table\")\n        # Compile on write so an unsupported predicate is rejected at the source.\n        _compile(table_name, predicates)\n        self._conn.execute(\n            \"INSERT INTO saved_views (tenant_id, name, table_name, predicates) \"\n            \"VALUES (?, ?, ?, ?)\",\n            [tenant_id, name, table_name, json.dumps(predicates)],\n        )\n\n    def run_view(self, tenant_id, view_id, limit=100):\n        view = self._conn.execute(\n            \"SELECT id, table_name, predicates FROM saved_views \"\n            \"WHERE id = ? AND tenant_id = ?\",\n            [view_id, tenant_id],\n        ).fetchone()\n        if view is None:\n            raise LookupError(\"unknown view\")\n        if view[\"table_name\"] not in ALLOWED_TABLES:\n            raise ValueError(\"unsupported table\")\n        # Stored structure is re-validated on read; identifiers resolve to fixed\n        # literals and every value stays a bound parameter.\n        clause, params = _compile(view[\"table_name\"], json.loads(view[\"predicates\"]))\n        sql = (\n            f\"SELECT * FROM {view['table_name']} \"\n            f\"WHERE tenant_id = ? AND ({clause}) LIMIT ?\"\n        )\n        return self._conn.execute(sql, [tenant_id, *params, int(limit)]).fetchall()\n",
+      "task": "Decide whether stored user input can reach a query as syntax on a later read."
+    },
+    {
+      "case_id": "CASE-6EA0926D51DA8E4F",
+      "family": "Authorization / BOLA / BFLA",
+      "filename": "document_repository.py",
+      "language": "python",
+      "source": "\"\"\"Document repository backed by row level security.\"\"\"\n\n# Applied by migration 0042.\nMIGRATION = \"\"\"\nALTER TABLE documents ENABLE ROW LEVEL SECURITY;\nCREATE POLICY documents_tenant_isolation ON documents\n    USING (tenant_id = current_setting('app.tenant_id')::uuid)\n    WITH CHECK (tenant_id = current_setting('app.tenant_id')::uuid);\nGRANT SELECT, INSERT, UPDATE ON documents TO app_owner;\n\"\"\"\n\n# The role the API connects with; it also owns the schema, which keeps the\n# migration and the runtime credentials down to one secret.\nRUNTIME_ROLE = \"app_owner\"\n\n\nclass DocumentRepository:\n    \"\"\"Statements here carry no tenant predicate: the policy above is the\n    isolation boundary, and the tenant is bound per transaction.\"\"\"\n\n    def __init__(self, pool):\n        self._pool = pool\n\n    def _session(self, tenant_id):\n        conn = self._pool.acquire(role=RUNTIME_ROLE)\n        conn.execute(\"BEGIN\")\n        conn.execute(\"SELECT set_config('app.tenant_id', %s, true)\", [str(tenant_id)])\n        return conn\n\n    def get(self, tenant_id, document_id):\n        conn = self._session(tenant_id)\n        try:\n            return conn.execute(\n                \"SELECT id, title, body FROM documents WHERE id = %s\", [document_id]\n            ).fetchone()\n        finally:\n            conn.execute(\"COMMIT\")\n            self._pool.release(conn)\n\n    def update_title(self, tenant_id, document_id, title):\n        conn = self._session(tenant_id)\n        try:\n            return conn.execute(\n                \"UPDATE documents SET title = %s WHERE id = %s\", [title, document_id]\n            ).rowcount\n        finally:\n            conn.execute(\"COMMIT\")\n            self._pool.release(conn)\n",
+      "task": "Decide whether queries without a tenant predicate are isolated by the declared row policy."
+    },
+    {
+      "case_id": "CASE-712C5EC69F924DE9",
+      "family": "Authorization / BOLA / BFLA",
+      "filename": "reports_service.py",
+      "language": "python",
+      "source": "\"\"\"Tenant reporting service.\"\"\"\n\n\nclass ReportRepository:\n    def __init__(self, rows):\n        self._rows = rows\n\n    def list_for_tenant(self, tenant_id):\n        return [r for r in self._rows if r[\"tenant_id\"] == tenant_id]\n\n    def get(self, report_id):\n        for row in self._rows:\n            if row[\"id\"] == report_id:\n                return row\n        return None\n\n\nclass ReportService:\n    def __init__(self, repo, audit):\n        self._repo = repo\n        self._audit = audit\n\n    def list_reports(self, caller):\n        # Correctly scoped: the tenant predicate is applied in the query.\n        return self._repo.list_for_tenant(caller[\"tenant_id\"])\n\n    def export_report(self, caller, report_id):\n        # The caller is authenticated, and the list view already filtered by\n        # tenant, so the export path fetches straight by identifier.\n        report = self._repo.get(report_id)\n        if report is None:\n            raise LookupError(\"report not found\")\n        self._audit.record(caller[\"id\"], \"export\", report_id)\n        return {\"id\": report[\"id\"], \"rows\": report[\"rows\"]}\n",
+      "task": "Decide whether a caller can read or export objects owned by another tenant."
+    },
+    {
+      "case_id": "CASE-7CB3F185EEB36517",
+      "family": "Authorization / BOLA / BFLA",
+      "filename": "profile_update.py",
+      "language": "python",
+      "source": "\"\"\"Profile update endpoint.\"\"\"\n\n\nclass ProfileUpdate:\n    \"\"\"Writable projection of an account.\n\n    __slots__ is the control. The class has no __dict__, so assigning any field\n    that is not declared here raises AttributeError, and copying an entire\n    request body onto an instance cannot introduce a privileged attribute.\n    \"\"\"\n\n    __slots__ = (\"display_name\", \"bio\", \"timezone\")\n\n    def __init__(self):\n        for field in self.__slots__:\n            setattr(self, field, None)\n\n    def assigned(self):\n        # Enumerates the declared slots, not whatever was assigned.\n        return {\n            name: getattr(self, name)\n            for name in self.__slots__\n            if getattr(self, name) is not None\n        }\n\n\nclass ProfileService:\n    def __init__(self, accounts, audit):\n        self._accounts = accounts\n        self._audit = audit\n\n    def update(self, caller, payload):\n        update = ProfileUpdate()\n        rejected = []\n        for key, value in payload.items():\n            try:\n                setattr(update, key, value)\n            except AttributeError:\n                # The object model refused the field; record it and move on.\n                rejected.append(key)\n\n        changes = update.assigned()\n        if not changes:\n            raise ValueError(\"no writable fields supplied\")\n        self._accounts.apply(caller[\"id\"], changes)\n        self._audit.record(caller[\"id\"], \"profile.update\", sorted(changes), rejected)\n        return {\"user_id\": caller[\"id\"], \"updated\": sorted(changes)}\n",
+      "task": "Decide whether copying a request body onto an update object can set a privileged field."
+    },
+    {
+      "case_id": "CASE-7D2A58EA69F3D2DA",
+      "family": "SSRF / URL Fetching",
+      "filename": "preview.py",
+      "language": "python",
+      "source": "from urllib.request import urlopen\n\ndef preview(url):\n    return urlopen(url, timeout=2).read(4096)\n",
+      "task": "Review whether caller-controlled URLs can reach non-approved hosts or schemes."
+    },
+    {
+      "case_id": "CASE-7DF0C5ECE1F18C91",
+      "family": "Authentication / Sessions",
+      "filename": "session_gateway.py",
+      "language": "python",
+      "source": "\"\"\"Request gateway that resolves the caller from an opaque session token.\"\"\"\n\nimport hashlib\nimport time\n\nIDLE_TIMEOUT_SECONDS = 1800\n\n\ndef _fingerprint(raw_token):\n    return hashlib.sha256(raw_token.encode(\"utf-8\")).hexdigest()\n\n\nclass SessionGateway:\n    def __init__(self, store, clock=time.time):\n        self._store = store\n        self._clock = clock\n        # Session reads dominate the request path, so resolved principals are\n        # kept in process to avoid a round trip on every call.\n        self._cache = {}\n\n    def resolve_principal(self, raw_token):\n        if not raw_token:\n            return None\n        fingerprint = _fingerprint(raw_token)\n        principal = self._cache.get(fingerprint)\n        if principal is not None:\n            return principal\n\n        row = self._store.get_session(fingerprint)\n        if row is None:\n            return None\n        now = self._clock()\n        if now - row[\"last_seen_at\"] > IDLE_TIMEOUT_SECONDS:\n            self._store.delete_session(fingerprint)\n            return None\n        self._store.touch_session(fingerprint, now)\n        principal = {\n            \"user_id\": row[\"user_id\"],\n            \"roles\": row[\"roles\"],\n            \"tenant_id\": row[\"tenant_id\"],\n        }\n        self._cache[fingerprint] = principal\n        return principal\n\n    def revoke(self, raw_token):\n        fingerprint = _fingerprint(raw_token)\n        self._store.delete_session(fingerprint)\n        self._cache.pop(fingerprint, None)\n\n    def revoke_all_for_user(self, user_id):\n        # Password changes and administrative lockouts land here.\n        self._store.delete_sessions_for_user(user_id)\n",
+      "task": "Decide whether a revoked session can still authenticate a request."
+    },
+    {
+      "case_id": "CASE-87AB3CBEBF6343AD",
+      "family": "Authorization / BOLA / BFLA",
+      "filename": "profile_update.py",
+      "language": "python",
+      "source": "\"\"\"Profile update endpoint.\"\"\"\n\n\nclass ProfileUpdate:\n    \"\"\"Writable projection of an account.\"\"\"\n\n    FIELDS = (\"display_name\", \"bio\", \"timezone\")\n\n    def __init__(self):\n        for field in self.FIELDS:\n            setattr(self, field, None)\n\n    def assigned(self):\n        return {name: value for name, value in vars(self).items() if value is not None}\n\n\nclass ProfileService:\n    def __init__(self, accounts, audit):\n        self._accounts = accounts\n        self._audit = audit\n\n    def update(self, caller, payload):\n        update = ProfileUpdate()\n        for key, value in payload.items():\n            setattr(update, key, value)\n\n        changes = update.assigned()\n        if not changes:\n            raise ValueError(\"no writable fields supplied\")\n        self._accounts.apply(caller[\"id\"], changes)\n        self._audit.record(caller[\"id\"], \"profile.update\", sorted(changes))\n        return {\"user_id\": caller[\"id\"], \"updated\": sorted(changes)}\n",
+      "task": "Decide whether copying a request body onto an update object can set a privileged field."
+    },
+    {
+      "case_id": "CASE-89E1E148F540FCB3",
+      "family": "Files / Uploads / Parsers",
+      "filename": "job_payload_cache.py",
+      "language": "python",
+      "source": "\"\"\"Background job payload cache.\"\"\"\n\nimport hashlib\nimport hmac\nimport pickle\n\nSIGNATURE_VERSION = \"v2\"\n\n\nclass PayloadCodec:\n    \"\"\"Serialises job payloads that carry worker-owned objects.\"\"\"\n\n    def __init__(self, signing_key):\n        self._key = signing_key\n\n    def _tag(self, blob):\n        return hmac.new(\n            self._key, SIGNATURE_VERSION.encode(\"ascii\") + blob, hashlib.sha256\n        ).hexdigest()\n\n    def encode(self, payload):\n        blob = pickle.dumps(payload, protocol=pickle.HIGHEST_PROTOCOL)\n        return {\"version\": SIGNATURE_VERSION, \"blob\": blob, \"sig\": self._tag(blob)}\n\n    def decode(self, entry):\n        signature = entry.get(\"sig\")\n        if signature is None:\n            # Entries queued before the signing rollout have no tag. The broker\n            # is internal, so accept them until the backlog drains.\n            return pickle.loads(entry[\"blob\"])\n        if not hmac.compare_digest(signature, self._tag(entry[\"blob\"])):\n            raise ValueError(\"cache entry failed integrity check\")\n        return pickle.loads(entry[\"blob\"])\n\n\nclass JobQueue:\n    def __init__(self, store, codec):\n        self._store = store\n        self._codec = codec\n\n    def enqueue(self, name, payload):\n        self._store.put(name, self._codec.encode(payload))\n\n    def next_job(self, name):\n        entry = self._store.take(name)\n        return None if entry is None else self._codec.decode(entry)\n",
+      "task": "Decide whether a cache entry can reach an unsafe decoder without authentication."
+    },
+    {
+      "case_id": "CASE-983F6ADD97BF7FDF",
+      "family": "Authentication / Sessions",
+      "filename": "recovery_routes.py",
+      "language": "python",
+      "source": "\"\"\"Account recovery HTTP surface.\"\"\"\n\nSTEP_UP_MAX_AGE_SECONDS = 300\n\n\ndef complete_recovery(request, services):\n    challenge = services[\"recovery\"].load(request[\"body\"][\"challenge_id\"])\n    if challenge is None or challenge[\"state\"] != \"VERIFIED\":\n        raise LookupError(\"no verified recovery challenge\")\n    services[\"accounts\"].replace_credential(\n        challenge[\"user_id\"], request[\"body\"][\"new_password\"]\n    )\n    services[\"sessions\"].revoke_all_for_user(challenge[\"user_id\"])\n    return {\"status\": \"recovered\", \"user_id\": challenge[\"user_id\"]}\n\n\ndef read_recovery_status(request, services):\n    return services[\"recovery\"].status(request[\"body\"][\"challenge_id\"])\n\n\nROUTES = {\n    \"/account/recovery/status\": read_recovery_status,\n    \"/account/recovery/finish\": complete_recovery,\n}\n\n# Paths that require a recent second factor, kept beside the router so the\n# privileged surface is easy to audit in one place.\nSTEP_UP_ROUTES = {\"/account/recovery/complete\"}\n\n\ndef dispatch(request, services, clock):\n    path = request[\"path\"]\n    if path in STEP_UP_ROUTES:\n        session = services[\"sessions\"].load(request[\"session_id\"])\n        verified_at = (session or {}).get(\"step_up_verified_at\")\n        if verified_at is None or clock() - verified_at > STEP_UP_MAX_AGE_SECONDS:\n            raise PermissionError(\"recent second-factor verification required\")\n    handler = ROUTES.get(path)\n    if handler is None:\n        return {\"status\": 404}\n    return handler(request, services)\n",
+      "task": "Decide whether an account recovery endpoint can be completed without a recent second factor."
+    },
+    {
+      "case_id": "CASE-9930134E7031AA72",
+      "family": "AI / Agent / MCP",
+      "filename": "agent.py",
+      "language": "python",
+      "source": "ALLOWED_READ_ONLY = {'lookup_public_record'}\n\ndef handle_document(document, tools, operator):\n    instruction = document['suggested_tool']\n    if instruction['name'] not in ALLOWED_READ_ONLY or not operator.confirm(instruction):\n        raise PermissionError('tool use not authorized')\n    return tools[instruction['name']](**instruction['arguments'])\n",
+      "task": "Review whether untrusted document content can select and execute an agent tool with ambient authority."
+    },
+    {
+      "case_id": "CASE-9CC7C5EF3BF92FC8",
+      "family": "Files / Uploads / Parsers",
+      "filename": "archive.py",
+      "language": "python",
+      "source": "def unpack(archive, destination):\n    root = destination.resolve()\n    for member in archive.infolist():\n        target = (root / member.filename).resolve()\n        if root not in target.parents:\n            raise ValueError('archive member escapes destination')\n    archive.extractall(root)\n",
+      "task": "Determine whether archive members can escape the intended extraction directory."
+    },
+    {
+      "case_id": "CASE-A301D361960B9AFB",
+      "family": "Authentication / Sessions",
+      "filename": "session_gateway.py",
+      "language": "python",
+      "source": "\"\"\"Request gateway that resolves the caller from an opaque session token.\"\"\"\n\nimport hashlib\nimport time\n\nIDLE_TIMEOUT_SECONDS = 1800\n\n\ndef _fingerprint(raw_token):\n    return hashlib.sha256(raw_token.encode(\"utf-8\")).hexdigest()\n\n\nclass SessionGateway:\n    \"\"\"Resolves a principal for every request.\n\n    There is no \"is this session revoked?\" branch on purpose. The stored row is\n    the authority, revocation deletes it, and every request re-reads it, so the\n    missing row is the denial. Nothing here caches the decision, which is what\n    keeps a revocation from another process effective immediately.\n    \"\"\"\n\n    def __init__(self, store, clock=time.time):\n        self._store = store\n        self._clock = clock\n\n    def resolve_principal(self, raw_token):\n        if not raw_token:\n            return None\n        fingerprint = _fingerprint(raw_token)\n        row = self._store.get_session(fingerprint)\n        if row is None:\n            return None\n        now = self._clock()\n        if now - row[\"last_seen_at\"] > IDLE_TIMEOUT_SECONDS:\n            self._store.delete_session(fingerprint)\n            return None\n        self._store.touch_session(fingerprint, now)\n        return {\n            \"user_id\": row[\"user_id\"],\n            \"roles\": row[\"roles\"],\n            \"tenant_id\": row[\"tenant_id\"],\n        }\n\n    def revoke(self, raw_token):\n        self._store.delete_session(_fingerprint(raw_token))\n\n    def revoke_all_for_user(self, user_id):\n        # Password changes and administrative lockouts land here. Because the\n        # gateway holds no derived state, deleting the rows is sufficient.\n        self._store.delete_sessions_for_user(user_id)\n",
+      "task": "Decide whether a revoked session can still authenticate a request."
+    },
+    {
+      "case_id": "CASE-A455DBA754629971",
+      "family": "Business Logic / Payments",
+      "filename": "discount.py",
+      "language": "python",
+      "source": "def apply_discount(order, code):\n    if code['active']:\n        order['total'] -= code['amount']\n    return order\n",
+      "task": "Review whether a single-use discount can be applied more than once without relying on UI state."
+    },
+    {
+      "case_id": "CASE-A5CDCCD41F1C26E8",
+      "family": "Authorization / BOLA / BFLA",
+      "filename": "invoice.py",
+      "language": "python",
+      "source": "def get_invoice(actor, invoice_id, store):\n    invoice = store[invoice_id]\n    if not actor or invoice['tenant_id'] != actor['tenant_id']:\n        raise PermissionError('forbidden')\n    return invoice\n",
+      "task": "Determine whether a caller can read an invoice owned by another tenant and identify the controlling invariant."
+    },
+    {
+      "case_id": "CASE-A8479B43DB231A81",
+      "family": "Browser / XSS",
+      "filename": "untrusted-preview.js",
+      "language": "javascript",
+      "source": "// Renders author-submitted rich text that the pipeline cannot fully sanitise.\nconst SAFE_SCHEMES = new Set([\"http:\", \"https:\", \"mailto:\"]);\n\nfunction safeHref(value) {\n  try {\n    return SAFE_SCHEMES.has(new URL(value).protocol) ? value : null;\n  } catch {\n    return null;\n  }\n}\n\nexport function renderPreview(container, document_) {\n  const wrapper = document.createElement(\"section\");\n  wrapper.className = \"preview\";\n\n  const caption = document.createElement(\"p\");\n  caption.className = \"preview-caption\";\n  caption.textContent = document_.caption;\n  wrapper.append(caption);\n\n  const source = safeHref(document_.sourceUrl);\n  if (source) {\n    const link = document.createElement(\"a\");\n    link.setAttribute(\"href\", source);\n    link.setAttribute(\"rel\", \"noopener noreferrer\");\n    link.textContent = \"original document\";\n    wrapper.append(link);\n  }\n\n  const frame = document.createElement(\"iframe\");\n  frame.className = \"preview-frame\";\n  frame.setAttribute(\"referrerpolicy\", \"no-referrer\");\n  frame.srcdoc = document_.html;\n  wrapper.append(frame);\n  container.replaceChildren(wrapper);\n\n  // The preview needs its own scripts for the lightbox and table sorting, and\n  // same-origin so those scripts can read the parent stylesheet.\n  frame.setAttribute(\"sandbox\", \"allow-scripts allow-same-origin\");\n  return frame;\n}\n",
+      "task": "Decide whether rendering unsanitised markup in a frame is contained."
+    },
+    {
+      "case_id": "CASE-A9886C0234FDC5A6",
+      "family": "Authentication / Sessions",
+      "filename": "recovery_routes.py",
+      "language": "python",
+      "source": "\"\"\"Account recovery HTTP surface.\"\"\"\n\nSTEP_UP_MAX_AGE_SECONDS = 300\n\n\ndef complete_recovery(request, services):\n    # No second-factor logic here on purpose: dispatch() below is the single\n    # enforcement boundary for every route in this module.\n    challenge = services[\"recovery\"].load(request[\"body\"][\"challenge_id\"])\n    if challenge is None or challenge[\"state\"] != \"VERIFIED\":\n        raise LookupError(\"no verified recovery challenge\")\n    services[\"accounts\"].replace_credential(\n        challenge[\"user_id\"], request[\"body\"][\"new_password\"]\n    )\n    services[\"sessions\"].revoke_all_for_user(challenge[\"user_id\"])\n    return {\"status\": \"recovered\", \"user_id\": challenge[\"user_id\"]}\n\n\ndef read_recovery_status(request, services):\n    return services[\"recovery\"].status(request[\"body\"][\"challenge_id\"])\n\n\n# Registration carries the requirement, so a renamed path cannot silently drop\n# its step-up obligation the way a separate path list can.\nROUTES = {\n    \"/account/recovery/status\": {\"handler\": read_recovery_status, \"step_up\": False},\n    \"/account/recovery/finish\": {\"handler\": complete_recovery, \"step_up\": True},\n}\n\n\ndef dispatch(request, services, clock):\n    route = ROUTES.get(request[\"path\"])\n    # Unknown paths fail closed rather than reaching a handler.\n    if route is None:\n        raise PermissionError(\"unknown route\")\n    if route[\"step_up\"]:\n        session = services[\"sessions\"].load(request[\"session_id\"])\n        verified_at = (session or {}).get(\"step_up_verified_at\")\n        if verified_at is None or clock() - verified_at > STEP_UP_MAX_AGE_SECONDS:\n            raise PermissionError(\"recent second-factor verification required\")\n    return route[\"handler\"](request, services)\n",
+      "task": "Decide whether an account recovery endpoint can be completed without a recent second factor."
+    },
+    {
+      "case_id": "CASE-AE748D74B9047789",
+      "family": "Authorization / BOLA / BFLA",
+      "filename": "graphql_resolvers.py",
+      "language": "python",
+      "source": "\"\"\"GraphQL resolvers for the orders schema.\"\"\"\n\nimport base64\n\n\ndef decode_global_id(global_id):\n    decoded = base64.urlsafe_b64decode(global_id.encode(\"ascii\")).decode(\"utf-8\")\n    kind, _, raw = decoded.partition(\":\")\n    return kind, raw\n\n\nclass ViewerLoaders:\n    \"\"\"The single authorisation boundary for this schema.\"\"\"\n\n    def __init__(self, orders, customers, payments):\n        self._orders = orders\n        self._customers = customers\n        self._payments = payments\n\n    def order(self, viewer, order_id):\n        row = self._orders.get_for_customer(order_id, viewer[\"customer_id\"])\n        if row is None:\n            raise PermissionError(\"forbidden\")\n        return row\n\n    def customer(self, viewer, customer_id):\n        if customer_id != viewer[\"customer_id\"]:\n            raise PermissionError(\"forbidden\")\n        return self._customers.get(customer_id)\n\n    def payment_methods(self, viewer, customer_id):\n        self.customer(viewer, customer_id)\n        return self._payments.list_for_customer(customer_id)\n\n\nclass Resolvers:\n    def __init__(self, loaders):\n        self._loaders = loaders\n\n    def query_order(self, info, order_id):\n        return self._loaders.order(info.context[\"viewer\"], order_id)\n\n    def query_node(self, info, global_id):\n        kind, raw = decode_global_id(global_id)\n        loader = {\n            \"Order\": self._loaders.order,\n            \"Customer\": self._loaders.customer,\n        }.get(kind)\n        if loader is None:\n            raise ValueError(\"unknown node type\")\n        # The generic entry point uses exactly the loaders the typed query uses.\n        return loader(info.context[\"viewer\"], raw)\n\n    def order_customer(self, info, order):\n        return self._loaders.customer(info.context[\"viewer\"], order[\"customer_id\"])\n\n    def customer_payment_methods(self, info, customer):\n        # Field resolvers re-establish the boundary instead of inheriting it.\n        return self._loaders.payment_methods(info.context[\"viewer\"], customer[\"id\"])\n",
+      "task": "Decide whether a generic graph entry point reaches objects the typed query would refuse."
+    },
+    {
+      "case_id": "CASE-B5044E1607CEEE0A",
+      "family": "AI / Agent / MCP",
+      "filename": "context_builder.py",
+      "language": "python",
+      "source": "\"\"\"Assemble the model context for one agent step.\"\"\"\n\n\ndef build_context(operator_prompt, user_message, tool_results):\n    # The system role carries only text this deployment owns. Nothing produced\n    # or fetched during the run is appended to it.\n    messages = [{\"role\": \"system\", \"content\": operator_prompt}]\n    messages.append({\n        \"role\": \"user\",\n        \"content\": [{\"type\": \"text\", \"text\": user_message}],\n    })\n    for result in tool_results:\n        # A result is a typed block in its own message, bound to the call it\n        # answers and carrying its origin. It is transported as a field of the\n        # request, so no byte sequence inside it can move it to another role.\n        messages.append({\n            \"role\": \"user\",\n            \"content\": [{\n                \"type\": \"tool_result\",\n                \"tool_use_id\": result[\"tool_use_id\"],\n                \"origin\": result[\"origin\"],\n                \"content\": result[\"content\"],\n            }],\n        })\n    return messages\n",
+      "task": "Decide whether a tool result can reach the model inside the operator's channel."
+    },
+    {
+      "case_id": "CASE-BA7D892ADFC1268D",
+      "family": "Files / Uploads / Parsers",
+      "filename": "archive.py",
+      "language": "python",
+      "source": "def unpack(archive, destination):\n    archive.extractall(destination)\n",
+      "task": "Determine whether archive members can escape the intended extraction directory."
+    },
+    {
+      "case_id": "CASE-BAA09482F4772E97",
+      "family": "Files / Uploads / Parsers",
+      "filename": "attachment_store.py",
+      "language": "python",
+      "source": "\"\"\"Attachment storage.\"\"\"\n\nimport os\nfrom urllib.parse import unquote\n\nBASE = \"/srv/attachments\"\n\n\ndef save(name, data):\n    if \"..\" in name or name.startswith(\"/\"):\n        raise ValueError(\"invalid name\")\n    # Names arrive percent-encoded from the upload form.\n    decoded = unquote(name)\n    path = os.path.join(BASE, decoded)\n    os.makedirs(os.path.dirname(path), exist_ok=True)\n    with open(path, \"wb\") as handle:\n        handle.write(data)\n    return path\n",
+      "task": "Decide whether a caller-supplied name can escape the storage directory."
+    },
+    {
+      "case_id": "CASE-BFF1564BED2131DB",
+      "family": "Files / Uploads / Parsers",
+      "filename": "archive_import.py",
+      "language": "python",
+      "source": "\"\"\"Archive import.\"\"\"\n\nimport os\nimport zipfile\n\nMAX_ENTRIES = 2000\nMAX_TOTAL_BYTES = 200 * 1024 * 1024\n\n\nclass ArchiveImporter:\n    def __init__(self, destination):\n        # For example /srv/imports/tenant-42\n        self._destination = os.path.abspath(destination)\n\n    def extract(self, archive_path):\n        written = []\n        total = 0\n        with zipfile.ZipFile(archive_path) as archive:\n            members = archive.infolist()\n            if len(members) > MAX_ENTRIES:\n                raise ValueError(\"too many entries\")\n\n            for member in members:\n                if member.is_dir():\n                    continue\n                total += member.file_size\n                if total > MAX_TOTAL_BYTES:\n                    raise ValueError(\"archive too large\")\n\n                target = os.path.abspath(\n                    os.path.join(self._destination, member.filename)\n                )\n                # Keep every entry underneath the destination directory.\n                if not target.startswith(self._destination):\n                    raise ValueError(f\"entry escapes destination: {member.filename}\")\n\n                os.makedirs(os.path.dirname(target), exist_ok=True)\n                with archive.open(member) as source, open(target, \"wb\") as handle:\n                    handle.write(source.read())\n                written.append(target)\n        return written\n",
+      "task": "Decide whether an archive entry can be written outside the destination directory."
+    },
+    {
+      "case_id": "CASE-C19963DF14578C0A",
+      "family": "Race / Idempotency / Replay",
+      "filename": "payment.py",
+      "language": "python",
+      "source": "def charge(request, provider, db):\n    if db.was_processed(request.id):\n        return db.result(request.id)\n    result = provider.charge(request.amount)\n    db.mark_processed(request.id, result)\n    return result\n",
+      "task": "Determine whether retry or concurrency can duplicate the external side effect."
+    },
+    {
+      "case_id": "CASE-C3D71D215CCFC3F0",
+      "family": "Authentication / Sessions",
+      "filename": "token_verifier.py",
+      "language": "python",
+      "source": "\"\"\"Bearer token verification.\"\"\"\n\nimport base64\nimport hashlib\nimport hmac\nimport json\nimport time\n\n\ndef _b64url_decode(segment):\n    padding = \"=\" * (-len(segment) % 4)\n    return base64.urlsafe_b64decode(segment + padding)\n\n\nclass TokenVerifier:\n    def __init__(self, keys, rsa_verify):\n        # kid -> key material. HMAC secrets and PEM public keys share this map\n        # so that rotation between the two schemes is a configuration change.\n        self._keys = keys\n        self._rsa_verify = rsa_verify\n\n    def _check_signature(self, algorithm, key, signing_input, signature):\n        if algorithm == \"HS256\":\n            expected = hmac.new(key, signing_input, hashlib.sha256).digest()\n            return hmac.compare_digest(expected, signature)\n        if algorithm == \"RS256\":\n            return self._rsa_verify(key, signing_input, signature)\n        raise ValueError(\"unsupported algorithm\")\n\n    def verify(self, token):\n        header_b64, payload_b64, signature_b64 = token.split(\".\")\n        header = json.loads(_b64url_decode(header_b64))\n        key = self._keys[header[\"kid\"]]\n        signing_input = f\"{header_b64}.{payload_b64}\".encode(\"ascii\")\n        # Honour the algorithm the issuer selected for this token.\n        if not self._check_signature(\n            header[\"alg\"], key, signing_input, _b64url_decode(signature_b64)\n        ):\n            raise PermissionError(\"bad signature\")\n\n        claims = json.loads(_b64url_decode(payload_b64))\n        if claims.get(\"exp\") and claims[\"exp\"] < time.time():\n            raise PermissionError(\"expired\")\n        return claims\n",
+      "task": "Decide whether a bearer token verifier can be made to accept a token the issuer never signed."
+    },
+    {
+      "case_id": "CASE-C907307D1FB1ED49",
+      "family": "Authorization / BOLA / BFLA",
+      "filename": "graphql_resolvers.py",
+      "language": "python",
+      "source": "\"\"\"GraphQL resolvers for the orders schema.\"\"\"\n\nimport base64\n\n\ndef decode_global_id(global_id):\n    decoded = base64.urlsafe_b64decode(global_id.encode(\"ascii\")).decode(\"utf-8\")\n    kind, _, raw = decoded.partition(\":\")\n    return kind, raw\n\n\nclass Resolvers:\n    def __init__(self, orders, customers, payments):\n        self._orders = orders\n        self._customers = customers\n        self._payments = payments\n\n    def query_order(self, info, order_id):\n        viewer = info.context[\"viewer\"]\n        order = self._orders.get(order_id)\n        if order is None or order[\"customer_id\"] != viewer[\"customer_id\"]:\n            raise PermissionError(\"forbidden\")\n        return order\n\n    def query_node(self, info, global_id):\n        # Relay-style generic lookup used by the client cache to refetch objects\n        # it has already seen.\n        kind, raw = decode_global_id(global_id)\n        if kind == \"Order\":\n            return self._orders.get(raw)\n        if kind == \"Customer\":\n            return self._customers.get(raw)\n        raise ValueError(\"unknown node type\")\n\n    def order_customer(self, info, order):\n        # Reached from query_order, which has already authorised the order.\n        return self._customers.get(order[\"customer_id\"])\n\n    def customer_payment_methods(self, info, customer):\n        return self._payments.list_for_customer(customer[\"id\"])\n",
+      "task": "Decide whether a generic graph entry point reaches objects the typed query would refuse."
+    },
+    {
+      "case_id": "CASE-C98CA9969C2C40AD",
+      "family": "Injection / Dataflow",
+      "filename": "search_repository.py",
+      "language": "python",
+      "source": "\"\"\"Product search repository.\"\"\"\n\nALLOWED_FILTERS = {\"category\", \"vendor\"}\n\n\ndef _clean(value):\n    return str(value).strip()\n\n\nclass SearchRepository:\n    def __init__(self, connection):\n        self._conn = connection\n\n    def search(self, filters, sort_by, direction, limit=50):\n        where = []\n        params = []\n        for key, value in filters.items():\n            if key not in ALLOWED_FILTERS:\n                continue\n            where.append(f\"{key} = ?\")\n            params.append(value)\n\n        clause = \" AND \".join(where) or \"1=1\"\n        # Column identifiers cannot be bound, so they are interpolated.\n        order = f\"{_clean(sort_by)} {_clean(direction)}\"\n        sql = f\"SELECT id, name, price FROM products WHERE {clause} ORDER BY {order} LIMIT ?\"\n        params.append(int(limit))\n        return self._conn.execute(sql, params).fetchall()\n",
+      "task": "Decide whether caller-controlled input reaches a query without parameterization."
+    },
+    {
+      "case_id": "CASE-CB4D41A658A85D20",
+      "family": "Secrets / Supply Chain",
+      "filename": "installer.py",
+      "language": "python",
+      "source": "def install(client, runner):\n    artifact = client.get('https://downloads.example.test/tool-latest.bin')\n    runner.execute(artifact)\n",
+      "task": "Review whether an installer authenticates the fetched artifact before execution."
+    },
+    {
+      "case_id": "CASE-CBF40710929F1D51",
+      "family": "Secrets / Supply Chain",
+      "filename": "installer.py",
+      "language": "python",
+      "source": "def install(client, runner, trusted_manifest):\n    artifact = client.get(trusted_manifest.versioned_url)\n    if artifact.sha256() != trusted_manifest.sha256:\n        raise ValueError('artifact integrity failure')\n    runner.execute(artifact)\n",
+      "task": "Review whether an installer authenticates the fetched artifact before execution."
+    },
+    {
+      "case_id": "CASE-CD9F183097CAF5FB",
+      "family": "Files / Uploads / Parsers",
+      "filename": "archive_import.py",
+      "language": "python",
+      "source": "\"\"\"Archive import.\"\"\"\n\nimport os\nimport stat\nimport zipfile\n\nMAX_ENTRIES = 2000\nMAX_TOTAL_BYTES = 200 * 1024 * 1024\nCHUNK_BYTES = 64 * 1024\n\n\nclass ArchiveImporter:\n    def __init__(self, destination):\n        # For example /srv/imports/tenant-42\n        self._destination = os.path.realpath(destination)\n\n    def _resolve(self, name):\n        target = os.path.realpath(os.path.join(self._destination, name))\n        # Compare whole path components, never string prefixes.\n        if os.path.commonpath([self._destination, target]) != self._destination:\n            raise ValueError(f\"entry escapes destination: {name}\")\n        return target\n\n    def extract(self, archive_path):\n        written = []\n        total = 0\n        with zipfile.ZipFile(archive_path) as archive:\n            members = archive.infolist()\n            if len(members) > MAX_ENTRIES:\n                raise ValueError(\"too many entries\")\n\n            for member in members:\n                if member.is_dir():\n                    continue\n                mode = member.external_attr >> 16\n                if mode and not stat.S_ISREG(mode):\n                    raise ValueError(f\"unsupported member type: {member.filename}\")\n\n                target = self._resolve(member.filename)\n                os.makedirs(os.path.dirname(target), exist_ok=True)\n                with archive.open(member) as source, open(target, \"wb\") as handle:\n                    while True:\n                        chunk = source.read(CHUNK_BYTES)\n                        if not chunk:\n                            break\n                        # Budget the bytes produced, not the declared size.\n                        total += len(chunk)\n                        if total > MAX_TOTAL_BYTES:\n                            raise ValueError(\"archive expands beyond the budget\")\n                        handle.write(chunk)\n                written.append(target)\n        return written\n",
+      "task": "Decide whether an archive entry can be written outside the destination directory."
+    },
+    {
+      "case_id": "CASE-D09598D8648649C8",
+      "family": "Authorization / BOLA / BFLA",
+      "filename": "reports_service.py",
+      "language": "python",
+      "source": "\"\"\"Tenant reporting service.\"\"\"\n\n\nclass ReportRepository:\n    def __init__(self, rows):\n        self._rows = rows\n\n    def list_for_tenant(self, tenant_id):\n        return [r for r in self._rows if r[\"tenant_id\"] == tenant_id]\n\n    def get_for_tenant(self, report_id, tenant_id):\n        for row in self._rows:\n            if row[\"id\"] == report_id and row[\"tenant_id\"] == tenant_id:\n                return row\n        return None\n\n\nclass ReportService:\n    def __init__(self, repo, audit):\n        self._repo = repo\n        self._audit = audit\n\n    def list_reports(self, caller):\n        return self._repo.list_for_tenant(caller[\"tenant_id\"])\n\n    def export_report(self, caller, report_id):\n        # Every protected read carries the effective tenant into the query.\n        report = self._repo.get_for_tenant(report_id, caller[\"tenant_id\"])\n        if report is None:\n            raise LookupError(\"report not found\")\n        self._audit.record(caller[\"id\"], \"export\", report_id)\n        return {\"id\": report[\"id\"], \"rows\": report[\"rows\"]}\n",
+      "task": "Decide whether a caller can read or export objects owned by another tenant."
+    },
+    {
+      "case_id": "CASE-D599D1B75F3AD5B4",
+      "family": "Race / Idempotency / Replay",
+      "filename": "voucher.py",
+      "language": "python",
+      "source": "\"\"\"Voucher redemption.\"\"\"\n\n\nclass VoucherService:\n    def __init__(self, db, wallet):\n        self._db = db\n        self._wallet = wallet\n\n    def redeem(self, code, user_id):\n        # Claim atomically: the WHERE clause carries the unused precondition.\n        claimed = self._db.execute(\n            \"UPDATE vouchers SET redeemed_by = ? WHERE code = ? AND redeemed_by IS NULL\",\n            [user_id, code],\n        )\n        if claimed.rowcount != 1:\n            raise ValueError(\"already redeemed or unknown voucher\")\n        voucher = self._db.query_one(\"SELECT code, value FROM vouchers WHERE code = ?\", [code])\n        self._wallet.credit(user_id, voucher[\"value\"])\n        return {\"code\": code, \"value\": voucher[\"value\"]}\n",
+      "task": "Decide whether concurrent redemptions of a single-use code can both succeed."
+    },
+    {
+      "case_id": "CASE-D89BCA9F586DB033",
+      "family": "Business Logic / Payments",
+      "filename": "refunds.py",
+      "language": "python",
+      "source": "\"\"\"Refund processing.\"\"\"\n\n\nclass RefundService:\n    def __init__(self, orders, ledger):\n        self._orders = orders\n        self._ledger = ledger\n\n    def refund(self, order_id, amount, actor):\n        order = self._orders.get(order_id)\n        if order is None:\n            raise LookupError(\"unknown order\")\n        if amount <= 0:\n            raise ValueError(\"amount must be positive\")\n        # A refund may never exceed what the customer paid.\n        if amount > order[\"total\"]:\n            raise ValueError(\"refund exceeds order total\")\n        self._ledger.credit(order[\"customer_id\"], amount)\n        self._orders.append_refund(order_id, amount, actor)\n        return {\"order_id\": order_id, \"refunded\": amount}\n",
+      "task": "Decide whether a refund flow can return more value than was captured."
+    },
+    {
+      "case_id": "CASE-DAD70C696D597553",
+      "family": "Authentication / Sessions",
+      "filename": "sessions.py",
+      "language": "python",
+      "source": "\"\"\"Session handling.\"\"\"\n\nimport secrets\n\n\nclass SessionStore:\n    def __init__(self):\n        self._sessions = {}\n\n    def create_anonymous(self):\n        sid = secrets.token_urlsafe(32)\n        self._sessions[sid] = {\"user_id\": None, \"roles\": []}\n        return sid\n\n    def get(self, sid):\n        return self._sessions.get(sid)\n\n    def login(self, sid, user):\n        session = self._sessions.get(sid)\n        if session is None:\n            raise LookupError(\"no session\")\n        # Promote the visitor's existing session to an authenticated one.\n        session[\"user_id\"] = user[\"id\"]\n        session[\"roles\"] = user[\"roles\"]\n        return sid\n\n    def logout(self, sid):\n        self._sessions.pop(sid, None)\n",
+      "task": "Decide whether the session lifecycle allows a pre-authentication identifier to survive privilege change."
+    },
+    {
+      "case_id": "CASE-DD0D06059DBA7922",
+      "family": "AI / Agent / MCP",
+      "filename": "command_tool.py",
+      "language": "python",
+      "source": "\"\"\"Repository inspection tool exposed to the agent.\"\"\"\n\nimport subprocess\n\nALLOWED_BINARIES = {\"git\", \"rg\", \"sed\"}\nTIMEOUT_SECONDS = 30\nMAX_OUTPUT = 4000\n\n\ndef run_command(step, workdir):\n    \"\"\"Run a command the model composed.\n\n    The argument vector goes straight to exec with no shell, so quoting, pipes,\n    and semicolons inside the arguments are inert.\n    \"\"\"\n    argv = [str(part) for part in step[\"argv\"]]\n    if not argv:\n        raise ValueError(\"empty command\")\n    if argv[0] not in ALLOWED_BINARIES:\n        raise PermissionError(f\"{argv[0]} is not an allowed binary\")\n    completed = subprocess.run(\n        argv,\n        cwd=workdir,\n        shell=False,\n        capture_output=True,\n        timeout=TIMEOUT_SECONDS,\n        check=False,\n        text=True,\n    )\n    return {\"returncode\": completed.returncode, \"stdout\": completed.stdout[:MAX_OUTPUT]}\n",
+      "task": "Decide whether an agent-selected command can reach execution as something other than data."
+    },
+    {
+      "case_id": "CASE-DD62D97BD9FF8D5D",
+      "family": "Business Logic / Payments",
+      "filename": "discount.py",
+      "language": "python",
+      "source": "def apply_discount(order, code):\n    if not code['active'] or code['id'] in order['redeemed_codes']:\n        raise ValueError('not redeemable')\n    order['total'] -= code['amount']\n    order['redeemed_codes'].add(code['id'])\n    return order\n",
+      "task": "Review whether a single-use discount can be applied more than once without relying on UI state."
+    },
+    {
+      "case_id": "CASE-DFB42C91D726A8D9",
+      "family": "Browser / XSS",
+      "filename": "embed-bridge.js",
+      "language": "javascript",
+      "source": "// Bridge between the host page and the embedded checkout frame.\nconst TRUSTED_ORIGIN = \"https://app.example.com\";\n\n// Presentation only: privileged operations are performed over the authenticated\n// API, not over a channel whose peer is a document.\nconst COMMANDS = {\n  resize: (payload, ctx) =>\n    ctx.frame.style.setProperty(\"height\", `${Number(payload.height)}px`),\n  requestClose: (_payload, ctx) => ctx.onClose(),\n};\n\nfunction safeParse(text) {\n  try {\n    return JSON.parse(text);\n  } catch {\n    return null;\n  }\n}\n\nexport function installBridge(ctx) {\n  const handler = (event) => {\n    // Exact origin, and the sender must be the frame we created ourselves.\n    if (event.origin !== TRUSTED_ORIGIN) return;\n    if (event.source !== ctx.frame.contentWindow) return;\n\n    const message =\n      typeof event.data === \"string\" ? safeParse(event.data) : event.data;\n    if (!message || typeof message.type !== \"string\") return;\n    if (!Object.prototype.hasOwnProperty.call(COMMANDS, message.type)) return;\n\n    COMMANDS[message.type](message.payload || {}, ctx);\n\n    // Addressed to one origin, and it carries no session material.\n    event.source.postMessage({ type: \"ack\", id: message.id }, TRUSTED_ORIGIN);\n  };\n\n  window.addEventListener(\"message\", handler);\n  return () => window.removeEventListener(\"message\", handler);\n}\n",
+      "task": "Decide whether a cross-document message handler trusts an origin it should not."
+    },
+    {
+      "case_id": "CASE-E2A8B594B2DACA40",
+      "family": "Authentication / Sessions",
+      "filename": "token_verifier.py",
+      "language": "python",
+      "source": "\"\"\"Bearer token verification.\"\"\"\n\nimport base64\nimport json\nimport time\n\nALGORITHM = \"RS256\"\nLEEWAY_SECONDS = 30\nREQUIRED_CLAIMS = (\"sub\", \"iss\", \"aud\", \"iat\", \"exp\")\n\n\ndef _b64url_decode(segment):\n    padding = \"=\" * (-len(segment) % 4)\n    return base64.urlsafe_b64decode(segment + padding)\n\n\nclass TokenVerifier:\n    def __init__(self, public_keys, issuer, audience, rsa_verify):\n        # Only asymmetric verification keys live here, so there is no symmetric\n        # secret an attacker could reach by naming a different algorithm.\n        self._public_keys = public_keys\n        self._issuer = issuer\n        self._audience = audience\n        self._rsa_verify = rsa_verify\n\n    def verify(self, token):\n        parts = token.split(\".\")\n        if len(parts) != 3:\n            raise PermissionError(\"malformed token\")\n        header_b64, payload_b64, signature_b64 = parts\n        header = json.loads(_b64url_decode(header_b64))\n        # The verifier chooses the algorithm; the token cannot.\n        if header.get(\"alg\") != ALGORITHM:\n            raise PermissionError(\"unexpected algorithm\")\n        key = self._public_keys.get(header.get(\"kid\"))\n        if key is None:\n            raise PermissionError(\"unknown key id\")\n\n        signing_input = f\"{header_b64}.{payload_b64}\".encode(\"ascii\")\n        if not self._rsa_verify(key, signing_input, _b64url_decode(signature_b64)):\n            raise PermissionError(\"bad signature\")\n\n        claims = json.loads(_b64url_decode(payload_b64))\n        for name in REQUIRED_CLAIMS:\n            if name not in claims:\n                raise PermissionError(f\"missing claim {name}\")\n        now = time.time()\n        if claims[\"exp\"] < now - LEEWAY_SECONDS:\n            raise PermissionError(\"expired\")\n        if claims[\"iss\"] != self._issuer or claims[\"aud\"] != self._audience:\n            raise PermissionError(\"wrong issuer or audience\")\n        return claims\n",
+      "task": "Decide whether a bearer token verifier can be made to accept a token the issuer never signed."
+    },
+    {
+      "case_id": "CASE-E5E6422230D8068E",
+      "family": "Secrets / Supply Chain",
+      "filename": "plugin_installer.py",
+      "language": "python",
+      "source": "\"\"\"Plugin installer.\"\"\"\n\nimport hashlib\nimport hmac\nimport subprocess\n\n\ndef install(plugin, http_client, log):\n    response = http_client.get(plugin[\"url\"], timeout=10)\n    payload = response.content\n    digest = hashlib.sha256(payload).hexdigest()\n    # Enforce the pin before the payload can touch disk.\n    if not hmac.compare_digest(digest, plugin[\"sha256\"]):\n        raise ValueError(f\"integrity mismatch for {plugin['name']}\")\n    log.info(\"verified %s sha256=%s\", plugin[\"name\"], digest)\n\n    target = f\"/opt/plugins/{plugin['name']}.py\"\n    with open(target, \"wb\") as handle:\n        handle.write(payload)\n    subprocess.run([\"python\", target, \"--install\"], check=True)\n    return target\n",
+      "task": "Decide whether a build step can execute unverified remote content."
+    },
+    {
+      "case_id": "CASE-E72D2FE294D2AE9F",
+      "family": "Authentication / Sessions",
+      "filename": "password_reset.py",
+      "language": "python",
+      "source": "\"\"\"Password reset completion.\"\"\"\n\nimport hashlib\nimport secrets\nimport time\n\nTOKEN_TTL_SECONDS = 900\n\n\ndef _fingerprint(raw_token):\n    return hashlib.sha256(raw_token.encode(\"utf-8\")).hexdigest()\n\n\nclass PasswordResetService:\n    def __init__(self, accounts, tokens, sessions, mailer):\n        self._accounts = accounts\n        self._tokens = tokens\n        self._sessions = sessions\n        self._mailer = mailer\n\n    def request_reset(self, email):\n        account = self._accounts.find_by_email(email)\n        # Respond identically whether or not the address is registered.\n        if account is not None:\n            raw = secrets.token_urlsafe(32)\n            self._tokens.put({\n                \"fingerprint\": _fingerprint(raw),\n                \"user_id\": account[\"id\"],\n                \"created_at\": time.time(),\n                \"used\": False,\n            })\n            self._mailer.send_reset(account[\"email\"], raw)\n        return {\"status\": \"sent\"}\n\n    def complete_reset(self, email, raw_token, new_password):\n        record = self._tokens.get(_fingerprint(raw_token))\n        if record is None or record[\"used\"]:\n            raise PermissionError(\"invalid reset token\")\n        if time.time() - record[\"created_at\"] > TOKEN_TTL_SECONDS:\n            raise PermissionError(\"expired reset token\")\n\n        # The form posts back the address the user typed, so load the account\n        # from it and apply the new credential.\n        account = self._accounts.find_by_email(email)\n        if account is None:\n            raise LookupError(\"unknown account\")\n        self._accounts.set_password(account[\"id\"], new_password)\n        self._tokens.mark_used(record[\"fingerprint\"])\n        return {\"status\": \"reset\", \"user_id\": account[\"id\"]}\n",
+      "task": "Decide whether a password reset flow lets a caller take over another account."
+    },
+    {
+      "case_id": "CASE-EB649F10034E5562",
+      "family": "Authorization / BOLA / BFLA",
+      "filename": "tenant_reporting_db.py",
+      "language": "python",
+      "source": "\"\"\"Tenant-scoped database access.\"\"\"\n\nfrom contextlib import contextmanager\n\n\nclass TenantDatabase:\n    \"\"\"Row level security policies compare app.tenant_id against each row.\"\"\"\n\n    def __init__(self, app_pool):\n        # One pool, one role, one enforcement story. Reporting does not get a\n        # privileged side door.\n        self._app_pool = app_pool\n\n    @contextmanager\n    def tenant_transaction(self, tenant_id):\n        conn = self._app_pool.acquire()\n        try:\n            conn.execute(\"BEGIN\")\n            # Bound as a parameter, and local to this transaction so it cannot\n            # survive on the pooled connection.\n            conn.execute(\"SELECT set_config('app.tenant_id', %s, true)\", [str(tenant_id)])\n            yield conn\n            conn.execute(\"COMMIT\")\n        except BaseException:\n            conn.execute(\"ROLLBACK\")\n            raise\n        finally:\n            self._app_pool.release(conn)\n\n    def list_documents(self, tenant_id):\n        with self.tenant_transaction(tenant_id) as conn:\n            return conn.execute(\n                \"SELECT id, title, owner_id FROM documents \"\n                \"WHERE tenant_id = %s ORDER BY created_at DESC\",\n                [tenant_id],\n            ).fetchall()\n\n    def monthly_summary(self, tenant_id, month):\n        # Same role, same binding, and the predicate is repeated explicitly.\n        with self.tenant_transaction(tenant_id) as conn:\n            return conn.execute(\n                \"SELECT status, count(*) AS total FROM documents \"\n                \"WHERE tenant_id = %s AND date_trunc('month', created_at) = %s \"\n                \"GROUP BY status\",\n                [tenant_id, month],\n            ).fetchall()\n",
+      "task": "Decide whether a reporting query escapes the tenant isolation the primary path relies on."
+    },
+    {
+      "case_id": "CASE-ED7775E30852087C",
+      "family": "Browser / XSS",
+      "filename": "embed-bridge.js",
+      "language": "javascript",
+      "source": "// Bridge between the host page and the embedded checkout frame.\nconst TRUSTED_ORIGIN = \"https://app.example.com\";\n\nconst COMMANDS = {\n  resize: (payload, ctx) =>\n    ctx.frame.style.setProperty(\"height\", `${Number(payload.height)}px`),\n  setAuthToken: (payload, ctx) => ctx.session.adopt(payload.token),\n  navigate: (payload, ctx) => ctx.router.push(payload.path),\n};\n\nexport function installBridge(ctx) {\n  const handler = (event) => {\n    // Only messages coming from our own application are accepted.\n    if (event.origin.indexOf(TRUSTED_ORIGIN) !== 0) return;\n\n    const message =\n      typeof event.data === \"string\" ? JSON.parse(event.data) : event.data;\n    const command = message && COMMANDS[message.type];\n    if (!command) return;\n    command(message.payload || {}, ctx);\n\n    // Acknowledge so the frame can continue its handshake.\n    if (event.source) {\n      event.source.postMessage(\n        { type: \"ack\", id: message.id, session: ctx.session.snapshot() },\n        \"*\"\n      );\n    }\n  };\n\n  window.addEventListener(\"message\", handler);\n  return () => window.removeEventListener(\"message\", handler);\n}\n",
+      "task": "Decide whether a cross-document message handler trusts an origin it should not."
+    },
+    {
+      "case_id": "CASE-F04CA2C0403AC30E",
+      "family": "AI / Agent / MCP",
+      "filename": "tool_router.py",
+      "language": "python",
+      "source": "\"\"\"MCP host tool router.\"\"\"\n\nimport hashlib\nimport json\n\n\ndef definition_digest(tool):\n    canonical = json.dumps(\n        {\n            \"name\": tool[\"name\"],\n            \"description\": tool.get(\"description\", \"\"),\n            \"input_schema\": tool.get(\"input_schema\", {}),\n        },\n        sort_keys=True,\n        separators=(\",\", \":\"),\n    )\n    return hashlib.sha256(canonical.encode(\"utf-8\")).hexdigest()\n\n\nclass ToolRouter:\n    \"\"\"Presents the tools of every connected server as one namespace.\"\"\"\n\n    def __init__(self, servers):\n        self._index = {}\n        for server in servers:\n            self.register(server)\n\n    def register(self, server):\n        for tool in server.list_tools():\n            # Slots are keyed by server identity, so two servers offering the\n            # same bare name occupy two slots and neither can take the other's.\n            self._index[(server.server_id, tool[\"name\"])] = {\n                \"server\": server,\n                \"tool\": tool,\n                \"digest\": definition_digest(tool),\n            }\n\n    def dispatch(self, step, allowed_tools):\n        # allowed_tools maps (server_id, name) to the digest pinned when the run\n        # bound its authority, so the check names the definition that executes.\n        key = (step.get(\"server_id\"), step.get(\"tool\"))\n        entry = self._index.get(key)\n        if entry is None:\n            raise PermissionError(\"no such tool on that server\")\n        if allowed_tools.get(key) != entry[\"digest\"]:\n            # Covers an unlisted tool and a definition that changed after it was\n            # approved: a redefined tool is a new tool, not an approved one.\n            raise PermissionError(f\"{key} is not permitted in this run\")\n        return entry[\"server\"].call_tool(entry[\"tool\"][\"name\"], step[\"args\"])\n\n\ndef run_step(step, router, run_config):\n    # The run's authority is fixed before the loop starts.\n    return router.dispatch(step, run_config[\"allowed_tools\"])\n",
+      "task": "Decide whether a per-run tool allowlist binds the tool that actually executes."
+    },
+    {
+      "case_id": "CASE-F7E4A08B0BF9EE9D",
+      "family": "Authorization / BOLA / BFLA",
+      "filename": "admin_routes.py",
+      "language": "python",
+      "source": "\"\"\"Administrative routes.\"\"\"\n\nfrom functools import wraps\n\n\ndef require_role(role, directory):\n    def decorator(handler):\n        @wraps(handler)\n        def wrapper(request, *args, **kwargs):\n            session = request.get(\"session\") or {}\n            user_id = session.get(\"user_id\")\n            if not user_id:\n                raise PermissionError(\"unauthenticated\")\n            # Authoritative roles come from server-side state, never the payload.\n            if role not in directory.roles_for(user_id):\n                raise PermissionError(\"forbidden\")\n            return handler(request, *args, **kwargs)\n        return wrapper\n    return decorator\n\n\nclass Billing:\n    def __init__(self, ledger, directory):\n        self._ledger = ledger\n        self.issue_refund = require_role(\"admin\", directory)(self._issue_refund)\n\n    def _issue_refund(self, request, order_id, amount):\n        session = request[\"session\"]\n        return self._ledger.refund(order_id, amount, actor=session[\"user_id\"])\n",
+      "task": "Decide whether a non-administrative role can reach an administrative action."
+    },
+    {
+      "case_id": "CASE-F96D23F524809B3B",
+      "family": "Injection / Dataflow",
+      "filename": "search.py",
+      "language": "python",
+      "source": "def saved_search(db, profile):\n    label = profile['saved_label']\n    return db.execute(\"SELECT * FROM items WHERE label = '%s'\" % label)\n",
+      "task": "Trace whether a stored label later becomes SQL structure rather than a bound value."
+    },
+    {
+      "case_id": "CASE-FC682EBD62198347",
+      "family": "AI / Agent / MCP",
+      "filename": "agent_loop.py",
+      "language": "python",
+      "source": "\"\"\"Support agent loop.\"\"\"\n\nTOOLS = {\n    \"search_docs\": lambda args, ctx: ctx[\"index\"].search(args[\"q\"]),\n    \"send_email\": lambda args, ctx: ctx[\"mailer\"].send(args[\"to\"], args[\"body\"]),\n    \"delete_records\": lambda args, ctx: ctx[\"db\"].delete(args[\"table\"], args[\"where\"]),\n}\n\n\ndef run(operator_prompt, ticket, model, ctx):\n    fetched = ctx[\"index\"].fetch(ticket[\"url\"])\n    # Give the model everything it needs in one context.\n    prompt = f\"{operator_prompt}\\n\\nTicket: {ticket['body']}\\n\\nReference:\\n{fetched}\"\n\n    for _ in range(5):\n        step = model.next_step(prompt)\n        if step[\"type\"] == \"final\":\n            return step[\"text\"]\n        tool = TOOLS[step[\"tool\"]]\n        result = tool(step[\"args\"], ctx)\n        prompt += f\"\\n\\nTool {step['tool']} returned: {result}\"\n    return \"step limit reached\"\n",
+      "task": "Decide whether untrusted retrieved content can drive a privileged tool call."
+    }
+  ],
+  "schema_version": "1.1.0"
+}

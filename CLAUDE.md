@@ -4,7 +4,7 @@ Use `.claude/skills/sechelix/SKILL.md` to activate the SecHelix workflow when re
 
 Repository invariants:
 
-- root `SKILL.md` is canonical;
+- `skills/sechelix/SKILL.md` is the canonical skill;
 - keep adapters thin;
 - High/Critical security claims require independent verification in examples/evals;
 - dynamic testing must remain authorized and bounded;

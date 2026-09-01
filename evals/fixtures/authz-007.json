@@ -1,0 +1,30 @@
+{
+  "id": "EVAL-AUTHZ-007",
+  "schema_version": "1.1",
+  "family": "Authorization / BOLA / BFLA",
+  "task": "Decide whether queries without a tenant predicate are isolated by the declared row policy.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-863",
+      "CWE-269"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "document_repository.py",
+      "source": "\"\"\"Document repository backed by row level security.\"\"\"\n\n# Applied by migration 0042.\nMIGRATION = \"\"\"\nALTER TABLE documents ENABLE ROW LEVEL SECURITY;\nCREATE POLICY documents_tenant_isolation ON documents\n    USING (tenant_id = current_setting('app.tenant_id')::uuid)\n    WITH CHECK (tenant_id = current_setting('app.tenant_id')::uuid);\nGRANT SELECT, INSERT, UPDATE ON documents TO app_owner;\n\"\"\"\n\n# The role the API connects with; it also owns the schema, which keeps the\n# migration and the runtime credentials down to one secret.\nRUNTIME_ROLE = \"app_owner\"\n\n\nclass DocumentRepository:\n    \"\"\"Statements here carry no tenant predicate: the policy above is the\n    isolation boundary, and the tenant is bound per transaction.\"\"\"\n\n    def __init__(self, pool):\n        self._pool = pool\n\n    def _session(self, tenant_id):\n        conn = self._pool.acquire(role=RUNTIME_ROLE)\n        conn.execute(\"BEGIN\")\n        conn.execute(\"SELECT set_config('app.tenant_id', %s, true)\", [str(tenant_id)])\n        return conn\n\n    def get(self, tenant_id, document_id):\n        conn = self._session(tenant_id)\n        try:\n            return conn.execute(\n                \"SELECT id, title, body FROM documents WHERE id = %s\", [document_id]\n            ).fetchone()\n        finally:\n            conn.execute(\"COMMIT\")\n            self._pool.release(conn)\n\n    def update_title(self, tenant_id, document_id, title):\n        conn = self._session(tenant_id)\n        try:\n            return conn.execute(\n                \"UPDATE documents SET title = %s WHERE id = %s\", [title, document_id]\n            ).rowcount\n        finally:\n            conn.execute(\"COMMIT\")\n            self._pool.release(conn)\n",
+      "rationale": "The policy exists, but the migration only enables row level security without forcing it and the runtime role is the schema owner, which is exempt from policies on its own tables. Every predicate-free statement in the repository therefore runs unrestricted, and the setting the policy reads is never consulted."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "document_repository.py",
+      "source": "\"\"\"Document repository backed by row level security.\"\"\"\n\n# Applied by migration 0042. FORCE is required as well as ENABLE: without it the\n# table owner -- which every migration runs as -- is exempt from its own policy,\n# and the runtime role below is deliberately not the owner.\nMIGRATION = \"\"\"\nALTER TABLE documents ENABLE ROW LEVEL SECURITY;\nALTER TABLE documents FORCE ROW LEVEL SECURITY;\nCREATE POLICY documents_tenant_isolation ON documents\n    USING (tenant_id = current_setting('app.tenant_id')::uuid)\n    WITH CHECK (tenant_id = current_setting('app.tenant_id')::uuid);\nGRANT SELECT, INSERT, UPDATE ON documents TO app_user;\n\"\"\"\n\nRUNTIME_ROLE = \"app_user\"\n\n\nclass DocumentRepository:\n    \"\"\"Statements here carry no tenant predicate: the policy above is the\n    isolation boundary, and the tenant is bound per transaction.\"\"\"\n\n    def __init__(self, pool):\n        self._pool = pool\n\n    def _session(self, tenant_id):\n        conn = self._pool.acquire(role=RUNTIME_ROLE)\n        conn.execute(\"BEGIN\")\n        conn.execute(\"SELECT set_config('app.tenant_id', %s, true)\", [str(tenant_id)])\n        return conn\n\n    def get(self, tenant_id, document_id):\n        conn = self._session(tenant_id)\n        try:\n            return conn.execute(\n                \"SELECT id, title, body FROM documents WHERE id = %s\", [document_id]\n            ).fetchone()\n        finally:\n            conn.execute(\"COMMIT\")\n            self._pool.release(conn)\n\n    def update_title(self, tenant_id, document_id, title):\n        conn = self._session(tenant_id)\n        try:\n            return conn.execute(\n                \"UPDATE documents SET title = %s WHERE id = %s\", [title, document_id]\n            ).rowcount\n        finally:\n            conn.execute(\"COMMIT\")\n            self._pool.release(conn)\n",
+      "rationale": "Predicate-free statements are the alarming surface and the row policy is the compensating control that actually binds here: the table forces row level security so even the owner is subject to it, the runtime connects as a separate non-owning role, and the setting the policy reads is bound as a parameter local to each transaction."
+    }
+  }
+}

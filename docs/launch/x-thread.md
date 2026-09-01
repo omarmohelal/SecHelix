@@ -139,7 +139,7 @@ Whole run: 1 external data source, 3 public routes, 0 authenticated actions -> 4
 
 **12/13**
 
-Honest part: benchmarks are NOT_MEASURED. The fixtures were expanded by the same session that would have been the evaluated model — 11 of 19 known to it. Scoring that measures recall, not capability.
+Honest part: benchmarks are NOT_MEASURED. The fixtures were expanded by the same session that would have been the evaluated model — it knew fixtures it had written itself. Scoring that measures recall, not capability.
 
 I would rather ship NOT_MEASURED than a number I don't believe.
 
@@ -167,13 +167,13 @@ detail, quote from here rather than improvising.
 
 - **Benchmarks are NOT_MEASURED.** Documented blocker: `CONTAMINATED_EVALUATOR`. The fixture suite
   was expanded on 2026-09-01 by the same assistant session that would have acted as the evaluated
-  model, giving it prior knowledge of 11 of the 19 fixtures. Scoring it would measure recall of
+  model, giving it prior knowledge of fixtures it had written itself. Scoring it would measure recall of
   authored answers, not security-review capability. Unblocking requires a run by a model/session that
   did not author the fixtures, using blind exported cases.
 - The harness baseline at `evals/results/baseline-keyword-v1.json` is **explicitly not a SecHelix
   score** (`is_sechelix_result: false`). It is a naive regex keyword matcher run to prove the scoring
-  harness works and that the fixtures resist pattern matching: precision 0.5 / recall 0.53 on a
-  balanced 19/19 split, i.e. chance level. That is a **fixture-difficulty** statement, not a
+  harness works and that the fixtures resist pattern matching: precision 0.511 / recall 0.632 on a
+  balanced 38/38 split, i.e. chance level. That is a **fixture-difficulty** statement, not a
   performance claim. Do not tweet the numbers without that clause attached.
 - The case study is **one** small ~600 LOC app with no authentication and no server-side state. It
   measures nothing about general performance.

@@ -2,6 +2,105 @@
 
 All notable changes to SecHelix are documented here.
 
+## [3.2.0-alpha.1] - 2026-09-01
+
+### Packaging
+
+- Removed the root `SKILL.md`. It made the Skills CLI treat the whole repository
+  as the skill, so `npx skills add` installed 354 files / 5.1 MB including tests,
+  evals, CI config and a recursive copy of `skills/`. The canonical entry point
+  is `skills/sechelix/SKILL.md`, and installs are now **109 files / 1.5 MB**.
+  `scripts/validate_skill.py` fails if a root `SKILL.md` reappears.
+- Moved the specialist-agent index out of `agents/` to
+  `docs/reference/specialist-agents.md`. It was being loaded as an 18th agent.
+- Split the plugin marketplace into `omarmohelal/sechelix-marketplace`.
+  Co-locating it shadowed plugin validation.
+
+### Security depth
+
+- **Untrusted-repository mode** (`sechelix_core/untrusted_repo.py`). Under
+  `UNTRUSTED_REPO`, repository content is data and never control: `CLAUDE.md`,
+  `AGENTS.md`, settings files, hooks and docstrings cannot grant a capability,
+  promote themselves to instructions, or widen scope. Trust resolution fails
+  closed, and wildcard promotions are refused outright.
+- **Differential review** (`sechelix_core/diff_review.py`). Classifies a change
+  as `NEW_RISK`, `RISK_REDUCED`, `UNCHANGED` or `UNKNOWN` across 18 delta rules.
+- **Attack chain correlation** (`sechelix_core/attack_chains.py`). Composes
+  verified findings into five named chains. Only `VERIFIED` findings compose;
+  severity comes from the chain's outcome rather than from raising a component;
+  unverified compositions are `POTENTIAL` and carry no severity.
+- **Revision binding** (`sechelix_core/revision.py`). A report records the tree
+  it inspected, and the release gate exits `2 INCOMPLETE` rather than reusing a
+  report that describes a different commit.
+- **Patch mode** (`sechelix_core/patch_mode.py`). Emits a `.patch` and a `.md`
+  rationale for `VERIFIED` findings only, and never applies anything. A diff is
+  persuasive, so the persuasion has to be earned by verification first. Each
+  rationale states what the patch does *not* cover, and a `NOT_RUN` regression
+  status is never upgraded.
+- **Variant rule generation** (`sechelix_core/variant_rules.py`). Turns a
+  verified finding into a Semgrep rule so siblings of the same root cause can be
+  swept. Rules are `UNVALIDATED` until run, hits are `HYPOTHESIS`, and severity
+  is `INFO` regardless of the seed — a syntactic match inherits none of the
+  seed's evidence.
+- All six modules are now reachable from `skills/sechelix/SKILL.md`, which
+  previously referenced none of them. Capability the workflow cannot reach is
+  dead code.
+- **AI, agent and MCP reasoning depth**
+  (`docs/reference/ai-agent-security.md`). Covers prompt injection, tool
+  authority and the confused deputy, MCP server trust (description poisoning,
+  shadowing, the `list_changed` rug pull, transport and token audience),
+  excessive agency and what makes a confirmation a real boundary, exfiltration
+  channels, retrieval, memory poisoning, multi-agent trust, output sinks and AI
+  supply chain. Every area states both what verifies it and what refutes it, and
+  a closing section is explicit that filtering, blocklists and model
+  self-policing are mitigations rather than controls. Protocol statements are
+  pinned to MCP revision `2025-11-25`. Five new paired fixtures
+  (`EVAL-AI-003` through `EVAL-AI-007`) take the AI family from two pairs to
+  seven, and four CWE-anchored lesson cards (77, 88, 829, 807) enter the
+  knowledge graph.
+
+### Evidence and honesty
+
+- The keyword baseline is now reproducible in one command
+  (`python evals/baselines/keyword_baseline.py --score`), and the result carries
+  its commit, suite version and a SHA-256 of the exact case file. The published
+  figure had been scored against the 19-fixture suite and never regenerated, so
+  it had silently become a number about a suite that no longer existed. Rescored
+  on the current balanced 38/38 suite: **precision 0.511, recall 0.632**. The
+  precision is a coin flip and the recall is bought by flagging 47 of 76 cases,
+  a 0.61 false-positive rate. Still `is_sechelix_result: false`.
+- `score()` now carries `result_kind` and `is_sechelix_result` through from the
+  prediction packet, defaulting to `UNDECLARED`. Regenerating the baseline had
+  dropped both fields, which would have published an unlabelled number.
+- Corrected count drift across the docs (fixtures, gold packs, adapters) and
+  broadened the `CONTAMINATED_EVALUATOR` statement, which had been pinned to the
+  old suite size.
+- Added `evals/blind-packet/` so an uncontaminated evaluator can be run without
+  access to this repository. Benchmarks remain **NOT_MEASURED**.
+
+### Discoverability
+
+- Recorded a **measured discovery baseline**: 6 queries run on 2026-09-01, 0
+  found, including the brand name itself. Absence is now falsifiable.
+- Shipped `.github/skills/sechelix/SKILL.md`, a documented Copilot repository
+  skill directory the README already claimed existed.
+
+### Fixed
+
+- `scripts/check_local_links.py` no longer reports Markdown quoted inside code
+  spans and fenced blocks as broken links.
+- `SKILL.md` documented `diff_review.classify_changes`, which never existed; the
+  module exports `review_diff`. Every gate passed while the skill pointed an
+  agent at nothing, because none of them read `SKILL.md` as code.
+  `tests/test_skill_references.py` now asserts every referenced module imports
+  and every referenced attribute exists.
+- The README claimed a `.codex/skills/` adapter that was never present, and that
+  this project's own compatibility matrix says not to rely on. The claim is gone
+  and the row reads `NOT_SHIPPED`.
+- `scripts/validate_skill.py` checked three adapter surfaces, so a deleted
+  adapter could leave the README asserting a directory nobody would notice was
+  missing. It now checks all four.
+
 ## [3.0.0-alpha.5] - 2026-09-01
 
 ### Credibility and evidence program
@@ -22,7 +121,7 @@ All notable changes to SecHelix are documented here.
   families**, and corrected a stale family count in the `NOT_MEASURED` record.
 - Grew Gold Check Packs from one to **five** (IDOR, SSRF, race/idempotency,
   money invariants, AI/MCP tool authority).
-- Expanded the knowledge graph to **73 nodes and 96 edges** with **7 lesson
+- Expanded the knowledge graph to **76 nodes and 100 edges** with **11 lesson
   cards**, all provenance-backed.
 - Published the **first real case study**
   (`docs/case-studies/gamingops-store-2026-09-01.md`) with its evidence

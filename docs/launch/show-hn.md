@@ -109,9 +109,9 @@ false claim of remediation. A green typecheck is not proof that a built applicat
 - 546 structured security hypotheses = exactly 21 families x 26 verification lenses
 - 17 model-neutral specialist role profiles, including an independent verifier
 - 15 JSON Schema Draft 2020-12 contracts
-- 5 Gold Check Packs
-- 19 paired eval fixtures = 38 cases across 11 families
-- Knowledge graph: 73 nodes, 96 edges, 7 lesson cards
+- 18 Gold Check Packs
+- 38 paired eval fixtures = 76 cases across 10 families
+- Knowledge graph: 76 nodes, 100 edges, 11 lesson cards
 - Four applicability outcomes: `APPLICABLE` / `NOT_APPLICABLE` / `UNKNOWN` / `BLOCKED`. Missing
   evidence is never treated as absence.
 - Release gate returns `PASS` / `PASS_WITH_KNOWN_RISK` / `BLOCKED` / fail-closed `INCOMPLETE`.
@@ -126,13 +126,13 @@ Release 3.0.0-alpha.4 (alpha). Apache-2.0.
 
 - **Benchmarks are NOT_MEASURED.** The documented blocker is `CONTAMINATED_EVALUATOR`: the fixture
   suite was expanded on 2026-09-01 by the same assistant session that would have acted as the
-  evaluated model, so that session had prior knowledge of 11 of the 19 fixtures. Scoring it would
+  evaluated model, so that session knew fixtures it had written itself. Scoring it would
   measure recall of authored answers, not security-review capability. Unblocking requires a run by a
   model/session that did not author the fixtures, using blind exported cases.
 - There is a harness baseline at `evals/results/baseline-keyword-v1.json`, and it is **explicitly
   not a SecHelix score** (`is_sechelix_result: false`). It is a naive regex keyword matcher run
   against the fixtures to prove the scoring harness works and that the fixtures cannot be solved by
-  pattern matching. It scored precision 0.5 / recall 0.53 on a balanced 19/19 split — chance level.
+  pattern matching. It scored precision 0.511 / recall 0.632 on a balanced 38/38 split — chance level.
   That is a statement about **fixture difficulty**, not about SecHelix performance.
 - The case study is **one** small ~600 LOC app with no authentication and no server-side state. It
   measures nothing about general performance.

@@ -1,0 +1,210 @@
+{
+  "schema_version": "1.0",
+  "id": "SEC-FILE-PARSER-001",
+  "version": "0.1.0",
+  "title": "File names, archive members, and decoders acting on untrusted bytes",
+  "lifecycle": "REFERENCE",
+  "threat_model": {
+    "actor": "Anyone who can supply a file, a file name, an archive, or bytes that a later process decodes, including through an import, a queue, a shared bucket, or a cache",
+    "asset": "The storage layout the application relies on and the process that interprets the bytes it reads back",
+    "trust_boundary": "The name or bytes as supplied and the path finally written or the object graph finally constructed",
+    "failure_mode": "Containment is asserted on a string rather than on the resolved path, or a decoder that can construct arbitrary objects is reached by bytes the process never authenticated",
+    "impact": "A write lands outside the intended directory, or a decoder builds objects of the attacker's choosing and executes code inside the worker"
+  },
+  "applicability": {
+    "capability_tags": ["file_uploads", "file_parsers", "object_storage", "archive_extraction", "deserialization"],
+    "rule": "ANY_CAPABILITY_PRESENT",
+    "required_evidence": [
+      "The application accepts, stores, extracts, or serves files whose names or contents originate outside the codebase",
+      "A path is composed, an archive is expanded, or bytes are decoded into objects on a path a caller can influence"
+    ]
+  },
+  "framework_fingerprints": [
+    {
+      "framework": "path-composition",
+      "versions": ["any"],
+      "signals": [
+        "Containment is checked with a string prefix comparison rather than a path-component comparison",
+        "The traversal check runs before a decode, normalization, or join that can reintroduce a separator",
+        "A directory is created from the composed path before that path has been validated"
+      ]
+    },
+    {
+      "framework": "archive-extraction",
+      "versions": ["any"],
+      "signals": [
+        "Member names are validated but link members are still materialised",
+        "The size budget is taken from the archive header rather than from the bytes actually written",
+        "A nested archive is expanded by a second helper that repeats none of the outer checks"
+      ]
+    },
+    {
+      "framework": "object-deserialization",
+      "versions": ["any"],
+      "signals": [
+        "A decoder that can construct arbitrary types is applied to bytes from a cache, a queue, a cookie, or a request",
+        "An integrity tag is optional, so an entry that omits it takes an unauthenticated branch",
+        "The integrity comparison runs after the decode, or covers a key rather than the payload"
+      ]
+    },
+    {
+      "framework": "content-type-handling",
+      "versions": ["any"],
+      "signals": [
+        "The type is taken from the declared header or the extension rather than from the bytes",
+        "Uploaded content is served from the application origin with a caller-influenced content type",
+        "A parser resolves external entities, remote subresources, or nested documents on its own"
+      ]
+    },
+    {
+      "framework": "python-synthetic-fixture",
+      "versions": ["3.x"],
+      "signals": [
+        "An extractor asserts containment with a string prefix against a destination that has no trailing separator",
+        "A cache codec treats a missing integrity tag as a legacy exemption and decodes anyway"
+      ]
+    }
+  ],
+  "sources": {
+    "source_ids": ["mitre-cwe", "mitre-capec", "owasp-asvs", "owasp-top-10"],
+    "catalog_hypothesis_ids": ["SHX-FILE-L01", "SHX-FILE-L03", "SHX-FILE-L17", "SHX-FILE-L18"],
+    "references": [
+      "https://cwe.mitre.org/data/definitions/22.html",
+      "https://cwe.mitre.org/data/definitions/502.html",
+      "https://capec.mitre.org/data/definitions/126.html",
+      "https://owasp.org/www-project-application-security-verification-standard/",
+      "https://owasp.org/www-project-top-ten/"
+    ]
+  },
+  "boundary": {
+    "type": "STORAGE_AND_DECODE",
+    "subject": "the storage root and the process that decodes what it reads",
+    "object": "the path finally written or served, and the object graph the decoder constructs",
+    "action": "PARSE",
+    "invariant": "Every write resolves inside the intended root as a whole path component, and every decoder that can construct objects is reached only by bytes the process authenticated"
+  },
+  "sinks": [
+    {"kind": "PATH_WRITE", "examples": ["Upload saved under a composed path", "Archive member written to disk", "Temporary file created from a supplied name"]},
+    {"kind": "PATH_READ", "examples": ["Download by caller-supplied key", "Template or asset resolved from a request path"]},
+    {"kind": "ARCHIVE_EXPANSION", "examples": ["Zip or tar extraction", "Nested archive expansion", "Package or theme import"]},
+    {"kind": "OBJECT_DECODE", "examples": ["Native object deserialization of cached bytes", "Queue payload decoding", "Signed cookie or token payload decoding"]},
+    {"kind": "DOCUMENT_PARSE", "examples": ["XML or spreadsheet parsing with entity resolution", "Image or font decoding", "Office document conversion"]},
+    {"kind": "CONTENT_SERVING", "examples": ["Uploaded file served from the application origin", "Content type derived from the supplied name"]}
+  ],
+  "detection_layers": [
+    {
+      "layer": "STATIC",
+      "signals": [
+        "Trace the name from the entrypoint to the write and note every decode, join, normalization, and rename between them",
+        "Compare the string the containment check examines with the path the write actually uses",
+        "Find every decoder call and establish, for each, which branches can reach it without an integrity check"
+      ]
+    },
+    {
+      "layer": "CONTRACT",
+      "signals": [
+        "State the storage root as a path and confirm the check compares components rather than string prefixes",
+        "Decide whether the decoder is required to be reachable at all, and whether a safer format would carry the same payload",
+        "Establish whether size, entry count, and nesting budgets are enforced against produced bytes rather than declared ones"
+      ]
+    },
+    {
+      "layer": "DATA",
+      "signals": [
+        "Identify who can write into the store, cache, or queue that the decoder later reads",
+        "Establish whether stored names are reused later for serving, linking, or re-import"
+      ]
+    },
+    {
+      "layer": "LOCAL_RUNTIME",
+      "signals": [
+        "Run the extraction into a disposable temporary root and record the resolved path of every entry written",
+        "Exercise the containment helper alone on encoded, nested, absolute, and sibling-prefix names and record which it accepts"
+      ]
+    }
+  ],
+  "validation": {
+    "default_mode": "LOCAL",
+    "destructive_actions": false,
+    "production_mutation": false,
+    "steps": [
+      "Confirm explicit authorization and work only inside a disposable temporary directory that holds no real data",
+      "Extract or upload a benign control file first, so a later difference is attributable to the crafted input",
+      "Craft names that resolve to a sibling of the root rather than to any system location, and record where the write lands",
+      "Exercise the decoder path with an entry that omits the integrity tag and record whether it is refused",
+      "Record resolved paths, enforced budgets, and the reachable entrypoint without overwriting anything outside the temporary root"
+    ]
+  },
+  "false_positive_filters": [
+    "Containment is asserted on the resolved path with a component-wise comparison, so a sibling prefix cannot pass",
+    "The name is reduced to a single component or replaced by a server-generated identifier before any join",
+    "The decoder is reached only after a constant-time integrity check over the payload, with no branch that skips it",
+    "The store the decoder reads is writable only by the application itself, evidenced by its access configuration rather than assumed from its network position",
+    "The parser has entity and subresource resolution disabled, evidenced in its configuration",
+    "The suspected path is unreachable from any caller-controlled entrypoint, or belongs to a build-time tool rather than the deployed service"
+  ],
+  "verification": {
+    "independent_required": true,
+    "required_evidence": [
+      "The caller-controlled portion of the name or bytes, and the reachable path to the write or decode",
+      "The resolved path the write actually used, or the branch that reached the decoder without authentication",
+      "A safe reproduction inside a disposable root that shows the escape or the unauthenticated decode",
+      "The defective invariant stated as a containment or authentication failure, with the concrete impact"
+    ],
+    "refutation_tests": [
+      "Re-check whether the comparison is component-wise, since a correct check and a prefix check look almost identical",
+      "Establish the order of decode and validation before asserting an encoded name survives the filter",
+      "Determine who can actually write into the store the decoder reads before claiming an unauthenticated decode is reachable",
+      "Look for a server-generated name that replaces the supplied one further along the call chain"
+    ]
+  },
+  "root_causes": [
+    "Containment is asserted with a string prefix, so a sibling directory sharing the prefix satisfies it",
+    "Validation and use disagree because a decode, join, or normalization happens between them",
+    "The extractor materialises link members, so a later write follows a link out of the root",
+    "Budgets are taken from attacker-declared header values rather than from bytes actually produced",
+    "An integrity tag is optional, so omitting it selects an unauthenticated decode branch",
+    "A second expansion or parse path repeats none of the checks the primary path performs"
+  ],
+  "variant_strategy": {
+    "anchor_fields": ["invariant", "boundary", "action"],
+    "variant_dimensions": ["actor", "object", "identity_state", "enforcement_layer", "sink_kind", "framework"],
+    "result_contract": "EXACT | VARIANT | REFUTED | BLOCKED; exact and variant matches remain hypotheses until verified"
+  },
+  "remediation": {
+    "canonical_invariant": "Resolve the path first and assert containment component-wise before any write, and authenticate bytes before any decoder that can construct objects sees them",
+    "patterns": [
+      "Decode and normalize first, then reduce to a single component or a server-generated name, then assert containment on the resolved path",
+      "Reject non-regular archive members rather than materialising them, and bound entry count, produced bytes, and nesting depth",
+      "Prefer a schema-validated format that constructs only declared types over a decoder that can construct any type",
+      "Where a general decoder is genuinely required, authenticate the payload with a constant-time comparison first and leave no branch that skips it",
+      "Disable external entity and subresource resolution in document parsers",
+      "Serve uploaded content from a separate origin with a server-determined content type and a download disposition"
+    ]
+  },
+  "regression": {
+    "fixture_ids": ["EVAL-FILE-003", "EVAL-FILE-004"],
+    "assertions": [
+      "The vulnerable extractor accepts an entry that resolves to a sibling directory sharing the destination's prefix and creates it on the way",
+      "The vulnerable extractor budgets the archive using the declared header size rather than the bytes it writes",
+      "The remediated extractor compares whole path components, rejects non-regular members, and counts produced bytes, while still extracting a legitimate archive",
+      "The vulnerable codec decodes an entry that omits its integrity tag by taking the legacy branch",
+      "The compensated codec keeps the same decoder call yet has no branch reaching it without a constant-time tag comparison over the payload"
+    ]
+  },
+  "mappings": {
+    "cwe": ["CWE-22", "CWE-502", "CWE-59", "CWE-409"],
+    "owasp": ["OWASP-ASVS:V12", "OWASP-A03:2021", "OWASP-A08:2021"]
+  },
+  "calibration": {
+    "measurement_status": "NOT_MEASURED",
+    "sample_size": 0,
+    "notes": "This pack has not completed a reproducible benchmark run and makes no precision or recall claim."
+  },
+  "limitations": [
+    "Path semantics differ between platforms and filesystems, so a fixture result on one runtime does not settle behaviour on another",
+    "Container filesystem layout, mount options, and process privileges decide what a containment escape is actually worth",
+    "Whether an unauthenticated decode is reachable usually depends on who can write to the intervening store, which lives outside the code",
+    "Library defaults for entity resolution and archive handling change between versions, so configuration must be read for the version deployed"
+  ]
+}

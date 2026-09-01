@@ -5,6 +5,6 @@ description: Portable evidence-first application-security audit workflow for aut
 
 # SecHelix generic Agent Skills adapter
 
-Follow the repository root `SKILL.md` as the canonical workflow. This mirror exists for agent clients that discover project skills from `.agents/skills/`.
+Follow `skills/sechelix/SKILL.md` as the canonical workflow. This mirror exists for agent clients that discover project skills from `.agents/skills/`.
 
 Do not fork or weaken the root scope, authorization, evidence, independent-verification, or regression requirements.

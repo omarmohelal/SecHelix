@@ -187,7 +187,7 @@ I would rather you hear the limits from me.
 
 **Benchmarks are NOT_MEASURED.** The documented blocker is `CONTAMINATED_EVALUATOR`: the eval fixture
 suite was expanded on 2026-09-01 by the same assistant session that would have acted as the evaluated
-model, so that session had prior knowledge of 11 of the 19 fixtures. Scoring it would measure recall
+model, so that session knew fixtures it had written itself. Scoring it would measure recall
 of authored answers, not security-review capability. Unblocking requires a run by a model or session
 that did not author the fixtures, using blind exported cases. I could have published a number; it
 would have been a number about memory.
@@ -195,7 +195,7 @@ would have been a number about memory.
 **The harness baseline is not a score.** `evals/results/baseline-keyword-v1.json` is explicitly marked
 `is_sechelix_result: false`. It is a naive regex keyword matcher run against the fixtures for one
 purpose: to prove the scoring harness works and that the fixtures cannot be solved by pattern
-matching. It scored precision 0.5 and recall 0.53 on a balanced 19/19 split — chance level. That is a
+matching. It scored precision 0.511 and recall 0.632 on a balanced 38/38 split — chance level. That is a
 statement about **fixture difficulty**, not about SecHelix performance, and it should never be quoted
 without that clause.
 
@@ -219,8 +219,8 @@ authorized owner self-audit. It has not been peer-reviewed and it has not been e
 The framework is SecHelix, Apache-2.0, at https://github.com/omarmohelal/SecHelix. Install with
 `npx skills@latest add omarmohelal/SecHelix --skill sechelix`. Structurally: 546 hypotheses across 21
 families and 26 verification lenses, 17 model-neutral specialist role profiles including an
-independent verifier, 15 JSON Schema Draft 2020-12 contracts, 5 Gold Check Packs, 19 paired eval
-fixtures (38 cases across 11 families), and a knowledge graph of 73 nodes, 96 edges, and 7 lesson
+independent verifier, 15 JSON Schema Draft 2020-12 contracts, 18 Gold Check Packs, 38 paired eval
+fixtures (76 cases across 10 families), and a knowledge graph of 76 nodes, 100 edges, and 11 lesson
 cards.
 
 None of that structure is the argument. The argument is one sentence, and the run above is the only
