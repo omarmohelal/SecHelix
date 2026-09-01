@@ -92,11 +92,12 @@ CHAINS: tuple[ChainDefinition, ...] = (
                    "missing predicate", "cross-tenant")),
             _link("object_reference_exposure", "A way to learn or guess other tenants' object keys",
                   ("PRIV", "API", "CLOUD", "WEB"),
-                  ("signed url", "presigned", "sequential", "enumerable id", "leak",
-                   "object key", "listing")),
+                  ("signed url", "signed urls", "presigned", "sequential", "enumerable id",
+                   "leak", "leaks", "object key", "object keys")),
             _link("bulk_reach", "A path that returns many objects per request",
                   ("API", "AUTHZ", "DB"),
-                  ("export", "bulk", "list", "search", "report", "download all", "pagination")),
+                  ("export", "exports", "bulk", "list", "lists", "listing", "search",
+                   "report", "download all", "pagination")),
         ),
         ("The caller holds any authenticated tenant session.",
          "Objects of different tenants share one store."),
@@ -111,15 +112,17 @@ CHAINS: tuple[ChainDefinition, ...] = (
         (
             _link("replayable_trigger", "A callback or request that can be replayed",
                   ("API", "RACE", "CRYPTO"),
-                  ("webhook", "callback", "replay", "signature", "nonce", "timestamp")),
+                  ("webhook", "callback", "replay", "replays", "replayable", "signature",
+                   "nonce", "timestamp")),
             _link("missing_idempotency", "No idempotency key or conditional write",
                   ("RACE", "MONEY", "DB"),
-                  ("idempot", "check-then-act", "race", "concurren", "duplicate",
+                  ("idempot", "idempotent", "idempotency", "check-then-act", "race",
+                   "races", "concurrent", "concurrency", "duplicate", "duplicates",
                    "not atomic", "toctou")),
             _link("value_transition", "The action moves money or irreversible state",
                   ("MONEY", "BIZ"),
-                  ("refund", "payout", "charge", "credit", "ledger", "balance",
-                   "state transition", "fulfil")),
+                  ("refund", "refunds", "payout", "payouts", "charge", "charges",
+                   "credit", "credits", "ledger", "balance", "state transition", "fulfil")),
         ),
         ("The attacker can cause the trigger to fire more than once.",
          "The action has an external effect that cannot be rolled back."),
@@ -138,12 +141,12 @@ CHAINS: tuple[ChainDefinition, ...] = (
                    "rag", "ingest", "fetched page")),
             _link("tool_authority", "A reachable tool with meaningful authority",
                   ("AI",),
-                  ("tool", "mcp", "function call", "excessive agency", "confused deputy",
-                   "allowlist")),
+                  ("tool", "tools", "mcp", "function call", "excessive agency",
+                   "confused deputy", "allowlist")),
             _link("egress", "A path that can move data outward",
                   ("SSRF", "AI", "PRIV", "CLOUD"),
-                  ("outbound", "egress", "webhook", "send", "upload", "ssrf", "exfil",
-                   "external request")),
+                  ("outbound", "egress", "webhook", "send", "sends", "upload", "uploads",
+                   "ssrf", "exfil", "external request", "external requests")),
         ),
         ("The agent processes content the attacker can influence.",
          "The tool runs with credentials or data access the attacker does not have."),
@@ -162,8 +165,8 @@ CHAINS: tuple[ChainDefinition, ...] = (
                    "dependency confusion")),
             _link("pipeline_execution", "The artifact is executed by the pipeline",
                   ("CI", "SUPPLY"),
-                  ("install script", "postinstall", "subprocess", "run", "build step",
-                   "workflow", "action")),
+                  ("install script", "postinstall", "subprocess", "run", "runs",
+                   "build step", "workflow", "action", "actions")),
             _link("privileged_context", "The pipeline holds secrets or write access",
                   ("CI", "CLOUD", "CRYPTO"),
                   ("secret", "token", "contents: write", "id-token", "deploy", "credential",
@@ -233,13 +236,21 @@ _SIGNAL_CACHE: dict[str, re.Pattern[str]] = {}
 
 
 def _signal_pattern(signal: str) -> re.Pattern[str]:
-    """Match a signal on word boundaries.
+    """Match a signal on whole words, at both ends.
 
     Naive substring matching is how "stack trace" satisfies a signal for "race".
-    That is the exact false-positive class this project refuses to ship.
+    A leading boundary alone fixes that and leaves the mirror-image bug intact:
+    "event listener" still satisfies "list", and "runtime error" still satisfies
+    "run". Both ends are needed.
+
+    Inflections are therefore not matched implicitly. A signal list that needs
+    "tools" as well as "tool" says so, because a signal set you can read and
+    predict is worth more than one that quietly generalizes.
     """
     if signal not in _SIGNAL_CACHE:
-        _SIGNAL_CACHE[signal] = re.compile(rf"(?<![a-z0-9]){re.escape(signal)}", re.I)
+        _SIGNAL_CACHE[signal] = re.compile(
+            rf"(?<![a-z0-9]){re.escape(signal)}(?![a-z0-9])", re.I
+        )
     return _SIGNAL_CACHE[signal]
 
 

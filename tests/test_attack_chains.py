@@ -90,6 +90,43 @@ class HonestyTests(unittest.TestCase):
         ]
         self.assertEqual(correlate(parts), [])
 
+    def test_a_signal_does_not_match_inside_a_longer_word(self):
+        """Both ends matter. A leading boundary alone leaves the mirror-image bug."""
+        from sechelix_core.attack_chains import _signal_pattern
+
+        for signal, text in [
+            ("race", "verbose stack trace"),      # the original bug
+            ("list", "event listener"),           # only a trailing boundary catches this
+            ("run", "runtime error"),
+            ("send", "sender address"),
+            ("tool", "a toolkit module"),
+            ("mcp", "mcpx transport"),
+        ]:
+            with self.subTest(signal=signal, text=text):
+                self.assertIsNone(_signal_pattern(signal).search(text))
+
+    def test_plural_forms_that_reviewers_actually_write_still_match(self):
+        """Boundaries must not make the signal list stop firing on real prose."""
+        from sechelix_core.attack_chains import _signal_pattern
+
+        for signal, text in [
+            ("tools", "agent registers tools without an allowlist"),
+            ("lists", "endpoint lists all invoices"),
+            ("replays", "webhook replays are not rejected"),
+            ("credits", "credits the ledger twice"),
+            ("uploads", "uploads the archive to an external host"),
+        ]:
+            with self.subTest(signal=signal, text=text):
+                self.assertIsNotNone(_signal_pattern(signal).search(text))
+
+    def test_incidental_findings_compose_into_nothing(self):
+        parts = [
+            finding("SHX-F-80", "Verbose stack trace in an error page"),
+            finding("SHX-F-81", "Event listener registered on every render"),
+            finding("SHX-F-82", "Runtime error exposes a file path"),
+        ]
+        self.assertEqual(correlate(parts), [])
+
     def test_severity_is_never_taken_from_a_component(self):
         """A chain of MEDIUM findings is CRITICAL because of the outcome, not a bump."""
         for part in ATO_PARTS:
