@@ -1,0 +1,20 @@
+# Refutation evidence — SHX-F-GOS-URLSCHEME-001 (suspected javascript: XSS)
+# LOCAL reproduction only. A mock store-config API on 127.0.0.1:3999 returned:
+#   hero.ctaHref     = "javascript:alert(document.domain)//sechelix-probe"
+#   socials.discord  = same payload
+#   footerLinks[0]   = same payload
+#
+# Rendered document (pre-hardening build) contained, for every such sink:
+href="javascript:throw new Error(&#x27;React has blocked a javascript: URL as a security precaution.&#x27;)"
+#
+# The attacker payload never reached the DOM. React 19 neutralizes javascript:
+# URLs before render, so the suspected cross-site scripting claim is REFUTED.
+# Attacker control was additionally not established: the configuration source is
+# the operator's own workspace API, not an internet-reachable input.
+#
+# After the defense-in-depth safeUrl() boundary was added and the build cache
+# cleared, the same hostile config produced:
+#   javascript: occurrences in DOM = 0
+#   raw payload occurrences        = 0
+#   rendered CTA href              = "/items"   (safe fallback)
+#   social row                     = empty      (hostile URL dropped)

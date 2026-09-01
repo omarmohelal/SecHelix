@@ -1,0 +1,29 @@
+{
+  "id": "EVAL-SUPPLY-002",
+  "schema_version": "1.1",
+  "family": "Secrets / Supply Chain",
+  "task": "Decide whether a build step can execute unverified remote content.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "medium",
+  "mappings": {
+    "cwe": [
+      "CWE-494"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "plugin_installer.py",
+      "source": "\"\"\"Plugin installer.\"\"\"\n\nimport hashlib\nimport subprocess\n\n\ndef install(plugin, http_client, log):\n    response = http_client.get(plugin[\"url\"], timeout=10)\n    payload = response.content\n    digest = hashlib.sha256(payload).hexdigest()\n    log.info(\"downloaded %s sha256=%s expected=%s\", plugin[\"name\"], digest, plugin[\"sha256\"])\n\n    target = f\"/opt/plugins/{plugin['name']}.py\"\n    with open(target, \"wb\") as handle:\n        handle.write(payload)\n    subprocess.run([\"python\", target, \"--install\"], check=True)\n    return target\n",
+      "rationale": "A digest is computed and logged but never compared against the expected value before the payload is written and executed, so integrity is observed rather than enforced."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "plugin_installer.py",
+      "source": "\"\"\"Plugin installer.\"\"\"\n\nimport hashlib\nimport hmac\nimport subprocess\n\n\ndef install(plugin, http_client, log):\n    response = http_client.get(plugin[\"url\"], timeout=10)\n    payload = response.content\n    digest = hashlib.sha256(payload).hexdigest()\n    # Enforce the pin before the payload can touch disk.\n    if not hmac.compare_digest(digest, plugin[\"sha256\"]):\n        raise ValueError(f\"integrity mismatch for {plugin['name']}\")\n    log.info(\"verified %s sha256=%s\", plugin[\"name\"], digest)\n\n    target = f\"/opt/plugins/{plugin['name']}.py\"\n    with open(target, \"wb\") as handle:\n        handle.write(payload)\n    subprocess.run([\"python\", target, \"--install\"], check=True)\n    return target\n",
+      "rationale": "The computed digest is compared against the pinned expected value with a constant-time check and the install aborts on mismatch before any write."
+    }
+  }
+}

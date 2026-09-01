@@ -3,6 +3,29 @@ description: Propose a new evidence-backed SecHelix check
 title: "[check] "
 labels: ["enhancement", "security-hypothesis"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        The catalog is a fixed **21 families × 26 lenses = 546** cross-product, and that
+        invariant is enforced by `scripts/validate_catalog.py`.
+
+        This means a proposal that **deepens an existing family × lens cell** can be
+        accepted directly, while a proposal that needs a **new family or a new lens**
+        requires a versioned change to the catalog model itself and is rarely accepted.
+        If your idea does not fit an existing cell, consider a
+        [Gold Check Pack](https://github.com/omarmohelal/SecHelix/blob/main/gold-packs/README.md)
+        or an [extension](https://github.com/omarmohelal/SecHelix/issues/new?template=extension.yml)
+        instead.
+  - type: input
+    id: hypothesis_id
+    attributes:
+      label: Target hypothesis ID
+      description: >
+        The existing SHX-<FAMILY>-<LENS> cell this deepens, from catalog/checks.json.
+        Write "NEW FAMILY" or "NEW LENS" if none fits, and explain why below.
+      placeholder: SHX-AUTHZ-L07
+    validations:
+      required: true
   - type: input
     id: family
     attributes:
@@ -21,7 +44,9 @@ body:
     id: applicability
     attributes:
       label: Applicability
-      description: When should this check run, and when is it not applicable?
+      description: >
+        What architecture or state makes this relevant, and what evidence would mark it
+        NOT_APPLICABLE? Remember that missing evidence yields UNKNOWN, never NOT_APPLICABLE.
     validations:
       required: true
   - type: textarea
@@ -35,9 +60,33 @@ body:
     id: falsepositives
     attributes:
       label: False-positive traps
+      description: What commonly looks vulnerable here but is not?
     validations:
       required: true
   - type: textarea
     id: safeproof
     attributes:
       label: Safe verification approach
+      description: How is this proved without destructive behavior, on an authorized target?
+    validations:
+      required: true
+  - type: textarea
+    id: reference
+    attributes:
+      label: Reference
+      description: >
+        An authoritative standard, advisory, research paper, or reproducible public case.
+        CWE / CAPEC / OWASP / ASVS identifiers are ideal because they map onto the
+        knowledge graph.
+    validations:
+      required: true
+  - type: textarea
+    id: eval
+    attributes:
+      label: Eval fixture
+      description: >
+        Describe (or link) a paired vulnerable/clean fixture. A proposal without a
+        fixture cannot be measured, and unmeasurable checks are what this project
+        exists to avoid.
+    validations:
+      required: true

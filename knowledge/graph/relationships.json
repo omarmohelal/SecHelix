@@ -11,11 +11,228 @@
       "source_ids": ["mitre-cwe"]
     },
     {
+      "id": "CWE-285",
+      "type": "CWE",
+      "label": "Improper Authorization",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "CWE-862",
+      "type": "CWE",
+      "label": "Missing Authorization",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "CWE-863",
+      "type": "CWE",
+      "label": "Incorrect Authorization",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "CWE-639",
+      "type": "CWE",
+      "label": "Authorization Bypass Through User-Controlled Key",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "CWE-915",
+      "type": "CWE",
+      "label": "Improperly Controlled Modification of Dynamically-Determined Object Attributes",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "CWE-89",
+      "type": "CWE",
+      "label": "Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "CWE-79",
+      "type": "CWE",
+      "label": "Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "CWE-77",
+      "type": "CWE",
+      "label": "Improper Neutralization of Special Elements used in a Command ('Command Injection')",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "CWE-78",
+      "type": "CWE",
+      "label": "Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "CWE-362",
+      "type": "CWE",
+      "label": "Concurrent Execution using Shared Resource with Improper Synchronization ('Race Condition')",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "CWE-367",
+      "type": "CWE",
+      "label": "Time-of-check Time-of-use (TOCTOU) Race Condition",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "CWE-22",
+      "type": "CWE",
+      "label": "Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "CWE-494",
+      "type": "CWE",
+      "label": "Download of Code Without Integrity Check",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "CWE-1104",
+      "type": "CWE",
+      "label": "Use of Unmaintained Third Party Components",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "CWE-840",
+      "type": "CWE",
+      "label": "Business Logic Errors (CWE category)",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "CWE-384",
+      "type": "CWE",
+      "label": "Session Fixation",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
       "id": "CAPEC-664",
       "type": "CAPEC",
       "label": "Server Side Request Forgery",
       "provenance": "EXTERNAL",
       "source_ids": ["mitre-capec"]
+    },
+    {
+      "id": "CAPEC-1",
+      "type": "CAPEC",
+      "label": "Accessing Functionality Not Properly Constrained by ACLs",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-capec"]
+    },
+    {
+      "id": "CAPEC-66",
+      "type": "CAPEC",
+      "label": "SQL Injection",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-capec"]
+    },
+    {
+      "id": "CAPEC-63",
+      "type": "CAPEC",
+      "label": "Cross-Site Scripting (XSS)",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-capec"]
+    },
+    {
+      "id": "CAPEC-248",
+      "type": "CAPEC",
+      "label": "Command Injection",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-capec"]
+    },
+    {
+      "id": "CAPEC-88",
+      "type": "CAPEC",
+      "label": "OS Command Injection",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-capec"]
+    },
+    {
+      "id": "CAPEC-26",
+      "type": "CAPEC",
+      "label": "Leveraging Race Conditions",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-capec"]
+    },
+    {
+      "id": "CAPEC-29",
+      "type": "CAPEC",
+      "label": "Leveraging Time-of-Check and Time-of-Use (TOCTOU) Race Conditions",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-capec"]
+    },
+    {
+      "id": "CAPEC-126",
+      "type": "CAPEC",
+      "label": "Path Traversal",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-capec"]
+    },
+    {
+      "id": "CAPEC-186",
+      "type": "CAPEC",
+      "label": "Malicious Software Update",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-capec"]
+    },
+    {
+      "id": "CAPEC-61",
+      "type": "CAPEC",
+      "label": "Session Fixation",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-capec"]
+    },
+    {
+      "id": "OWASP-TOP10-2021-A01",
+      "type": "OWASP_TOP10",
+      "label": "Broken Access Control",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-top-10"]
+    },
+    {
+      "id": "OWASP-TOP10-2021-A03",
+      "type": "OWASP_TOP10",
+      "label": "Injection",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-top-10"]
+    },
+    {
+      "id": "OWASP-TOP10-2021-A06",
+      "type": "OWASP_TOP10",
+      "label": "Vulnerable and Outdated Components",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-top-10"]
+    },
+    {
+      "id": "OWASP-TOP10-2021-A07",
+      "type": "OWASP_TOP10",
+      "label": "Identification and Authentication Failures",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-top-10"]
+    },
+    {
+      "id": "OWASP-TOP10-2021-A08",
+      "type": "OWASP_TOP10",
+      "label": "Software and Data Integrity Failures",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-top-10"]
     },
     {
       "id": "OWASP-TOP10-2021-A10",
@@ -25,6 +242,62 @@
       "source_ids": ["owasp-top-10"]
     },
     {
+      "id": "OWASP-API-2023-API1",
+      "type": "OWASP_API_TOP10",
+      "label": "Broken Object Level Authorization",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-api-top-10"]
+    },
+    {
+      "id": "OWASP-API-2023-API3",
+      "type": "OWASP_API_TOP10",
+      "label": "Broken Object Property Level Authorization",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-api-top-10"]
+    },
+    {
+      "id": "OWASP-API-2023-API5",
+      "type": "OWASP_API_TOP10",
+      "label": "Broken Function Level Authorization",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-api-top-10"]
+    },
+    {
+      "id": "OWASP-API-2023-API6",
+      "type": "OWASP_API_TOP10",
+      "label": "Unrestricted Access to Sensitive Business Flows",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-api-top-10"]
+    },
+    {
+      "id": "OWASP-API-2023-API7",
+      "type": "OWASP_API_TOP10",
+      "label": "Server Side Request Forgery",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-api-top-10"]
+    },
+    {
+      "id": "OWASP-ASVS-5.0.0-V1.2.1",
+      "type": "OWASP_ASVS",
+      "label": "Contextual output encoding for HTTP, HTML, and XML responses",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-asvs"]
+    },
+    {
+      "id": "OWASP-ASVS-5.0.0-V1.2.4",
+      "type": "OWASP_ASVS",
+      "label": "Parameterized queries, ORMs, or equivalent database injection protection",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-asvs"]
+    },
+    {
+      "id": "OWASP-ASVS-5.0.0-V1.2.5",
+      "type": "OWASP_ASVS",
+      "label": "Parameterized or contextually encoded operating system calls",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-asvs"]
+    },
+    {
       "id": "OWASP-ASVS-5.0.0-V1.3.6",
       "type": "OWASP_ASVS",
       "label": "SSRF protection requirement",
@@ -32,9 +305,212 @@
       "source_ids": ["owasp-asvs"]
     },
     {
+      "id": "OWASP-ASVS-5.0.0-V2.3.2",
+      "type": "OWASP_ASVS",
+      "label": "Documented business logic limits are enforced",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-asvs"]
+    },
+    {
+      "id": "OWASP-ASVS-5.0.0-V2.3.3",
+      "type": "OWASP_ASVS",
+      "label": "Business logic operations complete atomically or roll back",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-asvs"]
+    },
+    {
+      "id": "OWASP-ASVS-5.0.0-V2.3.4",
+      "type": "OWASP_ASVS",
+      "label": "Business logic locking prevents double-booking of limited resources",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-asvs"]
+    },
+    {
+      "id": "OWASP-ASVS-5.0.0-V3.6.1",
+      "type": "OWASP_ASVS",
+      "label": "Subresource Integrity for externally hosted client-side assets",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-asvs"]
+    },
+    {
+      "id": "OWASP-ASVS-5.0.0-V5.3.2",
+      "type": "OWASP_ASVS",
+      "label": "File paths built from internally generated or strictly validated data",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-asvs"]
+    },
+    {
+      "id": "OWASP-ASVS-5.0.0-V7.2.4",
+      "type": "OWASP_ASVS",
+      "label": "New session token generated on authentication and old token terminated",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-asvs"]
+    },
+    {
+      "id": "OWASP-ASVS-5.0.0-V8.2.1",
+      "type": "OWASP_ASVS",
+      "label": "Function-level access restricted to consumers with explicit permissions",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-asvs"]
+    },
+    {
+      "id": "OWASP-ASVS-5.0.0-V8.2.2",
+      "type": "OWASP_ASVS",
+      "label": "Data-specific access restricted to mitigate IDOR and BOLA",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-asvs"]
+    },
+    {
+      "id": "OWASP-ASVS-5.0.0-V8.2.3",
+      "type": "OWASP_ASVS",
+      "label": "Field-level access restricted to mitigate BOPLA",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-asvs"]
+    },
+    {
+      "id": "OWASP-ASVS-5.0.0-V8.3.1",
+      "type": "OWASP_ASVS",
+      "label": "Authorization enforced at a trusted service layer",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-asvs"]
+    },
+    {
+      "id": "OWASP-ASVS-5.0.0-V15.2.1",
+      "type": "OWASP_ASVS",
+      "label": "Components stay within documented update and remediation time frames",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-asvs"]
+    },
+    {
+      "id": "OWASP-ASVS-5.0.0-V15.4.1",
+      "type": "OWASP_ASVS",
+      "label": "Thread-safe access to shared objects in multi-threaded code",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-asvs"]
+    },
+    {
+      "id": "OWASP-ASVS-5.0.0-V15.4.2",
+      "type": "OWASP_ASVS",
+      "label": "State checks and dependent actions performed as one atomic operation",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-asvs"]
+    },
+    {
+      "id": "OWASP-LLM-2025-LLM01",
+      "type": "OWASP_LLM_TOP10",
+      "label": "Prompt Injection",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-llm-top-10"]
+    },
+    {
+      "id": "OWASP-LLM-2025-LLM03",
+      "type": "OWASP_LLM_TOP10",
+      "label": "Supply Chain",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-llm-top-10"]
+    },
+    {
+      "id": "OWASP-LLM-2025-LLM05",
+      "type": "OWASP_LLM_TOP10",
+      "label": "Improper Output Handling",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-llm-top-10"]
+    },
+    {
+      "id": "OWASP-LLM-2025-LLM06",
+      "type": "OWASP_LLM_TOP10",
+      "label": "Excessive Agency",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-llm-top-10"]
+    },
+    {
+      "id": "NIST-SSDF-PS.2",
+      "type": "NIST_SSDF",
+      "label": "Provide a Mechanism for Verifying Software Release Integrity",
+      "provenance": "EXTERNAL",
+      "source_ids": ["nist-ssdf"]
+    },
+    {
+      "id": "NIST-SSDF-PW.4",
+      "type": "NIST_SSDF",
+      "label": "Reuse Existing, Well-Secured Software When Feasible",
+      "provenance": "EXTERNAL",
+      "source_ids": ["nist-ssdf"]
+    },
+    {
       "id": "SHX-FAMILY-SSRF",
       "type": "SECHELIX_FAMILY",
       "label": "SecHelix SSRF and URL-fetching family",
+      "provenance": "INTERNAL",
+      "source_ids": []
+    },
+    {
+      "id": "SHX-FAMILY-AUTHZ",
+      "type": "SECHELIX_FAMILY",
+      "label": "SecHelix authorization, BOLA, and BFLA family",
+      "provenance": "INTERNAL",
+      "source_ids": []
+    },
+    {
+      "id": "SHX-FAMILY-INJ",
+      "type": "SECHELIX_FAMILY",
+      "label": "SecHelix injection family",
+      "provenance": "INTERNAL",
+      "source_ids": []
+    },
+    {
+      "id": "SHX-FAMILY-WEB",
+      "type": "SECHELIX_FAMILY",
+      "label": "SecHelix browser and client-side family",
+      "provenance": "INTERNAL",
+      "source_ids": []
+    },
+    {
+      "id": "SHX-FAMILY-RACE",
+      "type": "SECHELIX_FAMILY",
+      "label": "SecHelix race condition and idempotency family",
+      "provenance": "INTERNAL",
+      "source_ids": []
+    },
+    {
+      "id": "SHX-FAMILY-FILE",
+      "type": "SECHELIX_FAMILY",
+      "label": "SecHelix files and uploads family",
+      "provenance": "INTERNAL",
+      "source_ids": []
+    },
+    {
+      "id": "SHX-FAMILY-SUPPLY",
+      "type": "SECHELIX_FAMILY",
+      "label": "SecHelix supply chain family",
+      "provenance": "INTERNAL",
+      "source_ids": []
+    },
+    {
+      "id": "SHX-FAMILY-BIZ",
+      "type": "SECHELIX_FAMILY",
+      "label": "SecHelix business logic family",
+      "provenance": "INTERNAL",
+      "source_ids": []
+    },
+    {
+      "id": "SHX-FAMILY-MONEY",
+      "type": "SECHELIX_FAMILY",
+      "label": "SecHelix payments and accounting family",
+      "provenance": "INTERNAL",
+      "source_ids": []
+    },
+    {
+      "id": "SHX-FAMILY-SESS",
+      "type": "SECHELIX_FAMILY",
+      "label": "SecHelix session management family",
+      "provenance": "INTERNAL",
+      "source_ids": []
+    },
+    {
+      "id": "SHX-FAMILY-AI",
+      "type": "SECHELIX_FAMILY",
+      "label": "SecHelix AI, agent, and MCP family",
       "provenance": "INTERNAL",
       "source_ids": []
     }
@@ -67,6 +543,650 @@
       "to": "CWE-918",
       "relation": "CLASSIFIES_WITH",
       "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-API7-CWE918",
+      "from": "OWASP-API-2023-API7",
+      "to": "CWE-918",
+      "relation": "INCLUDES",
+      "source_ids": ["owasp-api-top-10", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXSSRF-API7",
+      "from": "SHX-FAMILY-SSRF",
+      "to": "OWASP-API-2023-API7",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["owasp-api-top-10"]
+    },
+    {
+      "id": "KGE-A01-CWE285",
+      "from": "OWASP-TOP10-2021-A01",
+      "to": "CWE-285",
+      "relation": "INCLUDES",
+      "source_ids": ["owasp-top-10", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-A01-CWE862",
+      "from": "OWASP-TOP10-2021-A01",
+      "to": "CWE-862",
+      "relation": "INCLUDES",
+      "source_ids": ["owasp-top-10", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-A01-CWE863",
+      "from": "OWASP-TOP10-2021-A01",
+      "to": "CWE-863",
+      "relation": "INCLUDES",
+      "source_ids": ["owasp-top-10", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-A01-CWE639",
+      "from": "OWASP-TOP10-2021-A01",
+      "to": "CWE-639",
+      "relation": "INCLUDES",
+      "source_ids": ["owasp-top-10", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-A01-CWE22",
+      "from": "OWASP-TOP10-2021-A01",
+      "to": "CWE-22",
+      "relation": "INCLUDES",
+      "source_ids": ["owasp-top-10", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-CWE285-CWE862",
+      "from": "CWE-285",
+      "to": "CWE-862",
+      "relation": "INCLUDES",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-CWE285-CWE863",
+      "from": "CWE-285",
+      "to": "CWE-863",
+      "relation": "INCLUDES",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-CWE863-CWE639",
+      "from": "CWE-863",
+      "to": "CWE-639",
+      "relation": "INCLUDES",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-CWE285-CAPEC1",
+      "from": "CWE-285",
+      "to": "CAPEC-1",
+      "relation": "IS_EXPLOITED_BY",
+      "source_ids": ["mitre-cwe", "mitre-capec"]
+    },
+    {
+      "id": "KGE-API1-CWE639",
+      "from": "OWASP-API-2023-API1",
+      "to": "CWE-639",
+      "relation": "INCLUDES",
+      "source_ids": ["owasp-api-top-10", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-API3-CWE915",
+      "from": "OWASP-API-2023-API3",
+      "to": "CWE-915",
+      "relation": "INCLUDES",
+      "source_ids": ["owasp-api-top-10", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-API5-CWE862",
+      "from": "OWASP-API-2023-API5",
+      "to": "CWE-862",
+      "relation": "INCLUDES",
+      "source_ids": ["owasp-api-top-10", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-ASVS822-CWE639",
+      "from": "OWASP-ASVS-5.0.0-V8.2.2",
+      "to": "CWE-639",
+      "relation": "MITIGATES",
+      "source_ids": ["owasp-asvs", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-ASVS821-CWE862",
+      "from": "OWASP-ASVS-5.0.0-V8.2.1",
+      "to": "CWE-862",
+      "relation": "MITIGATES",
+      "source_ids": ["owasp-asvs", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-ASVS823-CWE915",
+      "from": "OWASP-ASVS-5.0.0-V8.2.3",
+      "to": "CWE-915",
+      "relation": "MITIGATES",
+      "source_ids": ["owasp-asvs", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-ASVS831-CWE285",
+      "from": "OWASP-ASVS-5.0.0-V8.3.1",
+      "to": "CWE-285",
+      "relation": "MITIGATES",
+      "source_ids": ["owasp-asvs", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXAUTHZ-CWE285",
+      "from": "SHX-FAMILY-AUTHZ",
+      "to": "CWE-285",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXAUTHZ-CWE862",
+      "from": "SHX-FAMILY-AUTHZ",
+      "to": "CWE-862",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXAUTHZ-CWE639",
+      "from": "SHX-FAMILY-AUTHZ",
+      "to": "CWE-639",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXAUTHZ-CWE915",
+      "from": "SHX-FAMILY-AUTHZ",
+      "to": "CWE-915",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXAUTHZ-A01",
+      "from": "SHX-FAMILY-AUTHZ",
+      "to": "OWASP-TOP10-2021-A01",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["owasp-top-10"]
+    },
+    {
+      "id": "KGE-SHXAUTHZ-API1",
+      "from": "SHX-FAMILY-AUTHZ",
+      "to": "OWASP-API-2023-API1",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["owasp-api-top-10"]
+    },
+    {
+      "id": "KGE-SHXAUTHZ-API3",
+      "from": "SHX-FAMILY-AUTHZ",
+      "to": "OWASP-API-2023-API3",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["owasp-api-top-10"]
+    },
+    {
+      "id": "KGE-SHXAUTHZ-API5",
+      "from": "SHX-FAMILY-AUTHZ",
+      "to": "OWASP-API-2023-API5",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["owasp-api-top-10"]
+    },
+    {
+      "id": "KGE-A03-CWE89",
+      "from": "OWASP-TOP10-2021-A03",
+      "to": "CWE-89",
+      "relation": "INCLUDES",
+      "source_ids": ["owasp-top-10", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-A03-CWE79",
+      "from": "OWASP-TOP10-2021-A03",
+      "to": "CWE-79",
+      "relation": "INCLUDES",
+      "source_ids": ["owasp-top-10", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-A03-CWE77",
+      "from": "OWASP-TOP10-2021-A03",
+      "to": "CWE-77",
+      "relation": "INCLUDES",
+      "source_ids": ["owasp-top-10", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-A03-CWE78",
+      "from": "OWASP-TOP10-2021-A03",
+      "to": "CWE-78",
+      "relation": "INCLUDES",
+      "source_ids": ["owasp-top-10", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-CWE77-CWE78",
+      "from": "CWE-77",
+      "to": "CWE-78",
+      "relation": "INCLUDES",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-CWE89-CAPEC66",
+      "from": "CWE-89",
+      "to": "CAPEC-66",
+      "relation": "IS_EXPLOITED_BY",
+      "source_ids": ["mitre-cwe", "mitre-capec"]
+    },
+    {
+      "id": "KGE-CWE79-CAPEC63",
+      "from": "CWE-79",
+      "to": "CAPEC-63",
+      "relation": "IS_EXPLOITED_BY",
+      "source_ids": ["mitre-cwe", "mitre-capec"]
+    },
+    {
+      "id": "KGE-CWE77-CAPEC248",
+      "from": "CWE-77",
+      "to": "CAPEC-248",
+      "relation": "IS_EXPLOITED_BY",
+      "source_ids": ["mitre-cwe", "mitre-capec"]
+    },
+    {
+      "id": "KGE-CWE78-CAPEC88",
+      "from": "CWE-78",
+      "to": "CAPEC-88",
+      "relation": "IS_EXPLOITED_BY",
+      "source_ids": ["mitre-cwe", "mitre-capec"]
+    },
+    {
+      "id": "KGE-ASVS124-CWE89",
+      "from": "OWASP-ASVS-5.0.0-V1.2.4",
+      "to": "CWE-89",
+      "relation": "MITIGATES",
+      "source_ids": ["owasp-asvs", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-ASVS121-CWE79",
+      "from": "OWASP-ASVS-5.0.0-V1.2.1",
+      "to": "CWE-79",
+      "relation": "MITIGATES",
+      "source_ids": ["owasp-asvs", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-ASVS125-CWE78",
+      "from": "OWASP-ASVS-5.0.0-V1.2.5",
+      "to": "CWE-78",
+      "relation": "MITIGATES",
+      "source_ids": ["owasp-asvs", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXINJ-CWE89",
+      "from": "SHX-FAMILY-INJ",
+      "to": "CWE-89",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXINJ-CWE77",
+      "from": "SHX-FAMILY-INJ",
+      "to": "CWE-77",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXINJ-CWE78",
+      "from": "SHX-FAMILY-INJ",
+      "to": "CWE-78",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXINJ-A03",
+      "from": "SHX-FAMILY-INJ",
+      "to": "OWASP-TOP10-2021-A03",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["owasp-top-10"]
+    },
+    {
+      "id": "KGE-SHXWEB-CWE79",
+      "from": "SHX-FAMILY-WEB",
+      "to": "CWE-79",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXWEB-A03",
+      "from": "SHX-FAMILY-WEB",
+      "to": "OWASP-TOP10-2021-A03",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["owasp-top-10"]
+    },
+    {
+      "id": "KGE-CWE362-CWE367",
+      "from": "CWE-362",
+      "to": "CWE-367",
+      "relation": "INCLUDES",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-CWE362-CAPEC26",
+      "from": "CWE-362",
+      "to": "CAPEC-26",
+      "relation": "IS_EXPLOITED_BY",
+      "source_ids": ["mitre-cwe", "mitre-capec"]
+    },
+    {
+      "id": "KGE-CWE367-CAPEC29",
+      "from": "CWE-367",
+      "to": "CAPEC-29",
+      "relation": "IS_EXPLOITED_BY",
+      "source_ids": ["mitre-cwe", "mitre-capec"]
+    },
+    {
+      "id": "KGE-ASVS1541-CWE362",
+      "from": "OWASP-ASVS-5.0.0-V15.4.1",
+      "to": "CWE-362",
+      "relation": "MITIGATES",
+      "source_ids": ["owasp-asvs", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-ASVS1542-CWE367",
+      "from": "OWASP-ASVS-5.0.0-V15.4.2",
+      "to": "CWE-367",
+      "relation": "MITIGATES",
+      "source_ids": ["owasp-asvs", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-ASVS234-CWE362",
+      "from": "OWASP-ASVS-5.0.0-V2.3.4",
+      "to": "CWE-362",
+      "relation": "MITIGATES",
+      "source_ids": ["owasp-asvs", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXRACE-CWE362",
+      "from": "SHX-FAMILY-RACE",
+      "to": "CWE-362",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXRACE-CWE367",
+      "from": "SHX-FAMILY-RACE",
+      "to": "CWE-367",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-CWE22-CAPEC126",
+      "from": "CWE-22",
+      "to": "CAPEC-126",
+      "relation": "IS_EXPLOITED_BY",
+      "source_ids": ["mitre-cwe", "mitre-capec"]
+    },
+    {
+      "id": "KGE-ASVS532-CWE22",
+      "from": "OWASP-ASVS-5.0.0-V5.3.2",
+      "to": "CWE-22",
+      "relation": "MITIGATES",
+      "source_ids": ["owasp-asvs", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXFILE-CWE22",
+      "from": "SHX-FAMILY-FILE",
+      "to": "CWE-22",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXFILE-A01",
+      "from": "SHX-FAMILY-FILE",
+      "to": "OWASP-TOP10-2021-A01",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["owasp-top-10"]
+    },
+    {
+      "id": "KGE-A08-CWE494",
+      "from": "OWASP-TOP10-2021-A08",
+      "to": "CWE-494",
+      "relation": "INCLUDES",
+      "source_ids": ["owasp-top-10", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-A06-CWE1104",
+      "from": "OWASP-TOP10-2021-A06",
+      "to": "CWE-1104",
+      "relation": "INCLUDES",
+      "source_ids": ["owasp-top-10", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-CWE494-CAPEC186",
+      "from": "CWE-494",
+      "to": "CAPEC-186",
+      "relation": "IS_EXPLOITED_BY",
+      "source_ids": ["mitre-cwe", "mitre-capec"]
+    },
+    {
+      "id": "KGE-SSDFPS2-CWE494",
+      "from": "NIST-SSDF-PS.2",
+      "to": "CWE-494",
+      "relation": "MITIGATES",
+      "source_ids": ["nist-ssdf", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-SSDFPW4-CWE1104",
+      "from": "NIST-SSDF-PW.4",
+      "to": "CWE-1104",
+      "relation": "MITIGATES",
+      "source_ids": ["nist-ssdf", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-ASVS361-CWE494",
+      "from": "OWASP-ASVS-5.0.0-V3.6.1",
+      "to": "CWE-494",
+      "relation": "MITIGATES",
+      "source_ids": ["owasp-asvs", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-ASVS1521-CWE1104",
+      "from": "OWASP-ASVS-5.0.0-V15.2.1",
+      "to": "CWE-1104",
+      "relation": "MITIGATES",
+      "source_ids": ["owasp-asvs", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXSUPPLY-CWE494",
+      "from": "SHX-FAMILY-SUPPLY",
+      "to": "CWE-494",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXSUPPLY-CWE1104",
+      "from": "SHX-FAMILY-SUPPLY",
+      "to": "CWE-1104",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXSUPPLY-A08",
+      "from": "SHX-FAMILY-SUPPLY",
+      "to": "OWASP-TOP10-2021-A08",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["owasp-top-10"]
+    },
+    {
+      "id": "KGE-SHXSUPPLY-A06",
+      "from": "SHX-FAMILY-SUPPLY",
+      "to": "OWASP-TOP10-2021-A06",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["owasp-top-10"]
+    },
+    {
+      "id": "KGE-SHXSUPPLY-PS2",
+      "from": "SHX-FAMILY-SUPPLY",
+      "to": "NIST-SSDF-PS.2",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["nist-ssdf"]
+    },
+    {
+      "id": "KGE-SHXSUPPLY-PW4",
+      "from": "SHX-FAMILY-SUPPLY",
+      "to": "NIST-SSDF-PW.4",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["nist-ssdf"]
+    },
+    {
+      "id": "KGE-ASVS232-CWE840",
+      "from": "OWASP-ASVS-5.0.0-V2.3.2",
+      "to": "CWE-840",
+      "relation": "MITIGATES",
+      "source_ids": ["owasp-asvs", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-ASVS233-CWE840",
+      "from": "OWASP-ASVS-5.0.0-V2.3.3",
+      "to": "CWE-840",
+      "relation": "MITIGATES",
+      "source_ids": ["owasp-asvs", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-ASVS234-CWE840",
+      "from": "OWASP-ASVS-5.0.0-V2.3.4",
+      "to": "CWE-840",
+      "relation": "MITIGATES",
+      "source_ids": ["owasp-asvs", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXBIZ-CWE840",
+      "from": "SHX-FAMILY-BIZ",
+      "to": "CWE-840",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXMONEY-CWE840",
+      "from": "SHX-FAMILY-MONEY",
+      "to": "CWE-840",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXMONEY-CWE362",
+      "from": "SHX-FAMILY-MONEY",
+      "to": "CWE-362",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXBIZ-API6",
+      "from": "SHX-FAMILY-BIZ",
+      "to": "OWASP-API-2023-API6",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["owasp-api-top-10"]
+    },
+    {
+      "id": "KGE-SHXMONEY-API6",
+      "from": "SHX-FAMILY-MONEY",
+      "to": "OWASP-API-2023-API6",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["owasp-api-top-10"]
+    },
+    {
+      "id": "KGE-A07-CWE384",
+      "from": "OWASP-TOP10-2021-A07",
+      "to": "CWE-384",
+      "relation": "INCLUDES",
+      "source_ids": ["owasp-top-10", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-CWE384-CAPEC61",
+      "from": "CWE-384",
+      "to": "CAPEC-61",
+      "relation": "IS_EXPLOITED_BY",
+      "source_ids": ["mitre-cwe", "mitre-capec"]
+    },
+    {
+      "id": "KGE-ASVS724-CWE384",
+      "from": "OWASP-ASVS-5.0.0-V7.2.4",
+      "to": "CWE-384",
+      "relation": "MITIGATES",
+      "source_ids": ["owasp-asvs", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXSESS-CWE384",
+      "from": "SHX-FAMILY-SESS",
+      "to": "CWE-384",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXSESS-A07",
+      "from": "SHX-FAMILY-SESS",
+      "to": "OWASP-TOP10-2021-A07",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["owasp-top-10"]
+    },
+    {
+      "id": "KGE-SHXAI-LLM01",
+      "from": "SHX-FAMILY-AI",
+      "to": "OWASP-LLM-2025-LLM01",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["owasp-llm-top-10"]
+    },
+    {
+      "id": "KGE-SHXAI-LLM03",
+      "from": "SHX-FAMILY-AI",
+      "to": "OWASP-LLM-2025-LLM03",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["owasp-llm-top-10"]
+    },
+    {
+      "id": "KGE-SHXAI-LLM05",
+      "from": "SHX-FAMILY-AI",
+      "to": "OWASP-LLM-2025-LLM05",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["owasp-llm-top-10"]
+    },
+    {
+      "id": "KGE-SHXAI-LLM06",
+      "from": "SHX-FAMILY-AI",
+      "to": "OWASP-LLM-2025-LLM06",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["owasp-llm-top-10"]
+    },
+    {
+      "id": "KGE-SHXAI-CWE77",
+      "from": "SHX-FAMILY-AI",
+      "to": "CWE-77",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "KGE-LLM05-CWE79",
+      "from": "OWASP-LLM-2025-LLM05",
+      "to": "CWE-79",
+      "relation": "RELATED_TO",
+      "source_ids": ["owasp-llm-top-10", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-LLM05-CWE77",
+      "from": "OWASP-LLM-2025-LLM05",
+      "to": "CWE-77",
+      "relation": "RELATED_TO",
+      "source_ids": ["owasp-llm-top-10", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-LLM05-CWE918",
+      "from": "OWASP-LLM-2025-LLM05",
+      "to": "CWE-918",
+      "relation": "RELATED_TO",
+      "source_ids": ["owasp-llm-top-10", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-LLM06-CWE285",
+      "from": "OWASP-LLM-2025-LLM06",
+      "to": "CWE-285",
+      "relation": "RELATED_TO",
+      "source_ids": ["owasp-llm-top-10", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-LLM03-CWE494",
+      "from": "OWASP-LLM-2025-LLM03",
+      "to": "CWE-494",
+      "relation": "RELATED_TO",
+      "source_ids": ["owasp-llm-top-10", "mitre-cwe"]
     }
   ]
 }

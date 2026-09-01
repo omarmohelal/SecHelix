@@ -1,147 +1,468 @@
 {
-  "architecture": {
-    "summary": "A local multi-tenant store with API, worker, and fixture database boundaries.",
-    "trust_boundaries": [
-      "buyer to API",
-      "seller to tenant data",
-      "API to worker"
-    ]
-  },
   "blocked_checks": [
-    {
-      "id": "SHX-CLOUD-L21-DEMO",
-      "integrity_critical": false,
-      "reason": "Cloud account was out of scope.",
-      "status": "BLOCKED_BY_ENVIRONMENT"
-    }
+    "SHX-CLOUD-L21"
   ],
   "coverage": {
-    "applicable": 87,
-    "blocked": 1,
-    "integrity_critical_unknown": 0,
-    "not_applicable": 438,
-    "unknown": 20
+    "APPLICABLE": 41,
+    "BLOCKED": 1,
+    "NOT_APPLICABLE": 496,
+    "TOTAL": 546,
+    "UNKNOWN": 8,
+    "catalog_version": "2.2",
+    "integrity_critical_unknown": 0
   },
-  "findings": [
+  "evidence": [
     {
-      "api_key": "[REDACTED]",
-      "attacker_control": "The caller could reach the listing endpoint while the seller lookup returned no identity.",
-      "boundary_failure": "Missing identity produced an unscoped query instead of failing closed.",
-      "confidence": "HIGH",
-      "fix": "Reject a missing seller subject before constructing the query.",
-      "id": "SHX-AUTHZ-L02-DEMO",
-      "impact": "A seller could read listing metadata belonging to other tenants.",
-      "independent_verification": {
-        "evidence": [
-          "local two-seller fixture reproduced the boundary failure"
-        ],
-        "status": "VERIFIED",
-        "verified_at": "2026-08-31T00:00:00Z",
-        "verifier_id": "independent-verifier-demo"
-      },
-      "locations": [
+      "artifacts": [
         {
-          "line": 24,
-          "path": "demo/routes/listings.py"
+          "locator": "artifacts/case-studies/gamingops-store-2026-09-01/headers-before.txt",
+          "media_type": "text/plain",
+          "name": "headers-before.txt",
+          "sha256": "29aaaf3bcb5489bc49b3ae19dfc66a3b709b8ed8f3d30f77bd5d13bd3d841687"
         }
       ],
-      "prerequisites": [
-        "authenticated seller",
-        "missing seller lookup fixture"
+      "environment": {
+        "mode": "LOCAL",
+        "scope_id": "SCOPE-GOS-STOREFRONT",
+        "target_id": "TGT-GOS-STOREFRONT"
+      },
+      "evidence_id": "EV-GOS-HEADERS-BASELINE",
+      "kind": "OBSERVATION",
+      "redactions": [
+        "No customer data, credentials, or live exploit material is included."
       ],
-      "reachability": "The route passed the missing identifier into the query builder.",
-      "references": [
-        "CWE-862"
+      "schema_version": "1.0",
+      "source": {
+        "collected_at": "2026-09-01T14:20:00Z",
+        "invocation": "curl -sI http://localhost:3006/",
+        "name": "curl",
+        "provenance": "Authorized owner self-audit of gamingops-store at commit 06ab8ca; LOCAL execution mode only.",
+        "type": "RUNTIME",
+        "version": "8.x"
+      },
+      "status": "CONFIRMED",
+      "summary": "The baseline build returned no Content-Security-Policy, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Strict-Transport-Security, or Permissions-Policy header, and advertised X-Powered-By: Next.js."
+    },
+    {
+      "artifacts": [
+        {
+          "locator": "artifacts/case-studies/gamingops-store-2026-09-01/clickjack-before.png",
+          "media_type": "image/png",
+          "name": "clickjack-before.png",
+          "sha256": "9571b3b07c247f22e0a17411f76a726905a2344aa5570afadfb3436c9eb35b46"
+        }
+      ],
+      "environment": {
+        "mode": "LOCAL",
+        "scope_id": "SCOPE-GOS-STOREFRONT",
+        "target_id": "TGT-GOS-STOREFRONT"
+      },
+      "evidence_id": "EV-GOS-FRAME-REPRO",
+      "kind": "REPRODUCTION",
+      "redactions": [
+        "No customer data, credentials, or live exploit material is included."
+      ],
+      "schema_version": "1.0",
+      "source": {
+        "collected_at": "2026-09-01T14:20:00Z",
+        "invocation": "local iframe probe page on 127.0.0.1:3007",
+        "name": "chromium-framing-probe",
+        "provenance": "Authorized owner self-audit of gamingops-store at commit 06ab8ca; LOCAL execution mode only.",
+        "type": "RUNTIME"
+      },
+      "status": "CONFIRMED",
+      "summary": "A third-party page on a different local origin embedded the storefront in an iframe and the full interface rendered, including the Sign in entry point."
+    },
+    {
+      "artifacts": [],
+      "environment": {
+        "mode": "STATIC",
+        "scope_id": "SCOPE-GOS-STOREFRONT",
+        "target_id": "TGT-GOS-STOREFRONT"
+      },
+      "evidence_id": "EV-GOS-ROOTCAUSE",
+      "kind": "CONTEXT",
+      "redactions": [
+        "No customer data, credentials, or live exploit material is included."
+      ],
+      "schema_version": "1.0",
+      "source": {
+        "collected_at": "2026-09-01T14:20:00Z",
+        "invocation": "static review of next.config.ts@06ab8ca",
+        "name": "next.config.ts",
+        "provenance": "Authorized owner self-audit of gamingops-store at commit 06ab8ca; LOCAL execution mode only.",
+        "type": "REPOSITORY"
+      },
+      "status": "CONFIRMED",
+      "summary": "next.config.ts declared only an images block. The application defined no headers() policy, so no framing or content-security boundary was ever emitted."
+    },
+    {
+      "artifacts": [
+        {
+          "locator": "artifacts/case-studies/gamingops-store-2026-09-01/headers-after.txt",
+          "media_type": "text/plain",
+          "name": "headers-after.txt",
+          "sha256": "d4f6f7292a13ba1f399cbcebb6ffd0c3bc60c29ff78c68a32ef226711fe6ca1b"
+        }
+      ],
+      "environment": {
+        "mode": "STATIC",
+        "scope_id": "SCOPE-GOS-STOREFRONT",
+        "target_id": "TGT-GOS-STOREFRONT"
+      },
+      "evidence_id": "EV-GOS-REMEDIATION",
+      "kind": "REMEDIATION",
+      "redactions": [
+        "No customer data, credentials, or live exploit material is included."
+      ],
+      "schema_version": "1.0",
+      "source": {
+        "collected_at": "2026-09-01T14:20:00Z",
+        "invocation": "git diff next.config.ts",
+        "name": "gamingops-store PR #2",
+        "provenance": "Authorized owner self-audit of gamingops-store at commit 06ab8ca; LOCAL execution mode only.",
+        "type": "REPOSITORY"
+      },
+      "status": "CONFIRMED",
+      "summary": "next.config.ts now returns a catch-all header rule carrying CSP with frame-ancestors 'none', X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy, HSTS, and COOP, and disables poweredByHeader."
+    },
+    {
+      "artifacts": [
+        {
+          "locator": "artifacts/case-studies/gamingops-store-2026-09-01/regression-after.txt",
+          "media_type": "text/plain",
+          "name": "regression-after.txt",
+          "sha256": "78fa06fbf2bc376c86d2232b07784089187b96f3f1b27fdccd46f524aff0c38a"
+        }
+      ],
+      "environment": {
+        "mode": "LOCAL",
+        "scope_id": "SCOPE-GOS-STOREFRONT",
+        "target_id": "TGT-GOS-STOREFRONT"
+      },
+      "evidence_id": "EV-GOS-REGRESSION",
+      "kind": "REGRESSION",
+      "redactions": [
+        "No customer data, credentials, or live exploit material is included."
+      ],
+      "schema_version": "1.0",
+      "source": {
+        "collected_at": "2026-09-01T14:20:00Z",
+        "invocation": "npx vitest run",
+        "name": "vitest",
+        "provenance": "Authorized owner self-audit of gamingops-store at commit 06ab8ca; LOCAL execution mode only.",
+        "type": "TEST",
+        "version": "3.2.7"
+      },
+      "status": "CONFIRMED",
+      "summary": "Ten regression assertions cover the header set, frame-ancestors, X-Frame-Options DENY, absence of X-Powered-By, and rejection of hostile URL schemes. Full suite 15/15 pass."
+    },
+    {
+      "artifacts": [
+        {
+          "locator": "artifacts/case-studies/gamingops-store-2026-09-01/clickjack-after.png",
+          "media_type": "image/png",
+          "name": "clickjack-after.png",
+          "sha256": "a1a0ca0674c7b7c065994b3a6d925c8f576deed3f5bb3a687f1a6966c1bb71d4"
+        }
+      ],
+      "environment": {
+        "mode": "LOCAL",
+        "scope_id": "SCOPE-GOS-STOREFRONT",
+        "target_id": "TGT-GOS-STOREFRONT"
+      },
+      "evidence_id": "EV-GOS-RETEST",
+      "kind": "VERIFICATION",
+      "redactions": [
+        "No customer data, credentials, or live exploit material is included."
+      ],
+      "schema_version": "1.0",
+      "source": {
+        "collected_at": "2026-09-01T14:20:00Z",
+        "invocation": "framing probe against the fixed build",
+        "name": "chromium-console",
+        "provenance": "Authorized owner self-audit of gamingops-store at commit 06ab8ca; LOCAL execution mode only.",
+        "type": "RUNTIME"
+      },
+      "status": "CONFIRMED",
+      "summary": "After a clean rebuild the browser refused the frame: \"Framing 'http://localhost:3009/' violates the following Content Security Policy directive: \\\"frame-ancestors 'none'\\\". The request has been blocked.\""
+    },
+    {
+      "artifacts": [
+        {
+          "locator": "artifacts/case-studies/gamingops-store-2026-09-01/urlscheme-refutation.txt",
+          "media_type": "text/plain",
+          "name": "urlscheme-refutation.txt",
+          "sha256": "620b623f42333d640a5df4d6166886f1d2d8b020b737e2eddd2c6ebeaff0b257"
+        }
+      ],
+      "environment": {
+        "mode": "LOCAL",
+        "scope_id": "SCOPE-GOS-STOREFRONT",
+        "target_id": "TGT-GOS-STOREFRONT"
+      },
+      "evidence_id": "EV-GOS-URLSCHEME-REFUTATION",
+      "kind": "VERIFICATION",
+      "redactions": [
+        "No customer data, credentials, or live exploit material is included."
+      ],
+      "schema_version": "1.0",
+      "source": {
+        "collected_at": "2026-09-01T14:20:00Z",
+        "invocation": "node mock-work-api.mjs on 127.0.0.1:3999",
+        "name": "mock-store-config-api",
+        "provenance": "Authorized owner self-audit of gamingops-store at commit 06ab8ca; LOCAL execution mode only.",
+        "type": "RUNTIME"
+      },
+      "status": "REJECTED",
+      "summary": "A hostile javascript: URL supplied through the remote store-config was rendered by React 19 as javascript:throw new Error('React has blocked a javascript: URL as a security precaution.'), so the suspected cross-site scripting path is not exploitable. Attacker control was also not established from the public internet."
+    }
+  ],
+  "findings": [
+    {
+      "affected_surface": [
+        "All storefront routes served by the Next.js application"
+      ],
+      "catalog_hypothesis_ids": [
+        "SHX-WEB-L08"
+      ],
+      "confidence": "HIGH",
+      "evidence_chain": {
+        "attacker_control": {
+          "established": true,
+          "evidence_ids": [
+            "EV-GOS-FRAME-REPRO"
+          ],
+          "statement": "An attacker fully controls the third-party page that embeds the storefront."
+        },
+        "boundary_failure": {
+          "established": true,
+          "evidence_ids": [
+            "EV-GOS-HEADERS-BASELINE"
+          ],
+          "statement": "No frame-ancestors directive and no X-Frame-Options header were emitted, so the browser default of permitting framing applied."
+        },
+        "impact": {
+          "established": true,
+          "evidence_ids": [
+            "EV-GOS-FRAME-REPRO"
+          ],
+          "statement": "UI redress: an overlay can bait clicks onto the Sign in and purchase calls to action. Realistic impact is phishing amplification and brand abuse rather than direct account takeover, because this application holds no authenticated state-changing actions."
+        },
+        "preconditions": {
+          "established": true,
+          "evidence_ids": [
+            "EV-GOS-FRAME-REPRO"
+          ],
+          "statement": "A victim visits an attacker-controlled page while the storefront is publicly reachable."
+        },
+        "reachability": {
+          "established": true,
+          "evidence_ids": [
+            "EV-GOS-HEADERS-BASELINE",
+            "EV-GOS-FRAME-REPRO"
+          ],
+          "statement": "Every public route is served without a framing policy, so the embed reaches the real interface."
+        },
+        "root_cause": {
+          "established": true,
+          "evidence_ids": [
+            "EV-GOS-ROOTCAUSE"
+          ],
+          "statement": "next.config.ts declared no headers() policy, so the application never expressed a framing or content-security boundary."
+        },
+        "safe_reproduction": {
+          "established": true,
+          "evidence_ids": [
+            "EV-GOS-FRAME-REPRO"
+          ],
+          "statement": "The storefront rendered inside a cross-origin iframe on a local probe page. No external or production system was contacted."
+        }
+      },
+      "evidence_ids": [
+        "EV-GOS-HEADERS-BASELINE",
+        "EV-GOS-FRAME-REPRO",
+        "EV-GOS-ROOTCAUSE",
+        "EV-GOS-REMEDIATION",
+        "EV-GOS-REGRESSION",
+        "EV-GOS-RETEST"
+      ],
+      "finding_id": "SHX-F-GOS-HEADERS-001",
+      "mappings": [
+        "CWE-1021",
+        "OWASP-ASVS:V14"
       ],
       "regression": {
-        "assertion": "missing seller identity returns 403 and no rows",
-        "command": "python -m unittest tests.test_demo_authz",
-        "result": "PASS"
+        "assertion": "The catch-all header rule exists and carries every required header; X-Frame-Options is DENY; CSP contains frame-ancestors 'none'; poweredByHeader is false.",
+        "command": "npx vitest run tests/security.test.ts",
+        "evidence_ids": [
+          "EV-GOS-REGRESSION",
+          "EV-GOS-RETEST"
+        ],
+        "status": "PASS"
       },
-      "reproduction": "Use the local seller-without-profile fixture and assert the old handler returns cross-tenant rows.",
-      "residual_risk": "Sibling background jobs require separate applicability review.",
+      "remediation": {
+        "evidence_ids": [
+          "EV-GOS-REMEDIATION"
+        ],
+        "root_cause_fix": "Declare a catch-all headers() rule in next.config.ts carrying CSP frame-ancestors 'none', X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy, HSTS and COOP, and disable poweredByHeader."
+      },
+      "residual_risk": "The CSP retains 'unsafe-inline' for script-src and style-src because the application relies on framework-injected inline scripts and React inline styles. Moving to a nonce-based policy would remove that allowance.",
       "resolution": "FIXED",
-      "root_cause": "The canonical authorization helper treated a missing subject as an absent filter.",
-      "severity": "HIGH",
-      "status": "VERIFIED",
-      "surface": "GET /seller/listings",
-      "title": "Missing seller identity previously widened a listing query"
-    },
-    {
-      "attacker_control": "Request identifiers are partially caller influenced.",
-      "boundary_failure": "The local log retention window exceeds the documented fixture requirement.",
-      "confidence": "MEDIUM",
-      "fix": "Set an explicit fixture retention duration.",
-      "id": "SHX-LOG-L20-DEMO",
-      "impact": "Local-only correlation data persists longer than intended.",
-      "independent_verification": {
-        "evidence": [],
-        "status": "NOT_REQUIRED"
-      },
-      "reachability": "Identifiers are written by the local diagnostic middleware.",
-      "references": [
-        "CWE-532"
-      ],
-      "regression": "Assert fixture logs expire after the configured duration.",
-      "reproduction": "Run one local request and inspect the isolated fixture log.",
-      "residual_risk": "Production logging was out of scope.",
-      "resolution": "OPEN",
-      "root_cause": "The fixture cleanup job uses the default retention period.",
+      "schema_version": "1.0",
       "severity": "MEDIUM",
       "status": "VERIFIED",
-      "surface": "local diagnostic log",
-      "title": "Verbose local diagnostics retain request identifiers"
+      "title": "Storefront declares no response security headers and can be framed by any origin",
+      "verification": {
+        "evidence_ids": [
+          "EV-GOS-FRAME-REPRO",
+          "EV-GOS-RETEST"
+        ],
+        "independent": true,
+        "outcome": "VERIFIED",
+        "refutation_attempt": "Attempted to refute by looking for a compensating framing control at the edge or in middleware. The application ships no middleware and no proxy configuration, and the production build emitted no framing header, so no compensating control exists in the reviewed deployment path.",
+        "verifier": "sechelix-independent-verifier"
+      }
+    },
+    {
+      "affected_surface": [
+        "hero call to action rendered from remote store-config",
+        "footer links rendered from remote store-config",
+        "social links rendered from remote store-config",
+        "listing artwork src rendered from marketplace listings"
+      ],
+      "catalog_hypothesis_ids": [
+        "SHX-WEB-L18"
+      ],
+      "confidence": "HIGH",
+      "evidence_chain": {
+        "attacker_control": {
+          "established": false,
+          "evidence_ids": [
+            "EV-GOS-URLSCHEME-REFUTATION"
+          ],
+          "statement": "The configuration source is the operator's own workspace API. Injecting a hostile URL requires compromising that API or its administrative surface; it is not reachable by an anonymous internet attacker."
+        },
+        "boundary_failure": {
+          "established": false,
+          "evidence_ids": [
+            "EV-GOS-URLSCHEME-REFUTATION"
+          ],
+          "statement": "React 19 neutralizes javascript: URLs before they reach the document, so the rendering boundary held under a hostile payload."
+        },
+        "impact": {
+          "established": false,
+          "evidence_ids": [
+            "EV-GOS-URLSCHEME-REFUTATION"
+          ],
+          "statement": "No script execution is achievable through this path in the reviewed framework version."
+        },
+        "preconditions": {
+          "established": false,
+          "evidence_ids": [
+            "EV-GOS-URLSCHEME-REFUTATION"
+          ],
+          "statement": "Exploitation would require both upstream compromise and a renderer that does not block hostile URL schemes."
+        },
+        "reachability": {
+          "established": true,
+          "evidence_ids": [
+            "EV-GOS-URLSCHEME-REFUTATION"
+          ],
+          "statement": "Remote configuration values are rendered into href and src attributes on every page."
+        },
+        "root_cause": {
+          "established": true,
+          "evidence_ids": [
+            "EV-GOS-URLSCHEME-REFUTATION"
+          ],
+          "statement": "The normalizer applied only whitespace trimming, so scheme safety depended entirely on a framework internal rather than on an application boundary."
+        },
+        "safe_reproduction": {
+          "established": true,
+          "evidence_ids": [
+            "EV-GOS-URLSCHEME-REFUTATION"
+          ],
+          "statement": "A local mock configuration API served a javascript: payload; the rendered document contained React's blocked-URL placeholder rather than the payload."
+        }
+      },
+      "evidence_ids": [
+        "EV-GOS-URLSCHEME-REFUTATION"
+      ],
+      "finding_id": "SHX-F-GOS-URLSCHEME-001",
+      "mappings": [
+        "CWE-79"
+      ],
+      "regression": {
+        "assertion": "javascript:, data:, vbscript: and protocol-relative URLs are rejected at the trust boundary while relative paths, https and mailto survive.",
+        "command": "npx vitest run tests/security.test.ts",
+        "evidence_ids": [
+          "EV-GOS-REGRESSION"
+        ],
+        "status": "PASS"
+      },
+      "remediation": {
+        "evidence_ids": [
+          "EV-GOS-REGRESSION"
+        ],
+        "root_cause_fix": "A safeUrl() scheme allowlist was added at the normalization boundary as defense in depth so the application no longer depends on renderer behaviour for URL safety. This is hardening, not a vulnerability fix."
+      },
+      "residual_risk": "If the upstream configuration API is compromised, an attacker can still inject arbitrary http(s) destinations for outbound links. That is a link-injection and phishing risk, not script execution.",
+      "resolution": "FALSE_POSITIVE",
+      "schema_version": "1.0",
+      "severity": "INFO",
+      "status": "FALSE_POSITIVE",
+      "title": "Remote store configuration reaches href and src sinks without scheme validation",
+      "verification": {
+        "evidence_ids": [
+          "EV-GOS-URLSCHEME-REFUTATION"
+        ],
+        "independent": true,
+        "outcome": "FALSE_POSITIVE",
+        "refutation_attempt": "Reconstructed the suspected cross-site scripting claim from scratch by serving a hostile javascript: URL from a controlled configuration endpoint and observing the rendered document. The payload never reached the DOM, so the claim was rejected rather than promoted.",
+        "verifier": "sechelix-independent-verifier"
+      }
     }
   ],
-  "generated_at": "2026-08-31T00:00:00Z",
-  "rejected_findings": [
-    {
-      "id": "SHX-SSRF-L04-DEMO",
-      "reason": "The URL reaches a local allowlisted provider mock only.",
-      "status": "FALSE_POSITIVE"
-    }
+  "generated_at": "2026-09-01T14:20:00Z",
+  "mode": "LOCAL",
+  "notes": [
+    "Authorized owner self-audit of a private repository.",
+    "The storefront is a display-only front end; purchase and account flows live in a separate system that was out of scope."
+  ],
+  "project": "gamingops-store (authorized owner self-audit)",
+  "redaction_summary": [
+    "No customer data, credentials, secrets, or live exploit material appears in this report.",
+    "Reproduction used a local mock configuration API; no third-party or production system was contacted."
+  ],
+  "rejected_false_positives": [
+    "SHX-F-GOS-URLSCHEME-001: suspected javascript: cross-site scripting was refuted by local reproduction; React 19 blocks the scheme and no attacker-controlled path to the configuration API was established.",
+    "Buyer-name masking in getRecentSales was reviewed for a privacy leak. Every code path returns a masked value, so no unmasked identifier reaches the page."
   ],
   "release_recommendation": "PASS",
-  "report_id": "SHX-REPORT-DEMO-001",
-  "role_object_action_matrix": [
-    {
-      "actions": [
-        "read",
-        "update"
-      ],
-      "object": "own listing",
-      "role": "seller"
-    },
-    {
-      "actions": [],
-      "object": "other seller listing",
-      "role": "seller"
-    }
-  ],
-  "schema_version": "1.0.0",
-  "scope": {
-    "deployment_state": "READY",
-    "in_scope": [
-      "demo-store repository",
-      "local fixture database"
-    ],
-    "mode": "LOCAL",
-    "out_of_scope": [
-      "production providers"
-    ],
-    "project": "demo-store",
-    "restrictions": [
-      "non-destructive fixtures only"
-    ]
-  },
+  "report_id": "REPORT-GOS-2026-09-01",
+  "schema_version": "1.0",
+  "scope_id": "SCOPE-GOS-STOREFRONT",
   "tools": [
     {
-      "name": "targeted-source-review",
-      "version": "repository-native"
+      "name": "next",
+      "purpose": "Production build under test",
+      "version": "16.2.7"
     },
     {
-      "name": "local-regression",
-      "version": "fixture"
+      "name": "vitest",
+      "purpose": "Regression proof execution",
+      "version": "3.2.7"
+    },
+    {
+      "name": "chromium-devtools",
+      "purpose": "Local framing reproduction and CSP refusal capture",
+      "version": "playwright-mcp"
+    },
+    {
+      "name": "curl",
+      "purpose": "Response header observation",
+      "version": "8.x"
     }
   ]
 }

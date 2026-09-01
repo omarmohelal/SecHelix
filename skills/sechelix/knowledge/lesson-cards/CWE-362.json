@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0",
+  "lesson_id": "LC-CWE-362",
+  "title": "Check-then-act races and missing idempotency on state changes",
+  "updated_at": "2026-09-01T00:00:00Z",
+  "domains": ["web", "api", "database"],
+  "summary": "A race becomes plausible when a decision is read in one step and acted on in a later step while another concurrent request can change the same state in between. Verification must establish the shared resource, the exact check-to-act window, the isolation or locking actually in force, and a reproducible outcome such as a duplicated effect or an overspent balance, because concurrency defects are easy to allege and easy to misdiagnose.",
+  "detection_signals": [
+    "A handler reads a balance, quota, seat, coupon, stock level, or status flag, then writes a dependent change in a separate statement, request, or transaction.",
+    "Retry, webhook, callback, or client resubmission paths perform the same state change without an idempotency key, unique constraint, or deduplication record.",
+    "Filesystem or cache code checks existence, ownership, or permissions and then opens, writes, or deletes the same path in a following call."
+  ],
+  "safe_local_tests": [
+    "Drive a local instance with a small burst of concurrent identical requests from one fixture principal, and assert on the resulting persisted state rather than on individual response codes.",
+    "Reproduce the check-then-act window deliberately with an instrumented delay or a test hook in a local build, so the interleaving is demonstrated rather than inferred from a timing anomaly.",
+    "Record the concurrency level, the ordering observed, the final stored values, and the invariant that was violated, and keep the whole exercise off shared or production systems because it creates real duplicate state."
+  ],
+  "false_positive_traps": [
+    "A read followed by a write is not a race when a database unique constraint, conditional update, optimistic version column, or serializable transaction already rejects the second writer.",
+    "Duplicate rows in a log or queue can come from at-least-once delivery that a downstream deduplication step already absorbs, so the persisted end state decides the finding.",
+    "A single slow request or an intermittent test failure is not evidence of a race until the interleaving is reproduced with the specific shared resource identified."
+  ],
+  "remediation_patterns": [
+    "Collapse the check and the act into one atomic operation such as a conditional update, an upsert with a unique constraint, or a transaction at an isolation level that actually prevents the interleaving.",
+    "Give every state-changing entry point an idempotency key that is stored with the effect, so a retried or replayed request returns the original outcome instead of repeating it.",
+    "Hold the lock in the component that owns the resource, keep the critical section short and ordered to avoid deadlock, and fail closed when the lock or version check cannot be satisfied."
+  ],
+  "regression_proof": [
+    "A concurrency test replays the original burst and asserts that exactly one effect is persisted and the invariant holds, while a single sequential request still succeeds normally.",
+    "Coverage includes the retry and webhook replay paths and the constraint or version check itself, so removing the guard fails the suite rather than silently reopening the window."
+  ],
+  "mapping_node_ids": [
+    "CWE-362",
+    "CWE-367",
+    "CAPEC-26",
+    "CAPEC-29",
+    "OWASP-ASVS-5.0.0-V15.4.2",
+    "OWASP-ASVS-5.0.0-V2.3.4",
+    "SHX-FAMILY-RACE",
+    "SHX-FAMILY-MONEY"
+  ],
+  "source_ids": ["mitre-cwe", "mitre-capec", "owasp-asvs"]
+}

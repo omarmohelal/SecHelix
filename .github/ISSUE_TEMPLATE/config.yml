@@ -1,5 +1,14 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
-  - name: Security policy
-    url: https://github.com/omarmohelal/SecHelix/blob/main/SECURITY.md
-    about: Read this before reporting a vulnerability in SecHelix itself.
+  - name: Report a vulnerability in SecHelix itself
+    url: https://github.com/omarmohelal/SecHelix/security/advisories/new
+    about: Private vulnerability reporting. Do not open a public issue for an unpatched issue.
+  - name: Getting help
+    url: https://github.com/omarmohelal/SecHelix/blob/main/SUPPORT.md
+    about: Which document or template answers your question.
+  - name: Quickstart and command cookbook
+    url: https://github.com/omarmohelal/SecHelix/blob/main/docs/QUICKSTART.md
+    about: Installing SecHelix and running a first audit.
+  - name: Why there is no benchmark yet
+    url: https://github.com/omarmohelal/SecHelix/blob/main/docs/EVALUATION.md
+    about: The evaluation protocol and the documented NOT_MEASURED blocker.

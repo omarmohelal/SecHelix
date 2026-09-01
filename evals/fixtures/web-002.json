@@ -1,0 +1,29 @@
+{
+  "id": "EVAL-WEB-002",
+  "schema_version": "1.1",
+  "family": "Browser / XSS",
+  "task": "Decide whether stored user content reaches the DOM without contextual escaping.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "medium",
+  "mappings": {
+    "cwe": [
+      "CWE-79"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "javascript",
+      "filename": "comment-view.js",
+      "source": "// Renders a stored comment thread.\nexport function escapeHtml(value) {\n  return String(value)\n    .replace(/&/g, \"&amp;\")\n    .replace(/</g, \"&lt;\")\n    .replace(/>/g, \"&gt;\");\n}\n\nexport function renderComment(node, comment) {\n  const body = escapeHtml(comment.body);\n  const name = escapeHtml(comment.author.name);\n  // The author's homepage is optional and supplied at signup.\n  const link = comment.author.homepage || \"#\";\n  node.innerHTML = `\n    <article class=\"comment\">\n      <a class=\"author\" href=\"${link}\">${name}</a>\n      <p>${body}</p>\n    </article>`;\n  return node;\n}\n",
+      "rationale": "escapeHtml neutralizes angle brackets and quotes for element content, but the author display name is interpolated into an attribute inside a template that is assigned with innerHTML, and the URL is written to href with no scheme check, so a javascript: author link executes."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "javascript",
+      "filename": "comment-view.js",
+      "source": "// Renders a stored comment thread.\nconst SAFE_SCHEMES = new Set([\"http:\", \"https:\", \"mailto:\"]);\n\nexport function safeHref(value) {\n  if (!value) return null;\n  try {\n    return SAFE_SCHEMES.has(new URL(value).protocol) ? value : null;\n  } catch {\n    return null;\n  }\n}\n\nexport function renderComment(node, comment) {\n  const article = document.createElement(\"article\");\n  article.className = \"comment\";\n\n  const href = safeHref(comment.author.homepage);\n  const author = document.createElement(href ? \"a\" : \"span\");\n  author.className = \"author\";\n  if (href) author.setAttribute(\"href\", href);\n  author.textContent = comment.author.name;\n\n  const body = document.createElement(\"p\");\n  body.textContent = comment.body;\n\n  article.append(author, body);\n  node.replaceChildren(article);\n  return node;\n}\n",
+      "rationale": "Content is inserted as text nodes rather than markup, and the homepage URL is validated against a scheme allowlist before it is assigned to href."
+    }
+  }
+}

@@ -26,8 +26,12 @@ RESOLUTIONS = {"OPEN", "FIXED", "ACCEPTED_RISK", "FALSE_POSITIVE", "DUPLICATE_RO
 UNPROVEN_STATES = {"LIKELY_BUT_UNPROVEN", "LIKELY_UNPROVEN", "BLOCKED", "BLOCKED_BY_ENVIRONMENT", "UNPROVEN"}
 UNKNOWN_CHECK_STATES = {"UNKNOWN", "UNKNOWN_NEEDS_EVIDENCE", "BLOCKED", "BLOCKED_BY_ENVIRONMENT"}
 CLOSED_RESOLUTIONS = {"FIXED", "FALSE_POSITIVE", "DUPLICATE_ROOT_CAUSE"}
-REQUIRED_REPORT_KEYS = ("schema_version", "scope", "coverage", "findings", "blocked_checks", "release_recommendation")
-COVERAGE_KEYS = ("applicable", "not_applicable", "unknown", "blocked", "integrity_critical_unknown")
+REQUIRED_REPORT_KEYS = (
+    "schema_version", "report_id", "scope_id", "mode", "coverage",
+    "findings", "blocked_checks", "release_recommendation",
+)
+COVERAGE_STATE_KEYS = ("APPLICABLE", "NOT_APPLICABLE", "UNKNOWN", "BLOCKED")
+COVERAGE_KEYS = COVERAGE_STATE_KEYS + ("integrity_critical_unknown",)
 EXECUTION_MODES = {"STATIC", "LOCAL", "STAGING", "PRODUCTION_SAFE"}
 RELEASE_OUTCOMES = {"PASS", "PASS_WITH_KNOWN_RISK", "BLOCKED", "INCOMPLETE"}
 REQUIRED_POLICY_KEYS = (
@@ -101,12 +105,8 @@ def validate_report(report: Mapping[str, Any]) -> None:
     missing = [key for key in REQUIRED_REPORT_KEYS if key not in report]
     if missing:
         raise GateInputError(f"report missing required key(s): {', '.join(missing)}")
-    if not isinstance(report["scope"], Mapping):
-        raise GateInputError("report scope must be an object")
-    if not str(report["scope"].get("project", "")).strip():
-        raise GateInputError("report scope.project is required")
-    if str(report["scope"].get("mode", "")).upper() not in EXECUTION_MODES:
-        raise GateInputError(f"report scope.mode must be one of {sorted(EXECUTION_MODES)}")
+    if str(report["mode"]).upper() not in EXECUTION_MODES:
+        raise GateInputError(f"report mode must be one of {sorted(EXECUTION_MODES)}")
     if not isinstance(report["coverage"], Mapping):
         raise GateInputError("report coverage must be an object")
     missing_coverage = [key for key in COVERAGE_KEYS if key not in report["coverage"]]
@@ -115,7 +115,7 @@ def validate_report(report: Mapping[str, Any]) -> None:
     coverage_values = [report["coverage"][key] for key in COVERAGE_KEYS]
     if any(not isinstance(value, int) or isinstance(value, bool) or value < 0 for value in coverage_values):
         raise GateInputError("coverage counts must be non-negative integers")
-    if sum(coverage_values[:4]) == 0:
+    if sum(report["coverage"][key] for key in COVERAGE_STATE_KEYS) == 0:
         raise GateInputError("coverage is empty; a release report must record applicability")
     if not isinstance(report["findings"], list):
         raise GateInputError("report findings must be an array")
@@ -125,7 +125,7 @@ def validate_report(report: Mapping[str, Any]) -> None:
     for index, finding in enumerate(report["findings"]):
         if not isinstance(finding, Mapping):
             raise GateInputError(f"findings[{index}] must be an object")
-        for key in ("id", "title", "severity", "status"):
+        for key in ("finding_id", "title", "severity", "status"):
             if not str(finding.get(key, "")).strip():
                 raise GateInputError(f"findings[{index}] missing {key}")
         if str(finding["severity"]).upper() not in SEVERITIES:
@@ -134,7 +134,7 @@ def validate_report(report: Mapping[str, Any]) -> None:
             raise GateInputError(f"findings[{index}] has unsupported status {finding['status']!r}")
         if str(finding.get("resolution", "OPEN")).upper() not in RESOLUTIONS:
             raise GateInputError(f"findings[{index}] has unsupported resolution {finding.get('resolution')!r}")
-        finding_ids.append(str(finding["id"]))
+        finding_ids.append(str(finding["finding_id"]))
     if len(finding_ids) != len(set(finding_ids)):
         raise GateInputError("finding IDs must be unique")
     if str(report["release_recommendation"]).upper() not in RELEASE_OUTCOMES:
@@ -142,13 +142,13 @@ def validate_report(report: Mapping[str, Any]) -> None:
 
 
 def _verification_complete(finding: Mapping[str, Any]) -> bool:
-    verification = finding.get("independent_verification")
+    verification = finding.get("verification")
     return bool(
         isinstance(verification, Mapping)
-        and str(verification.get("status", "")).upper() == "VERIFIED"
-        and str(verification.get("verifier_id", "")).strip()
-        and str(verification.get("verified_at", "")).strip()
-        and verification.get("evidence")
+        and verification.get("independent") is True
+        and str(verification.get("outcome", "")).upper() == "VERIFIED"
+        and str(verification.get("verifier", "")).strip()
+        and verification.get("evidence_ids")
     )
 
 
@@ -168,8 +168,8 @@ def _regression_complete(finding: Mapping[str, Any]) -> bool:
     regression = finding.get("regression")
     return bool(
         isinstance(regression, Mapping)
-        and str(regression.get("result", "")).upper() == "PASS"
-        and (regression.get("assertion") or regression.get("evidence"))
+        and str(regression.get("status", "")).upper() == "PASS"
+        and (regression.get("assertion") or regression.get("evidence_ids"))
     )
 
 
@@ -196,9 +196,17 @@ def _tool_names(report: Mapping[str, Any]) -> set[str]:
     return names
 
 
-def evaluate(report: Mapping[str, Any], policy: Mapping[str, Any], *, now: datetime | None = None) -> GateDecision:
+def evaluate(
+    report: Mapping[str, Any],
+    policy: Mapping[str, Any],
+    *,
+    now: datetime | None = None,
+    enforce_contract: bool = True,
+) -> GateDecision:
     """Evaluate a report without trusting its declared recommendation."""
 
+    if enforce_contract:
+        _assert_report_contract(report)
     validate_report(report)
     validate_policy(policy)
     now = now or datetime.now(timezone.utc)
@@ -216,7 +224,7 @@ def evaluate(report: Mapping[str, Any], policy: Mapping[str, Any], *, now: datet
     incomplete: list[str] = []
     accepted_risks: list[str] = []
 
-    deployment_state = str(report["scope"].get("deployment_state", "")).upper()
+    deployment_state = str(report.get("deployment_state", "")).upper()
     forbidden_states = {str(item).upper() for item in policy.get("forbidden_deployment_states", [])}
     if deployment_state and deployment_state in forbidden_states:
         blockers.append(f"deployment state {deployment_state} is forbidden by policy")
@@ -227,7 +235,7 @@ def evaluate(report: Mapping[str, Any], policy: Mapping[str, Any], *, now: datet
         incomplete.append(f"required evidence tool(s) not recorded: {', '.join(missing_tools)}")
 
     for finding in report["findings"]:
-        finding_id = str(finding["id"])
+        finding_id = str(finding["finding_id"])
         severity = severity_overrides.get(finding_id, str(finding["severity"]).upper())
         status = str(finding["status"]).upper()
         resolution = str(finding.get("resolution", "OPEN")).upper()
@@ -256,8 +264,12 @@ def evaluate(report: Mapping[str, Any], policy: Mapping[str, Any], *, now: datet
 
     integrity_unknowns: list[str] = []
     for index, check in enumerate(report["blocked_checks"]):
+        if isinstance(check, str):
+            # report-v1 carries blocked checks as hypothesis IDs; the integrity signal
+            # for those lives in coverage.integrity_critical_unknown.
+            continue
         if not isinstance(check, Mapping):
-            incomplete.append(f"blocked_checks[{index}] is not an object")
+            incomplete.append(f"blocked_checks[{index}] is not an object or hypothesis ID")
             continue
         status = str(check.get("status", "BLOCKED")).upper()
         if check.get("integrity_critical") is True and status in UNKNOWN_CHECK_STATES:
@@ -290,6 +302,26 @@ def _load_json(path: Path, label: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise GateInputError(f"{label} must contain a JSON object")
     return value
+
+
+def _assert_report_contract(report: Mapping[str, Any]) -> None:
+    """Refuse to gate a report that does not satisfy the canonical contract.
+
+    A gate that scores a malformed report is fail-open: it can emit PASS for a
+    document whose coverage, evidence, or finding semantics were never checked.
+    """
+    try:
+        import sys
+
+        if str(ROOT) not in sys.path:
+            sys.path.insert(0, str(ROOT))
+        from sechelix_core.contracts import ContractValidationError, validate_contract
+    except ImportError as exc:  # pragma: no cover - packaging failure
+        raise GateInputError(f"cannot load the report contract validator: {exc}") from exc
+    try:
+        validate_contract("report", report)
+    except ContractValidationError as exc:
+        raise GateInputError(f"report does not satisfy the canonical report contract: {exc}") from exc
 
 
 def _print_human(decision: GateDecision) -> None:

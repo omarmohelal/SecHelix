@@ -1,6 +1,6 @@
 {
   "id": "EVAL-FILE-001",
-  "family": "File / Parser",
+  "family": "Files / Uploads / Parsers",
   "task": "Determine whether archive members can escape the intended extraction directory.",
   "provenance": "Synthetic SecHelix fixture; no archive or payload is included.",
   "variants": {

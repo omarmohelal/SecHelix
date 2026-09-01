@@ -1,0 +1,187 @@
+{
+  "schema_version": "1.0",
+  "id": "SEC-MONEY-INVARIANT-001",
+  "version": "0.1.0",
+  "title": "Cumulative money invariants and partial-success accounting",
+  "lifecycle": "REFERENCE",
+  "threat_model": {
+    "actor": "Authenticated customer, merchant operator, or a repeated provider callback",
+    "asset": "Captured funds, ledger balances, store credit, and payout instructions",
+    "trust_boundary": "Per-request amount check to the cumulative ledger state that conserves value",
+    "failure_mode": "A monetary operation bounds one request against a static reference amount instead of the balance remaining after all committed movements",
+    "impact": "Cumulative refunds, credits, or payouts can exceed the captured value, producing loss that reconciliation detects only after settlement"
+  },
+  "applicability": {
+    "capability_tags": ["payments", "refunds", "ledger_accounting", "payout_disbursement", "store_credit"],
+    "rule": "ANY_CAPABILITY_PRESENT",
+    "required_evidence": [
+      "An amount is captured, refunded, credited, or disbursed under application control",
+      "At least one monetary operation can run more than once against the same order, invoice, or balance"
+    ]
+  },
+  "framework_fingerprints": [
+    {
+      "framework": "generic-payment-service",
+      "versions": ["any"],
+      "signals": [
+        "A refund or credit handler compares the requested amount with an order total rather than a remaining balance",
+        "The guard read and the money write are not in one transaction, or the row is not locked between them",
+        "A provider callback adjusts a balance without recording whether that event was already applied"
+      ]
+    },
+    {
+      "framework": "double-entry-ledger",
+      "versions": ["any"],
+      "signals": [
+        "Balances are stored as mutable totals updated in place instead of derived from immutable entries",
+        "Application totals and provider totals are compared only by a nightly job, if at all"
+      ]
+    },
+    {
+      "framework": "python-synthetic-fixture",
+      "versions": ["3.x"],
+      "signals": [
+        "A refund service accepts any amount below the order total with no lookup of prior refunds"
+      ]
+    }
+  ],
+  "sources": {
+    "source_ids": ["mitre-cwe", "owasp-asvs", "owasp-api-top-10"],
+    "catalog_hypothesis_ids": ["SHX-MONEY-L01", "SHX-MONEY-L14", "SHX-MONEY-L15", "SHX-BIZ-L01"],
+    "references": [
+      "https://cwe.mitre.org/data/definitions/840.html",
+      "https://cwe.mitre.org/data/definitions/682.html",
+      "https://owasp.org/www-project-application-security-verification-standard/",
+      "https://owasp.org/API-Security/"
+    ]
+  },
+  "boundary": {
+    "type": "MONEY_CONSERVATION",
+    "subject": "the order, invoice, or account whose captured value bounds the operation",
+    "object": "cumulative refunded, credited, or disbursed amount",
+    "action": "TRANSFER",
+    "invariant": "The sum of committed outbound movements against one captured value never exceeds that value, and every movement is recorded exactly once"
+  },
+  "sinks": [
+    {"kind": "REFUND_CALL", "examples": ["Provider refund API call", "Capture reversal", "Chargeback representment credit"]},
+    {"kind": "LEDGER_WRITE", "examples": ["Wallet credit", "Store-credit issuance", "Manual balance adjustment"]},
+    {"kind": "PAYOUT_INSTRUCTION", "examples": ["Seller payout batch", "Bank transfer instruction", "Commission settlement"]},
+    {"kind": "PROVIDER_EVENT_HANDLER", "examples": ["Refund-succeeded webhook", "Settlement callback redelivery"]}
+  ],
+  "detection_layers": [
+    {
+      "layer": "STATIC",
+      "signals": [
+        "Record, for every amount bound in the path, whether it compares against a static reference or a recomputed remaining balance",
+        "Enumerate every writer to the same balance, including admin tools, backfills, callback handlers, and support scripts",
+        "Check whether the balance read and the money write share one transaction with the deciding row locked"
+      ]
+    },
+    {
+      "layer": "CONTRACT",
+      "signals": [
+        "Write the conservation invariant as a sum over committed entries, then compare it with the bound the code enforces",
+        "Trace the partial-success path: what stays committed when a multi-step disbursement fails after the first movement",
+        "Check which state transitions are supposed to be terminal and whether any monetary path can still act after them"
+      ]
+    },
+    {
+      "layer": "DATA",
+      "signals": [
+        "Look for balances held as mutable totals with no append-only entry table to derive them from",
+        "Check for a unique constraint on the provider event id or the movement idempotency key",
+        "Compare the currency and minor-unit representation used by the guard with the one used by the movement"
+      ]
+    },
+    {
+      "layer": "LOCAL_RUNTIME",
+      "signals": [
+        "Replay a sequence of individually valid partial operations against an isolated fixture ledger and compare the sum with the captured amount",
+        "Redeliver one synthetic provider event unchanged and record whether the balance moves a second time"
+      ]
+    }
+  ],
+  "validation": {
+    "default_mode": "LOCAL",
+    "destructive_actions": false,
+    "production_mutation": false,
+    "steps": [
+      "Confirm explicit authorization and use an isolated fixture ledger with a stub provider that records instructions instead of moving funds",
+      "Capture a known synthetic amount and record the derived remaining balance as the baseline before any refund attempt",
+      "Issue repeated partial operations that are each individually valid and compare the cumulative total with the captured amount",
+      "Redeliver one provider event unchanged and record whether a second movement is committed",
+      "Record the reconciliation delta, the enforcing code node, and the transaction boundary without touching production balances or live provider credentials"
+    ]
+  },
+  "false_positive_filters": [
+    "A check constraint, trigger, or ledger service below the reviewed code already enforces the cumulative bound",
+    "The provider rejects over-refunds for this capture, and the rejection is evidenced rather than assumed",
+    "The amount is server-derived from an immutable record and no caller-controlled value reaches it",
+    "The operation is single-shot by construction because the same atomic write moves the order to a terminal state",
+    "The reviewed path is an internal reconciliation tool whose out-of-band approval is already part of the trusted flow"
+  ],
+  "verification": {
+    "independent_required": true,
+    "required_evidence": [
+      "The bound the code actually enforces, quoted from the reviewed path, next to the invariant it fails to enforce",
+      "The set of writers that can move the same balance, showing the guard is absent from at least one reachable writer",
+      "A safe isolated reproduction in which the cumulative total exceeds the captured amount, with the call sequence recorded",
+      "Monetary impact stated as maximum excess value per captured amount and per unit of time"
+    ],
+    "refutation_tests": [
+      "Search for a lower-layer control — check constraint, unique index on the idempotency key, or ledger service — that would reject the excess movement",
+      "Determine whether reconciliation reverses the excess automatically, which distinguishes delayed detection from realized loss",
+      "Repeat the sequence through every alternate writer, since one guarded path proves nothing about the others",
+      "Reconstruct the amount's provenance to confirm the caller can influence it at all"
+    ]
+  },
+  "root_causes": [
+    "The guard is per-request rather than cumulative: it bounds one operation instead of the sum of committed operations",
+    "The balance is a mutable stored total, so no derivation exists that can be checked against the underlying entries",
+    "The read that establishes the remaining balance and the write that consumes it are in separate transactions",
+    "Partial success leaves committed movements with neither a compensating entry nor a terminal failure state",
+    "Provider events are applied without a uniqueness key, so retries and redeliveries double-apply",
+    "Rounding, currency, or minor-unit conversion differs between the guard and the movement"
+  ],
+  "variant_strategy": {
+    "anchor_fields": ["invariant", "boundary", "action"],
+    "variant_dimensions": ["actor", "object", "identity_state", "enforcement_layer", "sink_kind", "framework"],
+    "result_contract": "EXACT | VARIANT | REFUTED | BLOCKED; exact and variant matches remain hypotheses until verified"
+  },
+  "remediation": {
+    "canonical_invariant": "Derive the remaining allowance from committed entries inside the same locked transaction that appends the new movement, and key every movement so re-application is impossible",
+    "patterns": [
+      "Keep money in an append-only entry table and compute balances as a derivation, never as an in-place mutable total",
+      "Bound each operation by remaining value recomputed from committed movements under a row lock or a conditional update",
+      "Back every movement with an idempotency key and a unique constraint so retries and redeliveries collapse into one entry",
+      "Model multi-step disbursements as explicit state machines with compensating entries, so partial success is a recorded state rather than a silent gap",
+      "Represent amounts as integer minor units with one currency per entry and reject mixed-currency arithmetic at the boundary",
+      "Reconcile provider totals against derived application totals continuously and alert on any non-zero delta"
+    ]
+  },
+  "regression": {
+    "fixture_ids": ["EVAL-MONEY-002", "EVAL-BIZ-001"],
+    "assertions": [
+      "The vulnerable refund variant accepts a second partial refund whose cumulative total exceeds the captured order total",
+      "The remediated refund variant recomputes the remaining refundable balance inside the transaction and rejects the excess",
+      "The vulnerable discount variant applies the same single-use code more than once without recording redemption",
+      "The remediated discount variant records the redeemed code and rejects the replay",
+      "Both remediated variants still complete the first legitimate operation, so a blanket denial cannot pass as a fix"
+    ]
+  },
+  "mappings": {
+    "cwe": ["CWE-840", "CWE-682", "CWE-841"],
+    "owasp": ["OWASP-ASVS:V11", "OWASP-API6:2023", "OWASP-A04:2021"]
+  },
+  "calibration": {
+    "measurement_status": "NOT_MEASURED",
+    "sample_size": 0,
+    "notes": "This pack has not completed a reproducible benchmark run and makes no precision or recall claim."
+  },
+  "limitations": [
+    "Fixture ledgers prove the contract shape; they do not establish how a specific provider behaves under redelivery or partial capture",
+    "Provider-side limits may bound over-refunds independently, so a code-level gap is not by itself established loss",
+    "Cumulative reasoning depends on knowing every writer to a balance, and batch jobs or manual tools are routinely missed",
+    "Currency, tax, and fee models differ enough that the conservation invariant must be restated per product before it can be tested"
+  ]
+}

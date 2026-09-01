@@ -1,0 +1,88 @@
+name: False positive / missed class
+description: Report a finding SecHelix should have refuted, or a real issue it missed
+title: "[fp] "
+labels: ["false-positive", "evidence"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the highest-value contribution to SecHelix. The project's thesis is
+        that findings must be verified before they are asserted — every false
+        positive you report is a chance to make the verification step sharper.
+
+        **Redact before posting.** No secrets, credentials, customer data, real
+        hostnames, or live exploit material.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of miss is this?
+      options:
+        - False positive — SecHelix asserted something that is not exploitable
+        - False negative — SecHelix missed a real, verifiable issue
+        - Wrong applicability — marked NOT_APPLICABLE when it was applicable (or vice versa)
+        - Wrong severity — verified correctly but rated wrong
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: SecHelix version / commit
+      placeholder: 3.0.0-alpha.5 or a commit SHA
+    validations:
+      required: true
+  - type: input
+    id: hypothesis
+    attributes:
+      label: Hypothesis ID (if known)
+      description: The SHX-<FAMILY>-<LENS> ID, from catalog/checks.json.
+      placeholder: SHX-AUTHZ-L07
+  - type: dropdown
+    id: host
+    attributes:
+      label: Agent host
+      options:
+        - Claude Code
+        - OpenAI Codex
+        - GitHub Copilot / VS Code
+        - Cursor
+        - Z.AI / GLM via a coding host
+        - Gemini CLI
+        - OpenCode
+        - Other (say which below)
+    validations:
+      required: true
+  - type: textarea
+    id: claim
+    attributes:
+      label: What did SecHelix claim?
+      description: Paste the finding or the relevant part of the report. Redact first.
+    validations:
+      required: true
+  - type: textarea
+    id: reality
+    attributes:
+      label: What is actually true, and how do you know?
+      description: >
+        The refutation or the proof. Which of attacker control, reachability,
+        boundary failure, or impact does not hold? Or, for a false negative, what
+        makes the issue real?
+    validations:
+      required: true
+  - type: textarea
+    id: minimal
+    attributes:
+      label: Minimal reproducing code
+      description: >
+        The smallest synthetic snippet that triggers the behavior. This is what
+        makes the report actionable — it can usually become an eval fixture directly.
+    validations:
+      required: true
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Confirmations
+      options:
+        - label: This contains no secrets, customer data, or real third-party targets.
+          required: true
+        - label: The reproducing code is synthetic or from a project I own.
+          required: true

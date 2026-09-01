@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0",
+  "lesson_id": "LC-CWE-639",
+  "title": "Object-level authorization at identifier boundaries",
+  "updated_at": "2026-09-01T00:00:00Z",
+  "domains": ["api", "web", "auth"],
+  "summary": "Broken object level authorization becomes plausible when a request-supplied key selects the record, tenant, or file that a handler operates on and the ownership decision is made from that same untrusted value. Verification must establish which identifier actually selects the object, where the decision is enforced, whether the enforcing data is derived from the authenticated subject rather than the request, and which concrete cross-account or cross-tenant object a lower-privileged role can reach.",
+  "detection_signals": [
+    "A path, query, body, or header identifier is passed to a lookup that returns the object before any ownership or tenancy predicate is applied.",
+    "Ownership is decided from request-controlled fields such as an account id, tenant id, or role claim that the caller can set, rather than from the authenticated session.",
+    "Filtering happens in a client, template, response serializer, or list endpoint while the direct fetch, export, update, or delete path skips the same predicate."
+  ],
+  "safe_local_tests": [
+    "Create two fixture principals in different accounts, capture the object identifiers each legitimately owns, and replay one principal's request with the other's identifier against a local instance.",
+    "Repeat the attempt across every verb and representation that touches the object, including read, update, delete, export, bulk endpoints, and any GraphQL or RPC equivalent, because one path often lacks the check.",
+    "Record the request, the authenticated subject, the object identifier, the returned status and body, and whether the response proves cross-subject data exposure rather than a generic error."
+  ],
+  "false_positive_traps": [
+    "An identifier in the URL is not proof of BOLA when a scoped query, row-level policy, or middleware predicate already constrains the lookup to the caller's tenant.",
+    "Unpredictable identifiers such as UUIDs are not an authorization control, but a reachability argument based only on identifier format is speculation until an object is actually retrieved.",
+    "A 200 response can still be authorized when both fixture principals genuinely share the object through a team, delegation, or support role, so the ownership model must be read before calling it a finding."
+  ],
+  "remediation_patterns": [
+    "Resolve the object and its owner in one server-side query that binds the authenticated subject, so an unauthorized identifier cannot return a row at all.",
+    "Enforce the decision at a trusted service or data layer that every entry point shares, instead of duplicating checks per handler where one path will eventually be missed.",
+    "Separate object-level, function-level, and field-level decisions explicitly, and default to deny when the subject, object, or relationship cannot be resolved."
+  ],
+  "regression_proof": [
+    "A test proves the cross-account fetch now fails closed with an authorization outcome while the owning principal's identical request still succeeds.",
+    "Coverage includes each verb, bulk and nested routes, and the field-level projection, so a later handler that reintroduces the unscoped lookup fails the suite."
+  ],
+  "mapping_node_ids": [
+    "CWE-639",
+    "CWE-863",
+    "CWE-285",
+    "OWASP-TOP10-2021-A01",
+    "OWASP-API-2023-API1",
+    "OWASP-ASVS-5.0.0-V8.2.2",
+    "OWASP-ASVS-5.0.0-V8.3.1",
+    "SHX-FAMILY-AUTHZ"
+  ],
+  "source_ids": ["mitre-cwe", "owasp-top-10", "owasp-api-top-10", "owasp-asvs"]
+}

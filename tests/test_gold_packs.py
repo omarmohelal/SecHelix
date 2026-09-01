@@ -96,6 +96,29 @@ class VariantHunterTests(unittest.TestCase):
         results = search_variants(seed(), [refuted, variant, exact])
         self.assertEqual([item["classification"] for item in results], ["EXACT", "VARIANT", "REFUTED"])
 
+    def test_packs_validate_inside_the_portable_bundle(self) -> None:
+        """The portable skill ships gold packs but deliberately not evals/fixtures.
+
+        A pack's regression fixture IDs can only be cross-checked where that corpus
+        exists. If its absence were treated as a violation, every pack would fail
+        inside an installed skill bundle. This runs the real validator against the
+        real shipped tree.
+        """
+        from unittest import mock
+
+        import sechelix_core.contracts as contracts
+
+        bundle = ROOT / "skills" / "sechelix"
+        self.assertTrue((bundle / "gold-packs").is_dir(), "portable bundle ships gold packs")
+        self.assertFalse((bundle / "evals" / "fixtures").is_dir(), "bundle omits the eval corpus")
+
+        packs = sorted((bundle / "gold-packs").glob("*/pack.json"))
+        self.assertTrue(packs)
+        with mock.patch.object(contracts, "ROOT", bundle):
+            for path in packs:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                validate_contract("gold-check-pack", data)
+
     def test_incomplete_signature_is_rejected(self) -> None:
         incomplete = deepcopy(candidate())
         incomplete.pop("invariant")

@@ -9,8 +9,11 @@ large corpus is ingested.
 
 - `source-registry.json` records authority, independence, license state,
   permitted uses, and refresh cadence for every source.
-- `graph/relationships.json` holds versioned CWE, CAPEC, OWASP, ASVS, and
-  SecHelix relationships with explicit provenance.
+- `graph/relationships.json` holds versioned CWE, CAPEC, OWASP Top 10, OWASP API
+  Security Top 10, OWASP Top 10 for LLM Applications, OWASP ASVS, NIST SSDF, and
+  SecHelix family relationships with explicit provenance. Every mapping is a
+  published relationship between standards; uncertain mappings are left out
+  rather than guessed.
 - `lesson-cards/` stores compact detection, safe-test, false-positive,
   remediation, and regression guidance. Cards summarize; they do not mirror
   third-party prose.

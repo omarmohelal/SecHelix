@@ -272,14 +272,19 @@ def _validate_gold_check_pack(data: dict[str, Any], errors: list[str], **_: Any)
     if unknown_hypotheses:
         errors.append(f"$.sources.catalog_hypothesis_ids: unknown hypothesis IDs: {unknown_hypotheses}")
 
-    fixture_ids: set[str] = set()
-    for path in sorted((ROOT / "evals" / "fixtures").glob("*.json")):
-        fixture = load_json(path)
-        if isinstance(fixture, dict) and isinstance(fixture.get("id"), str):
-            fixture_ids.add(fixture["id"])
-    unknown_fixtures = sorted(set(data["regression"]["fixture_ids"]) - fixture_ids)
-    if unknown_fixtures:
-        errors.append(f"$.regression.fixture_ids: unknown fixture IDs: {unknown_fixtures}")
+    # The evaluation corpus is deliberately not part of the portable skill bundle, so a
+    # pack's fixture references can only be cross-checked where that corpus is present.
+    # Treating its absence as a violation would fail every pack inside an installed skill.
+    fixtures_dir = ROOT / "evals" / "fixtures"
+    if fixtures_dir.is_dir():
+        fixture_ids: set[str] = set()
+        for path in sorted(fixtures_dir.glob("*.json")):
+            fixture = load_json(path)
+            if isinstance(fixture, dict) and isinstance(fixture.get("id"), str):
+                fixture_ids.add(fixture["id"])
+        unknown_fixtures = sorted(set(data["regression"]["fixture_ids"]) - fixture_ids)
+        if unknown_fixtures:
+            errors.append(f"$.regression.fixture_ids: unknown fixture IDs: {unknown_fixtures}")
 
     calibration = data["calibration"]
     if calibration["measurement_status"] == "NOT_MEASURED" and calibration["sample_size"] != 0:

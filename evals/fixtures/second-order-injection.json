@@ -1,6 +1,6 @@
 {
   "id": "EVAL-INJ-001",
-  "family": "Second-order Injection",
+  "family": "Injection / Dataflow",
   "task": "Trace whether a stored label later becomes SQL structure rather than a bound value.",
   "provenance": "Synthetic SecHelix fixture; database execution is not included.",
   "variants": {

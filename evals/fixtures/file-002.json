@@ -1,0 +1,29 @@
+{
+  "id": "EVAL-FILE-002",
+  "schema_version": "1.1",
+  "family": "Files / Uploads / Parsers",
+  "task": "Decide whether a caller-supplied name can escape the storage directory.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-22"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "attachment_store.py",
+      "source": "\"\"\"Attachment storage.\"\"\"\n\nimport os\nfrom urllib.parse import unquote\n\nBASE = \"/srv/attachments\"\n\n\ndef save(name, data):\n    if \"..\" in name or name.startswith(\"/\"):\n        raise ValueError(\"invalid name\")\n    # Names arrive percent-encoded from the upload form.\n    decoded = unquote(name)\n    path = os.path.join(BASE, decoded)\n    os.makedirs(os.path.dirname(path), exist_ok=True)\n    with open(path, \"wb\") as handle:\n        handle.write(data)\n    return path\n",
+      "rationale": "The traversal filter rejects '..' before decoding, but the name is then URL-decoded and joined, so an encoded '%2e%2e%2f' survives the check and escapes the base directory."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "attachment_store.py",
+      "source": "\"\"\"Attachment storage.\"\"\"\n\nimport os\nfrom urllib.parse import unquote\n\nBASE = os.path.realpath(\"/srv/attachments\")\n\n\ndef save(name, data):\n    # Decode first, then reduce to a single path component.\n    decoded = unquote(name)\n    leaf = os.path.basename(decoded)\n    if not leaf or leaf in {\".\", \"..\"}:\n        raise ValueError(\"invalid name\")\n    path = os.path.realpath(os.path.join(BASE, leaf))\n    # Containment is asserted on the resolved path, not the input string.\n    if os.path.commonpath([BASE, path]) != BASE:\n        raise ValueError(\"path escapes storage root\")\n    with open(path, \"wb\") as handle:\n        handle.write(data)\n    return path\n",
+      "rationale": "The name is decoded first, reduced to its basename, and the resolved path is asserted to stay inside the base directory before any write."
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "id": "EVAL-AI-002",
+  "schema_version": "1.1",
+  "family": "AI / Agent / MCP",
+  "task": "Decide whether untrusted retrieved content can drive a privileged tool call.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-77"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "agent_loop.py",
+      "source": "\"\"\"Support agent loop.\"\"\"\n\nTOOLS = {\n    \"search_docs\": lambda args, ctx: ctx[\"index\"].search(args[\"q\"]),\n    \"send_email\": lambda args, ctx: ctx[\"mailer\"].send(args[\"to\"], args[\"body\"]),\n    \"delete_records\": lambda args, ctx: ctx[\"db\"].delete(args[\"table\"], args[\"where\"]),\n}\n\n\ndef run(operator_prompt, ticket, model, ctx):\n    fetched = ctx[\"index\"].fetch(ticket[\"url\"])\n    # Give the model everything it needs in one context.\n    prompt = f\"{operator_prompt}\\n\\nTicket: {ticket['body']}\\n\\nReference:\\n{fetched}\"\n\n    for _ in range(5):\n        step = model.next_step(prompt)\n        if step[\"type\"] == \"final\":\n            return step[\"text\"]\n        tool = TOOLS[step[\"tool\"]]\n        result = tool(step[\"args\"], ctx)\n        prompt += f\"\\n\\nTool {step['tool']} returned: {result}\"\n    return \"step limit reached\"\n",
+      "rationale": "Retrieved document text is concatenated into the same instruction context as the operator prompt and the tool dispatcher honours any tool the model names, so injected text in a fetched page can invoke the privileged delete_records tool."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "agent_loop.py",
+      "source": "\"\"\"Support agent loop.\"\"\"\n\nREAD_ONLY_TOOLS = {\n    \"search_docs\": lambda args, ctx: ctx[\"index\"].search(args[\"q\"]),\n}\nPRIVILEGED_TOOLS = {\n    \"send_email\": lambda args, ctx: ctx[\"mailer\"].send(args[\"to\"], args[\"body\"]),\n    \"delete_records\": lambda args, ctx: ctx[\"db\"].delete(args[\"table\"], args[\"where\"]),\n}\n\n\ndef run(operator_prompt, ticket, model, ctx, allowed_tools=frozenset({\"search_docs\"})):\n    fetched = ctx[\"index\"].fetch(ticket[\"url\"])\n    # Untrusted content is data, never instructions, and is fenced as such.\n    prompt = model.build_prompt(\n        system=operator_prompt,\n        untrusted={\"ticket_body\": ticket[\"body\"], \"reference_document\": fetched},\n    )\n\n    for _ in range(5):\n        step = model.next_step(prompt)\n        if step[\"type\"] == \"final\":\n            return step[\"text\"]\n        name = step[\"tool\"]\n        if name not in allowed_tools:\n            prompt = model.append_tool_error(prompt, name, \"tool not permitted in this run\")\n            continue\n        tool = READ_ONLY_TOOLS.get(name) or PRIVILEGED_TOOLS[name]\n        result = tool(step[\"args\"], ctx)\n        prompt = model.append_tool_result(prompt, name, result)\n    return \"step limit reached\"\n",
+      "rationale": "Untrusted content is passed as clearly delimited data rather than instructions, and the dispatcher enforces a per-run allowlist so retrieved text cannot reach a privileged tool."
+    }
+  }
+}

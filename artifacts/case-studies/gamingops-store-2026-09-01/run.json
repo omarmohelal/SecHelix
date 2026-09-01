@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "case_study": "gamingops-store-2026-09-01",
+  "authorization": "Repository owner auditing their own private repository.",
+  "target": {
+    "repository": "omarmohelal/gamingops-store",
+    "visibility": "private",
+    "baseline_commit": "06ab8ca680d477b8005805d67ab44d11507e3321",
+    "remediation_commit": "6d4de0c4ef7164d57c19bd98d65bc42c4115b030",
+    "remediation_reference": "https://github.com/omarmohelal/gamingops-store/pull/2"
+  },
+  "sechelix": {
+    "commit": "b0b5adbb57389e7f5f47a990a21683147aeba754",
+    "version": "3.0.0-alpha.4"
+  },
+  "execution": {
+    "modes": [
+      "STATIC",
+      "LOCAL"
+    ],
+    "agent_host": "Claude Code",
+    "scanners_enabled": [],
+    "external_systems_contacted": "none"
+  },
+  "tools": [
+    {
+      "name": "next",
+      "version": "16.2.7"
+    },
+    {
+      "name": "vitest",
+      "version": "3.2.7"
+    },
+    {
+      "name": "chromium",
+      "version": "playwright-mcp"
+    },
+    {
+      "name": "curl",
+      "version": "8.x"
+    }
+  ],
+  "outcome": {
+    "candidates": 3,
+    "verified": 1,
+    "refuted": 2,
+    "fixed": 1,
+    "regression_tests_added": 10,
+    "release_decision": "PASS"
+  },
+  "measurement_disclaimer": "One authorized audit of one small application. This is not a benchmark and implies no general accuracy claim."
+}

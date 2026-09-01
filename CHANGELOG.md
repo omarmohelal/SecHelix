@@ -2,6 +2,57 @@
 
 All notable changes to SecHelix are documented here.
 
+## [3.0.0-alpha.5] - 2026-09-01
+
+### Credibility and evidence program
+
+- Reconciled the report contract with the renderer, gates, and examples so a
+  report that validates also renders and gates identically.
+- Made the release gate **fail closed**: missing required evidence now yields
+  `INCOMPLETE` rather than a silent pass, and `UNKNOWN`/`BLOCKED` can no longer
+  be converted into `NOT_APPLICABLE`.
+- Fixed the blind-eval path so cases can be exported without ground truth and
+  scored separately, and recorded the `CONTAMINATED_EVALUATOR` blocker that
+  keeps the public benchmark at `NOT_MEASURED`.
+- Validated the scoring harness with a naive keyword baseline
+  (`evals/results/baseline-keyword-v1.json`), explicitly flagged
+  `is_sechelix_result: false`. It lands at chance on the balanced suite, which
+  evidences fixture difficulty and says nothing about SecHelix.
+- Expanded the eval suite to **19 paired fixtures — 38 cases across 11
+  families**, and corrected a stale family count in the `NOT_MEASURED` record.
+- Grew Gold Check Packs from one to **five** (IDOR, SSRF, race/idempotency,
+  money invariants, AI/MCP tool authority).
+- Expanded the knowledge graph to **73 nodes and 96 edges** with **7 lesson
+  cards**, all provenance-backed.
+- Published the **first real case study**
+  (`docs/case-studies/gamingops-store-2026-09-01.md`) with its evidence
+  artifacts: one MEDIUM clickjacking finding verified, fixed, and
+  regression-proved, and one plausible HIGH-severity XSS candidate **refuted**
+  by independent verification.
+
+### Packaging and compatibility
+
+- Added `version` and `displayName` to `.claude-plugin/plugin.json`; the
+  manifest now passes `claude plugin validate` with no version warning.
+- Rewrote `COMPATIBILITY.md` around a four-value status vocabulary
+  (`VERIFIED` / `DOCUMENTED` / `MODEL_COMPATIBLE` / `UNVERIFIED`), added a
+  "How this was tested" record, and added a row for the Claude Code plugin path.
+- Downgraded the repository-local `.codex/skills/` claim to `UNVERIFIED`: Codex
+  documents `.agents/skills/` for repositories and `~/.codex/skills/` for global
+  skills, so the `.codex/` directory is a mirror, not a discovery path.
+- Documented why no `.claude-plugin/marketplace.json` is shipped: a marketplace
+  manifest in the same directory shadows plugin validation.
+- Fixed a dangling relative link that broke `check_local_links.py` inside the
+  portable bundle.
+- Removed a README badge that linked to a 404 and added an honest
+  `benchmark: NOT_MEASURED` badge.
+
+### Documentation
+
+- Rebuilt `README.md` around proof, limitations, and adoption questions.
+- Backfilled the missing `docs/releases/3.0.0-alpha.3.md`.
+- Added `docs/launch/` drafts, all marked as requiring human review.
+
 ## [3.0.0-alpha.4] - 2026-09-01
 
 ### V2 Pro release polish

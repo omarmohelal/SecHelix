@@ -124,6 +124,35 @@
       "freshness": {"cadence": "RELEASE", "max_age_days": 95, "reviewed_at": "2026-09-01T00:00:00Z"}
     },
     {
+      "id": "owasp-llm-top-10",
+      "name": "OWASP Top 10 for Large Language Model Applications",
+      "publisher": "OWASP Foundation",
+      "independence_group": "owasp",
+      "trust_tier": "S",
+      "source_class": "CANONICAL_STANDARD",
+      "domains": ["ai-security", "classification"],
+      "canonical_url": "https://owasp.org/www-project-top-10-for-large-language-model-applications/",
+      "terms_url": "https://owasp.org/www-policy/operational/general-disclaimer.html",
+      "access_mode": "WEB",
+      "license": {
+        "status": "PROJECT_SPECIFIC",
+        "expression": "NOASSERTION",
+        "attribution_required": true,
+        "per_artifact_review": true,
+        "note": "Registered at the most restrictive posture pending a maintainer rights review: normalized entry names and mappings only, no crawling, storage, embeddings, training, or evaluation. Verify the exact release and repository license before copying or redistributing content."
+      },
+      "allowed_uses": {
+        "automated_retrieval": false,
+        "normalized_facts": true,
+        "full_text_storage": false,
+        "embeddings": false,
+        "model_training": false,
+        "model_evaluation": false,
+        "human_reference": true
+      },
+      "freshness": {"cadence": "RELEASE", "max_age_days": 95, "reviewed_at": "2026-09-01T00:00:00Z"}
+    },
+    {
       "id": "owasp-asvs",
       "name": "OWASP Application Security Verification Standard 5",
       "publisher": "OWASP Foundation",

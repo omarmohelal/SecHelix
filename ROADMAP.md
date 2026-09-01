@@ -2,7 +2,15 @@
 
 SecHelix should earn trust through evals before adding complexity.
 
-## v2.1 — portable public foundation
+> **Maturity: public alpha (`3.0.0-alpha.5`).**
+> Sections marked *complete* describe shipped repository capability, not measured
+> accuracy. The public benchmark is **`NOT_MEASURED`** and the blocker is
+> recorded in [`evals/results/not-measured.json`](evals/results/not-measured.json).
+> SecHelix does not claim a winning model, provider, or scanner.
+> No dates are published for future milestones; a single maintainer sequences
+> this work, and inventing a schedule would be its own dishonest claim.
+
+## v2.1 — portable public foundation — complete
 
 - canonical evidence-first skill;
 - Claude/OpenAI/Codex/generic adapters;
@@ -59,22 +67,46 @@ SecHelix should earn trust through evals before adding complexity.
 - curated community extension lifecycle with contract, safety, fixture, and maintainer gates.
 - rights-aware source registry with executable restrictions for human-only curricula;
 - deterministic live-research confidence and a provenance-backed graph/lesson-card seed.
-- one authorization Gold Check reference pack and deterministic Variant Hunter
+- Gold Check reference packs (one at 3.0.0-alpha.4, five as of 3.0.0-alpha.5)
+  and a deterministic Variant Hunter
   classification foundation;
 - V2 Pro overview, Evidence Workbench, Attack Surface, Authorization Matrix,
   Variant Analysis, Benchmark Lab, and Command Center product surfaces.
 
-## v3.1 — expert knowledge engine
+## v3.1 — expert knowledge engine and credibility program — in progress
 
-- pin and rights-review selected NIST SARD suites and OWASP Benchmark repositories;
-- build reproducible importers that preserve origin, revision, license, and attribution;
-- expand CWE ↔ CAPEC ↔ OWASP ↔ ASVS graph coverage from verified release mappings;
-- add framework, database, cloud, container, supply-chain, and AI-security lesson cards;
-- run isolated vulnerable/clean evals and publish only reproducible measurements;
-- add eight cumulative exam levels with de-identified mistake-class memory.
+Status is per item. Nothing here is marked done without an artifact in the
+repository.
 
-Benchmark rows remain `NOT_MEASURED`; the alpha does not claim a winning model,
-provider, or scanner.
+- **done** — expand CWE ↔ CAPEC ↔ OWASP ↔ ASVS graph coverage from verified
+  release mappings (73 nodes, 96 edges, provenance-backed);
+- **done** — grow Gold Check Packs from one to five: IDOR, SSRF,
+  race/idempotency, money invariants, AI/MCP tool authority;
+- **done** — reconcile the report contract with the renderer, gates, and
+  examples;
+- **done** — make the release gate fail closed on missing required evidence;
+- **done** — fix the blind-eval export/score path and record the
+  `CONTAMINATED_EVALUATOR` blocker instead of publishing a contaminated score;
+- **done** — validate the scoring harness with a keyword baseline that is
+  explicitly not a SecHelix result;
+- **done** — publish the first real end-to-end case study with artifacts,
+  including a refuted candidate;
+- **partial** — expand paired vulnerable/clean fixtures (now 19 fixtures /
+  38 cases / 11 families; more families and more per-family depth still needed);
+- **partial** — add framework, database, cloud, container, supply-chain, and
+  AI-security lesson cards (7 cards exist, all CWE-anchored; the
+  framework/cloud/container set is not started);
+- **not started** — pin and rights-review selected NIST SARD suites and OWASP
+  Benchmark repositories;
+- **not started** — build reproducible importers that preserve origin,
+  revision, license, and attribution;
+- **not started** — run an uncontaminated eval and publish the first
+  reproducible measurement;
+- **not started** — eight cumulative exam levels with de-identified
+  mistake-class memory.
+
+The one item that unblocks every benchmark row is the uncontaminated eval run.
+Until it exists, benchmark status stays `NOT_MEASURED`.
 
 ## v3.x — orchestration platform (optional)
 

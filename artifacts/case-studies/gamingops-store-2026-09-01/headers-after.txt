@@ -1,0 +1,20 @@
+HTTP/1.1 200 OK
+Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+X-Frame-Options: DENY
+X-Content-Type-Options: nosniff
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: camera=(), geolocation=(), microphone=(), payment=(), usb=()
+Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+Cross-Origin-Opener-Policy: same-origin
+Vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Accept-Encoding
+x-nextjs-cache: STALE
+x-nextjs-prerender: 1
+x-nextjs-stale-time: 300
+Cache-Control: s-maxage=60, stale-while-revalidate=31535940
+ETag: "4ov58hcp5yljw"
+Content-Type: text/html; charset=utf-8
+Content-Length: 28154
+Date: Tue, 01 Sep 2026 14:21:27 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+

@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "lesson_id": "LC-CWE-494",
+  "title": "Unverified integrity on code, dependency, and update delivery paths",
+  "updated_at": "2026-09-01T00:00:00Z",
+  "domains": ["supply-chain", "web"],
+  "summary": "An integrity failure becomes plausible when the application, build, or runtime obtains executable content and uses it without verifying that it is the artifact the project intended. Verification must establish which channel delivers the artifact, what identity or digest is checked and by whom, whether the check happens before execution, and what the artifact can do once it runs, rather than treating any remote fetch as an automatic finding.",
+  "detection_signals": [
+    "Build, install, deploy, or runtime code fetches an archive, binary, container image, plugin, model, or script and executes it without a pinned digest, signature check, or verified checksum.",
+    "Externally hosted client-side assets are included without Subresource Integrity or version pinning, so the served content can change without the application noticing.",
+    "Dependency resolution can be redirected by mutable tags, unpinned ranges, a registry mirror, or a name that could be claimed in a public index ahead of the intended internal package."
+  ],
+  "safe_local_tests": [
+    "Reproduce the fetch in an isolated local environment against a fixture artifact server and confirm whether a deliberately altered artifact is rejected before it is unpacked or executed.",
+    "Verify from the code path, not from documentation, that the digest or signature check runs before execution and that a verification failure aborts rather than warns and continues.",
+    "Record the artifact source, the expected identity or digest, the verification outcome, and the privileges the artifact would run with, keeping all substitution tests inside the local fixture environment."
+  ],
+  "false_positive_traps": [
+    "Transport encryption authenticates the server, not the artifact, so an HTTPS download is not an integrity check on the content it delivers.",
+    "A lock file with a recorded hash is only a control when the installer actually enforces it, and an install path that regenerates or ignores the lock file reopens the gap.",
+    "An internal registry or private mirror narrows who can publish but does not by itself prove that the consumed artifact matched the intended digest at install time."
+  ],
+  "remediation_patterns": [
+    "Pin artifacts by immutable digest and verify a signature or checksum from a source independent of the delivery channel before the content is unpacked, loaded, or executed.",
+    "Fail closed on verification errors in build, deploy, and runtime paths, and record the verified identity so the deployed artifact can be traced back to its release.",
+    "Add Subresource Integrity and version pinning for externally hosted client-side assets, and prefer vendoring or an internally controlled mirror for content on a privileged execution path."
+  ],
+  "regression_proof": [
+    "A test proves that a modified fixture artifact is rejected before execution while the correctly signed or hashed artifact still installs and runs.",
+    "Coverage includes the client-side asset integrity attribute and the dependency resolution path, so removing a pin or verification step fails the suite."
+  ],
+  "mapping_node_ids": [
+    "CWE-494",
+    "CAPEC-186",
+    "OWASP-TOP10-2021-A08",
+    "OWASP-ASVS-5.0.0-V3.6.1",
+    "NIST-SSDF-PS.2",
+    "SHX-FAMILY-SUPPLY"
+  ],
+  "source_ids": ["mitre-cwe", "mitre-capec", "owasp-top-10", "owasp-asvs", "nist-ssdf"]
+}

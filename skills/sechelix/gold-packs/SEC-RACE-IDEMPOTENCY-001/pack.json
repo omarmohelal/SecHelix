@@ -1,0 +1,196 @@
+{
+  "schema_version": "1.0",
+  "id": "SEC-RACE-IDEMPOTENCY-001",
+  "version": "0.1.0",
+  "title": "Single-use state transitions under concurrency and replay",
+  "lifecycle": "REFERENCE",
+  "threat_model": {
+    "actor": "Any caller able to issue the same logical request twice, including an automatic client retry, a proxy, a queue, or a provider redelivery",
+    "asset": "Single-use resources and exactly-once side effects such as vouchers, invitations, seats, quotas, and outbound charges",
+    "trust_boundary": "Observed resource state to the write that consumes it",
+    "failure_mode": "A check-then-act sequence reads an unconsumed state and commits the consumption in a separate, unserialized step",
+    "impact": "Two or more executions each observe the resource as available, so a single-use resource is consumed repeatedly or an external side effect is duplicated"
+  },
+  "applicability": {
+    "capability_tags": ["idempotency", "concurrency", "single_use_resource", "retry_handling", "exactly_once_effect"],
+    "rule": "ANY_CAPABILITY_PRESENT",
+    "required_evidence": [
+      "A resource or side effect is intended to occur at most once per logical identifier",
+      "The same operation can be triggered concurrently or repeated by a client retry, proxy replay, queue redelivery, or provider callback"
+    ]
+  },
+  "framework_fingerprints": [
+    {
+      "framework": "generic-transactional-service",
+      "versions": ["any"],
+      "signals": [
+        "A read that establishes a consumed flag is followed by a separate write that sets it",
+        "The mutating statement carries no conditional predicate, row lock, or unique constraint expressing the precondition",
+        "The configured isolation level is weaker than the serializable behaviour the code assumes"
+      ]
+    },
+    {
+      "framework": "http-api",
+      "versions": ["any"],
+      "signals": [
+        "A request that causes an external effect accepts no idempotency key, or accepts one with no uniqueness constraint behind it",
+        "A retry policy exists in the client, gateway, or mesh while the server treats every attempt as a new request"
+      ]
+    },
+    {
+      "framework": "event-consumer",
+      "versions": ["any"],
+      "signals": [
+        "A queue or webhook handler applies an event without recording the event id as consumed",
+        "Delivery is at-least-once by design while the handler is written as if it were exactly-once"
+      ]
+    },
+    {
+      "framework": "python-synthetic-fixture",
+      "versions": ["3.x"],
+      "signals": [
+        "A voucher redemption reads the redeemed field and updates it in a second statement",
+        "A charge helper checks a processed marker before calling the provider and writes it afterwards"
+      ]
+    }
+  ],
+  "sources": {
+    "source_ids": ["mitre-cwe", "mitre-capec", "owasp-asvs"],
+    "catalog_hypothesis_ids": ["SHX-RACE-L10", "SHX-RACE-L11", "SHX-RACE-L13", "SHX-MONEY-L10"],
+    "references": [
+      "https://cwe.mitre.org/data/definitions/367.html",
+      "https://cwe.mitre.org/data/definitions/362.html",
+      "https://capec.mitre.org/data/definitions/29.html",
+      "https://owasp.org/www-project-application-security-verification-standard/"
+    ]
+  },
+  "boundary": {
+    "type": "SINGLE_USE_TRANSITION",
+    "subject": "the execution attempting the transition, identified by its logical request",
+    "object": "a resource whose consumed state may change at most once",
+    "action": "CONSUME",
+    "invariant": "At most one execution may commit the consumption, and every repeat of the same logical request converges on that first committed outcome"
+  },
+  "sinks": [
+    {"kind": "STATE_TRANSITION_WRITE", "examples": ["Voucher redemption update", "Seat assignment", "Invitation acceptance"]},
+    {"kind": "EXTERNAL_SIDE_EFFECT", "examples": ["Provider charge call", "Outbound email or message", "Shipment creation"]},
+    {"kind": "COUNTER_DECREMENT", "examples": ["Inventory decrement", "Quota or rate consumption", "Balance debit"]},
+    {"kind": "EVENT_CONSUMER", "examples": ["Queue message handler", "Provider webhook handler", "Scheduled job that claims work"]}
+  ],
+  "detection_layers": [
+    {
+      "layer": "STATIC",
+      "signals": [
+        "Locate every read that establishes a precondition and check whether the dependent write re-asserts that precondition in its own predicate",
+        "Follow the transaction boundary: where it opens, where it commits, and whether the precondition read sits inside it",
+        "Identify the replay sources above the handler — client libraries, gateways, queues, provider redelivery — that can repeat one logical request"
+      ]
+    },
+    {
+      "layer": "CONTRACT",
+      "signals": [
+        "State the correct outcome of two simultaneous identical requests, then ask whether the code can produce any other outcome",
+        "Separate at-most-once from at-least-once: an external effect needs a durable claim before the effect and a durable record after it",
+        "Enumerate the outcome-unknown states — timeout, crash between effect and record — and decide what the next attempt must do"
+      ]
+    },
+    {
+      "layer": "DATA",
+      "signals": [
+        "Check for a unique constraint or primary key that would make the duplicate physically impossible regardless of application code",
+        "Check the deployed isolation level against the guarantees the code depends on",
+        "Check whether the idempotency key is stable across attempts of one logical request or regenerated per attempt"
+      ]
+    },
+    {
+      "layer": "LOCAL_RUNTIME",
+      "signals": [
+        "Release identical executions from one barrier against an isolated fixture and count committed transitions and recorded side effects",
+        "Repeat the same logical request after an injected timeout or a simulated crash between the effect and its record, then count again"
+      ]
+    }
+  ],
+  "validation": {
+    "default_mode": "LOCAL",
+    "destructive_actions": false,
+    "production_mutation": false,
+    "steps": [
+      "Confirm explicit authorization and build an isolated fixture whose provider stub counts side effects instead of causing them",
+      "Record the single-execution baseline so a concurrent result can be compared with a known-good outcome",
+      "Release several identical executions from a shared barrier and count committed transitions and recorded side effects",
+      "Repeat the request after an injected timeout or simulated crash between the effect and its record, then count again",
+      "Record the isolation level, the guarding predicate, and the observed counts without using production credentials or live provider endpoints"
+    ]
+  },
+  "false_positive_filters": [
+    "A unique constraint, primary key, or conditional update already makes the second commit impossible and the code merely reports the failure poorly",
+    "The provider enforces idempotency on the key it receives, and the evidence shows that key is derived per logical request rather than per attempt",
+    "The resource is single-writer by construction, for example a partitioned consumer holding an exclusive lease",
+    "The duplicate effect is naturally idempotent, for example a write that sets a field to a constant value",
+    "An upstream serializing lock is evidenced, so the window is not reachable from a caller-controlled entrypoint"
+  ],
+  "verification": {
+    "independent_required": true,
+    "required_evidence": [
+      "The precondition read and the dependent write quoted together with the transaction and isolation context between them",
+      "Evidence that one logical request can be executed twice, whether by the caller, a retry layer, or a redelivery",
+      "A safe isolated reproduction counting more than one committed consumption or side effect for one logical request",
+      "The concrete impact of the duplicate: value moved twice, quota bypassed, or an exactly-once contract broken downstream"
+    ],
+    "refutation_tests": [
+      "Inspect the schema and migrations for unique constraints, and the query for conditional predicates that would collapse the race independent of application code",
+      "Run the same reproduction against a known-correct path to confirm the harness can tell a real duplicate from a flaky fixture",
+      "Vary the duplication vector across concurrency, retry, and redelivery, since a control against one does not imply a control against the others",
+      "Check whether the downstream provider deduplicates on a key that is stable across attempts before treating the duplicate as reachable"
+    ]
+  },
+  "root_causes": [
+    "Check-then-act: the precondition is evaluated in application memory and the committing write never re-asserts it",
+    "The idempotency record is written after the external effect, leaving a window in which the effect exists and the record does not",
+    "The idempotency key is derived per attempt rather than per logical request, so retries present as new requests",
+    "The code assumes serializable isolation while the deployment runs a weaker default",
+    "Uniqueness is enforced only by an application-level lookup with no constraint in the store",
+    "Timeout and crash are treated as failure, so the next attempt repeats an effect that already succeeded"
+  ],
+  "variant_strategy": {
+    "anchor_fields": ["invariant", "boundary", "action"],
+    "variant_dimensions": ["actor", "object", "identity_state", "enforcement_layer", "sink_kind", "framework"],
+    "result_contract": "EXACT | VARIANT | REFUTED | BLOCKED; exact and variant matches remain hypotheses until verified"
+  },
+  "remediation": {
+    "canonical_invariant": "Make the precondition part of the committing write — a conditional update, a unique constraint, or a claim row — and decide the outcome from that write's own result",
+    "patterns": [
+      "Claim first, act second, finalize last: write a claim keyed by the logical request before causing an external effect and complete it afterwards",
+      "Carry the precondition in the write predicate and treat the affected-row count as the authoritative decision",
+      "Back every idempotency key with a unique constraint so duplicates are rejected by the store rather than by a prior read",
+      "Derive the idempotency key from the logical request so every retry reuses it, and forward that key to the downstream provider",
+      "Model timeout and crash as an explicit outcome-unknown state reconciled against the provider instead of retried blindly",
+      "Where an effect cannot be made idempotent, serialize on a lease or a single-consumer partition and document the throughput cost"
+    ]
+  },
+  "regression": {
+    "fixture_ids": ["EVAL-RACE-002", "EVAL-RACE-001"],
+    "assertions": [
+      "The vulnerable voucher variant lets two concurrent redemptions both observe an unredeemed voucher and both credit a wallet",
+      "The remediated voucher variant claims with a conditional update so exactly one concurrent caller succeeds",
+      "The vulnerable charge variant calls the provider twice when the same request is retried before its record is durable",
+      "The remediated charge variant holds an idempotency claim and returns the first committed result on retry",
+      "Remediated variants still complete the first legitimate execution, so a blanket denial cannot pass as a fix"
+    ]
+  },
+  "mappings": {
+    "cwe": ["CWE-367", "CWE-362", "CWE-837"],
+    "owasp": ["OWASP-ASVS:V11", "OWASP-A04:2021", "OWASP-API6:2023"]
+  },
+  "calibration": {
+    "measurement_status": "NOT_MEASURED",
+    "sample_size": 0,
+    "notes": "This pack has not completed a reproducible benchmark run and makes no precision or recall claim."
+  },
+  "limitations": [
+    "A negative concurrency reproduction is weak evidence: the window may exist and simply be hard to hit on the test machine",
+    "Fixture timing does not represent production scheduling, connection pooling, or database isolation defaults",
+    "Store-level constraints often live in migrations that are not visible from the reviewed code path",
+    "Idempotency correctness ultimately depends on downstream provider semantics that this pack cannot establish"
+  ]
+}

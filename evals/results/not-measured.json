@@ -26,5 +26,48 @@
     "false_positive_rate": "NOT_MEASURED",
     "duplicate_root_cause_rate": "NOT_MEASURED"
   },
-  "scanner_contribution": "NOT_MEASURED"
+  "scanner_contribution": "NOT_MEASURED",
+  "blocker": {
+    "reason": "CONTAMINATED_EVALUATOR",
+    "statement": "No uncontaminated SecHelix run exists yet. The fixture suite was expanded on 2026-09-01 by the same assistant session that would have acted as the evaluated model, so that session had prior knowledge of 11 of the 19 fixtures. Scoring it would measure recall of authored answers, not security-review capability.",
+    "what_would_unblock_it": [
+      "A run by a model or session that did not author the fixtures.",
+      "Export blind cases with `python evals/run_evals.py --export-cases work/blind-cases.json`.",
+      "Produce predictions without access to this repository's evals/fixtures directory.",
+      "Score with `python evals/run_evals.py --predictions work/predictions.json --output work/result.json`.",
+      "Record every field in the run object, including sechelix_commit and agent_host."
+    ],
+    "harness_status": "VALIDATED — see evals/results/baseline-keyword-v1.json"
+  },
+  "fixture_suite": {
+    "fixture_count": 19,
+    "case_count": 38,
+    "families": 10,
+    "family_ids": [
+      "AI",
+      "AUTH",
+      "AUTHZ",
+      "BIZ",
+      "FILE",
+      "INJ",
+      "MONEY",
+      "RACE",
+      "SSRF",
+      "SUPPLY",
+      "WEB"
+    ],
+    "note": "Counts describe the available suite; they are not a measurement. `families` counts distinct catalog family segments in the fixture IDs (EVAL-<FAMILY>-<n>), not the free-text `family` label on each fixture.",
+    "family_names": [
+      "Authorization / BOLA / BFLA",
+      "Authentication / Sessions",
+      "Injection / Dataflow",
+      "Browser / XSS",
+      "SSRF / URL Fetching",
+      "Files / Uploads / Parsers",
+      "Business Logic / Payments",
+      "Race / Idempotency / Replay",
+      "Secrets / Supply Chain",
+      "AI / Agent / MCP"
+    ]
+  }
 }

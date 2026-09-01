@@ -1,0 +1,19 @@
+# Baseline response headers — gamingops-store @ 06ab8ca (pre-fix production build)
+# Captured LOCAL: curl -sI http://localhost:3006/
+HTTP/1.1 200 OK
+Vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Accept-Encoding
+x-nextjs-cache: HIT
+x-nextjs-prerender: 1
+x-nextjs-stale-time: 300
+X-Powered-By: Next.js
+Cache-Control: s-maxage=60, stale-while-revalidate=31535940
+Content-Type: text/html; charset=utf-8
+
+# Security header presence check
+MISSING: content-security-policy
+MISSING: x-frame-options
+MISSING: x-content-type-options
+MISSING: referrer-policy
+MISSING: strict-transport-security
+MISSING: permissions-policy
+PRESENT (leak): x-powered-by
