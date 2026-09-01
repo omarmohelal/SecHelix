@@ -127,6 +127,32 @@ class SafetyTests(unittest.TestCase):
                 with self.assertRaises(PatchModeError):
                     propose([f])
 
+    def test_a_reserved_device_name_is_refused(self):
+        """On Windows "work/patches/NUL.patch" is the null device: written, then gone."""
+        for device in ["NUL", "CON", "PRN", "AUX", "COM1", "LPT1", "nul", "Con.patch"]:
+            with self.subTest(device):
+                with self.assertRaises(PatchModeError):
+                    propose([finding(fid=device)])
+
+    def test_a_trailing_dot_is_refused(self):
+        """Windows strips trailing dots, so "F1." and "F1" collide silently."""
+        for hostile in ["SHX-F-1.", "SHX-F-1.."]:
+            with self.subTest(hostile):
+                with self.assertRaises(PatchModeError):
+                    propose([finding(fid=hostile)])
+
+    def test_surrounding_whitespace_is_normalized_rather_than_refused(self):
+        """propose() strips the id, so " F1 " and "F1" are the same finding."""
+        proposal = propose([finding(fid="  SHX-F-1  ")]).proposals[0]
+        self.assertEqual(proposal.finding_id, "SHX-F-1")
+        self.assertEqual(proposal.patch_path, "work/patches/SHX-F-1.patch")
+
+    def test_an_ordinary_id_containing_a_device_substring_is_allowed(self):
+        """The guard must not reject legitimate ids like CONFIG or NULLABLE."""
+        for benign in ["CONFIG-1", "NULLABLE-CHECK", "COMPARE-2", "AUXILIARY"]:
+            with self.subTest(benign):
+                self.assertEqual(len(propose([finding(fid=benign)]).proposals), 1)
+
     def test_writing_touches_only_the_output_directory(self):
         written: dict[str, str] = {}
         patch_set = propose([finding()], diffs={"SHX-F-1": DIFF}, output_dir="work/out")

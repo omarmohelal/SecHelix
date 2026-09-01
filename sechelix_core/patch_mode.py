@@ -115,19 +115,45 @@ class PatchSet:
 
 _SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$")
 
+#: Windows resolves these as devices no matter the directory or extension, so
+#: "work/patches/NUL.patch" is the null device and the patch is discarded while
+#: the caller is told it was written. The check is unconditional rather than
+#: platform-gated: a report is portable, and a name that is unsafe on one target
+#: should not be accepted on another.
+_RESERVED_DEVICES = frozenset({
+    "CON", "PRN", "AUX", "NUL",
+    *(f"COM{n}" for n in range(1, 10)),
+    *(f"LPT{n}" for n in range(1, 10)),
+})
+
 
 def _safe_stem(finding_id: str) -> str:
-    """Reject anything that could escape the output directory.
+    """Reject anything that could escape the output directory or resolve elsewhere.
 
     Finding ids reach this from a report, and a report can come from an untrusted
     repository. A finding_id of "../../.ssh/authorized_keys" must never become a
-    write path.
+    write path, and one of "NUL" must never become a silent discard.
     """
     if not _SAFE_ID.match(finding_id):
         raise PatchModeError(f"unsafe finding_id for a filename: {finding_id!r}")
+
     stem = PurePosixPath(finding_id).name
     if stem in {"", ".", ".."} or stem != finding_id:
         raise PatchModeError(f"unsafe finding_id for a filename: {finding_id!r}")
+
+    # Windows strips trailing dots and spaces, so "F1." and "F1" collide and one
+    # proposal silently overwrites the other.
+    if finding_id != finding_id.rstrip(". "):
+        raise PatchModeError(
+            f"finding_id ends with a dot or space, which collides after normalization: "
+            f"{finding_id!r}"
+        )
+
+    if finding_id.split(".")[0].upper() in _RESERVED_DEVICES:
+        raise PatchModeError(
+            f"finding_id resolves to a reserved device name and would be discarded rather "
+            f"than written: {finding_id!r}"
+        )
     return stem
 
 
