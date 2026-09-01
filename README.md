@@ -280,7 +280,7 @@ See [SECURITY.md](SECURITY.md).
 
 SecHelix has **no measured accuracy number**, and the reason is written down rather than glossed over.
 
-**The blocker is `CONTAMINATED_EVALUATOR`.** The fixture suite was expanded on 2026-09-01 by the same assistant session that would have acted as the evaluated model, so that session knew fixtures it had written itself. Scoring it would measure recall of authored answers, not security-review capability. Full record: [`evals/results/not-measured.json`](evals/results/not-measured.json).
+**The blocker is `CONTAMINATED_EVALUATOR`.** The fixture suite was expanded on 2026-09-01 by the same assistant session that would have acted as the evaluated model, so that session knew fixtures it had written itself. Scoring it would measure recall of authored answers, not security-review capability. Full record: [`evals/results/not-measured.json`](evals/results/not-measured.json). If you want to produce the first real number, the whole procedure is [`evals/blind-packet/RUN.md`](evals/blind-packet/RUN.md) — one file to download, and the result gets published whichever way it comes out.
 
 Unblocking it requires a run by a model or session that did not author the fixtures, using blind cases exported with `python evals/run_evals.py --export-cases`.
 

@@ -10,6 +10,11 @@ these conditions.
 
 ---
 
+## Running it
+
+**[`RUN.md`](RUN.md) is the one-command procedure.** Send that link to whoever will run the
+evaluation; it is written for a fresh session and needs nothing from this page.
+
 ## Why this exists
 
 The fixture suite was authored by assistant sessions working on this repository. Those sessions
