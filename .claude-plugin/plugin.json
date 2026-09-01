@@ -1,0 +1,21 @@
+{
+  "name": "sechelix",
+  "description": "Evidence-first application-security Agent Skill for authorized repositories and environments. Maps attack surfaces, selects applicable security hypotheses, independently verifies material findings, fixes root causes, requires regression proof, and produces explicit release decisions.",
+  "author": {
+    "name": "SecHelix",
+    "url": "https://sechelix.com"
+  },
+  "homepage": "https://sechelix.com",
+  "repository": "https://github.com/omarmohelal/SecHelix",
+  "license": "Apache-2.0",
+  "keywords": [
+    "appsec",
+    "security-audit",
+    "agent-skills",
+    "authorization",
+    "business-logic",
+    "ai-security",
+    "mcp-security",
+    "verification"
+  ]
+}
