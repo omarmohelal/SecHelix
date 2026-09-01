@@ -65,24 +65,6 @@ A trusted finding should establish attacker control, reachability, a failed secu
 
 The canonical live product is **[sechelix.com](https://sechelix.com)**. The website source remains private; this repository contains the open security framework, portable Agent Skill, adapters, schemas, eval fixtures, and public documentation.
 
-## What proof exists
-
-Not a benchmark. One real, end-to-end audit, published with its artifacts — including the finding SecHelix **threw away**.
-
-**[Case study: gamingops-store, 2026-09-01](docs/case-studies/gamingops-store-2026-09-01.md)** — authorized owner self-audit of a ~600 LOC Next.js storefront. `STATIC` + `LOCAL` mode, **zero scanners enabled**, nothing outside `127.0.0.1` contacted.
-
-```text
-1 external data source → 41 of 546 hypotheses applicable
-3 candidates → 1 verified · 2 refuted
-1 fix + 1 hardening → 10 regression assertions → PASS after remediation
-```
-
-- **Refuted (the interesting one).** Remote config values reached `href`/`src` with only `.trim()` — exactly the shape a scanner or a confident reviewer reports as high-severity XSS. Verification killed it: React 19 rewrote the payload to `href="javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"`, and attacker control was never established. Recorded as `FALSE_POSITIVE`. A scheme allowlist was still added — and labelled **hardening, not a vulnerability fix**.
-- **Verified.** `SHX-F-GOS-HEADERS-001`, **MEDIUM** clickjacking. No `CSP`, `X-Frame-Options`, or `HSTS` on any route; a probe page on a separate origin framed the whole UI including the sign-in entry point. Severity held at MEDIUM on purpose — phishing amplification, not account takeover, because the app performs no authenticated state-changing actions.
-- **Regression proof.** The browser's own words on retest: `Framing 'http://localhost:3009/' violates the following Content Security Policy directive: "frame-ancestors 'none'". The request has been blocked.`
-
-The first retest *appeared to fail* — a stale Next.js prerender cache and a server still bound to the old port. That is recorded too, because it is exactly how a real fix silently becomes a false claim of remediation.
-
 ## Install in 30 seconds
 
 ### Recommended — Agent Skills CLI
@@ -168,6 +150,24 @@ npx skills@latest add omarmohelal/SecHelix --skill sechelix
 Otherwise use the vendor-neutral `skills/sechelix/` bundle with the host's documented skill loader.
 
 </details>
+
+## What proof exists
+
+Not a benchmark. One real, end-to-end audit, published with its artifacts — including the finding SecHelix **threw away**.
+
+**[Case study: gamingops-store, 2026-09-01](docs/case-studies/gamingops-store-2026-09-01.md)** — authorized owner self-audit of a ~600 LOC Next.js storefront. `STATIC` + `LOCAL` mode, **zero scanners enabled**, nothing outside `127.0.0.1` contacted.
+
+```text
+1 external data source → 41 of 546 hypotheses applicable
+3 candidates → 1 verified · 2 refuted
+1 fix + 1 hardening → 10 regression assertions → PASS after remediation
+```
+
+- **Refuted (the interesting one).** Remote config values reached `href`/`src` with only `.trim()` — exactly the shape a scanner or a confident reviewer reports as high-severity XSS. Verification killed it: React 19 rewrote the payload to `href="javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"`, and attacker control was never established. Recorded as `FALSE_POSITIVE`. A scheme allowlist was still added — and labelled **hardening, not a vulnerability fix**.
+- **Verified.** `SHX-F-GOS-HEADERS-001`, **MEDIUM** clickjacking. No `CSP`, `X-Frame-Options`, or `HSTS` on any route; a probe page on a separate origin framed the whole UI including the sign-in entry point. Severity held at MEDIUM on purpose — phishing amplification, not account takeover, because the app performs no authenticated state-changing actions.
+- **Regression proof.** The browser's own words on retest: `Framing 'http://localhost:3009/' violates the following Content Security Policy directive: "frame-ancestors 'none'". The request has been blocked.`
+
+The first retest *appeared to fail* — a stale Next.js prerender cache and a server still bound to the old port. That is recorded too, because it is exactly how a real fix silently becomes a false claim of remediation.
 
 ## How it works
 
