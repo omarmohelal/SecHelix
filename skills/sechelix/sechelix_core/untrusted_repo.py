@@ -150,10 +150,22 @@ class TrustPolicy:
 
 
 def _normalize(path: str) -> str:
+    """Fold a path to one comparable form. Must be idempotent.
+
+    Idempotence matters because this feeds `is_control`, which decides whether a
+    file may influence the audit. A function whose second application differs from
+    its first means the same path can compare unequal to itself depending on how
+    many times it has been through the pipeline.
+
+    `PurePosixPath("")` renders as `"."`, which turned an empty or degenerate path
+    into the current directory — a different statement entirely. Empty stays empty.
+    """
     text = str(path).replace("\\", "/")
     while text.startswith("./"):
         text = text[2:]
     # Only a leading "./" is removed; a leading dot belongs to names like ".claude".
+    if not text.strip("/"):
+        return ""
     return PurePosixPath(text).as_posix().lstrip("/")
 
 
