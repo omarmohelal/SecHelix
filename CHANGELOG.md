@@ -2,6 +2,77 @@
 
 All notable changes to SecHelix are documented here.
 
+## [Unreleased] — V3.3 evidence intelligence
+
+### Fixed (fail-open defects)
+
+Both were found by tests that tried to break a claim rather than confirm it, and
+both were fail-open in modules whose stated contract is fail-closed.
+
+- **An unresolved `CRITICAL` hypothesis passed the release gate.**
+  `UNPROVEN_STATES` covered `LIKELY_BUT_UNPROVEN` and `BLOCKED_BY_ENVIRONMENT`
+  but not `HYPOTHESIS`, so a `CRITICAL` candidate raised and never resolved fell
+  through every branch and returned `PASS`. Now `INCOMPLETE`. A refuted
+  `CRITICAL` and an open `LOW` still pass.
+- **An empty `current_commit` made every report `FRESH`.** `assess_freshness`
+  compared on `min(len(a), len(b))` with no floor, so `""` — what `git rev-parse`
+  yields on empty output rather than `None` — compared equal to everything.
+  Comparison now requires seven characters on both sides.
+
+### Fixed (false positives and silent misses)
+
+- The differential reviewer flagged its own **comment prose**: a docstring saying
+  a digest "is not a signature" classified as a webhook change, a JSON Schema
+  `description` about sample buckets as storage access. Non-`secret` rules are
+  now suppressed on commentary, including docstring bodies and prose-valued JSON
+  keys. A credential in a comment is still reported.
+- The diff parser **ate content that looked like a header**. Removing the SQL
+  comment `-- x` produces the line `--- x`, which was consumed as a file header,
+  so a diff removing `-- ALTER TABLE ... ENABLE ROW LEVEL SECURITY` parsed to
+  zero removed lines and classified `UNCHANGED`. Header detection is now gated on
+  not being inside a hunk.
+- `_normalize` was **not idempotent** — `PurePosixPath("")` renders as `"."`, so
+  an empty path became the current directory. It feeds `is_control`, which
+  decides whether a file may influence an audit.
+
+### Engineering gates
+
+- **`main` is protected and verified by attempting a direct push.** PRs required,
+  `validate` and `Analyze Python` required, force-push and deletion blocked,
+  admin bypass limited to pull requests. The first ruleset used an `always`
+  bypass and a probe commit went straight through; it was reverted, narrowed and
+  re-verified. See `docs/reference/branch-protection.md`.
+- **Immutable release tags** — deletion, update and non-fast-forward blocked.
+- **21 mutation tests** that take a passing report and break one thing that
+  should stop it. Three failed on the first run.
+- **13 property tests** over generated inputs, seeded standard-library `random`.
+
+### New capabilities
+
+- **`calibration.py`** — does stated confidence predict the verifier's verdict?
+  Schema-first (`calibration-v1`), and withholds every number below 30 resolved
+  samples, headline and per-bucket alike. Contamination disqualifies the whole
+  record. Unresolved candidates never enter the rate.
+- **`evidence_cache.py`** — binds evidence to the inputs it read;
+  `REUSED` / `INVALIDATED` / `RECOMPUTED` / `UNKNOWN`, with `UNKNOWN` never
+  reachable as `REUSED` and an empty dependency set treated as unverifiable.
+- **`proof_bundle.py`** — exports one verified finding as a checkable directory
+  with a manifest and digest. Redaction on by default. The manifest states the
+  digest is not a signature.
+- **`authz_graph.py`** — `Identity → Role → Permission → Resource → Action →
+  Policy`, detecting missing edges, unexpected grants, conflicting policies,
+  UI-only authorization and cross-tenant paths. `DENIED` is reachable only from a
+  server-enforced deny; a client-side gate decides nothing.
+- **`pr_review.py`** — PR summary and comment, silent by default when nothing
+  material changed, with a decision that can never exceed the evidence.
+
+### Evidence
+
+- `evals/blind-packet/RUN.md` — a one-command sealed runbook for an
+  uncontaminated evaluator. Every claim in it was verified against the tree.
+- Benchmark remains **`NOT_MEASURED`**. The session that produced V3.3 is
+  disqualified as evaluator and did not run the scored benchmark.
+
 ## [3.2.0-alpha.1] - 2026-09-01
 
 ### Packaging
