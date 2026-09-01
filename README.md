@@ -355,6 +355,7 @@ Different models can own different lanes without creating different security pol
 - [Extensions](docs/EXTENSIONS.md)
 - [Roadmap](ROADMAP.md)
 - [Trophy case](docs/research/trophy-case.md)
+- [Discovery baseline](docs/research/discovery-baseline.md) — measured, 0 of 6 queries
 - [Live docs](https://sechelix.com/docs)
 - [FAQ](https://sechelix.com/faq)
 - [AI-readable llms.txt](https://sechelix.com/llms.txt)
