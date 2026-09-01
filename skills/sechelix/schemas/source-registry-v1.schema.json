@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sechelix.dev/schemas/source-registry-v1.schema.json",
+  "title": "SecHelix source trust registry v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "checked_at", "policy", "sources"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "checked_at": {"type": "string", "format": "date-time"},
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trust_order", "single_source_claims", "restricted_source_rule"],
+      "properties": {
+        "trust_order": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {"enum": ["S", "A", "B", "C", "R"]}
+        },
+        "single_source_claims": {"type": "string", "minLength": 20, "maxLength": 400},
+        "restricted_source_rule": {"type": "string", "minLength": 20, "maxLength": 600}
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id", "name", "publisher", "independence_group", "trust_tier",
+          "source_class", "domains", "canonical_url", "terms_url", "access_mode",
+          "license", "allowed_uses", "freshness"
+        ],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$"},
+          "name": {"type": "string", "minLength": 2, "maxLength": 120},
+          "publisher": {"type": "string", "minLength": 2, "maxLength": 100},
+          "independence_group": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"},
+          "trust_tier": {"enum": ["S", "A", "B", "C", "R"]},
+          "source_class": {
+            "enum": [
+              "CANONICAL_STANDARD", "PUBLIC_DATASET", "OFFICIAL_ADVISORY",
+              "OFFICIAL_TOOL_KNOWLEDGE", "PRIMARY_RESEARCH", "CURRICULUM"
+            ]
+          },
+          "domains": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$"}
+          },
+          "canonical_url": {"type": "string", "pattern": "^https://"},
+          "terms_url": {"type": "string", "pattern": "^https://"},
+          "access_mode": {"enum": ["API", "BULK", "REPOSITORY", "WEB", "ON_DEMAND", "HUMAN_ONLY"]},
+          "license": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["status", "expression", "attribution_required", "per_artifact_review"],
+            "properties": {
+              "status": {"enum": ["VERIFIED", "PROJECT_SPECIFIC", "PER_ARTIFACT_REVIEW", "RESTRICTED_TERMS"]},
+              "expression": {"type": "string", "minLength": 2, "maxLength": 100},
+              "attribution_required": {"type": "boolean"},
+              "per_artifact_review": {"type": "boolean"},
+              "note": {"type": "string", "minLength": 10, "maxLength": 500}
+            }
+          },
+          "allowed_uses": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "automated_retrieval", "normalized_facts", "full_text_storage",
+              "embeddings", "model_training", "model_evaluation", "human_reference"
+            ],
+            "properties": {
+              "automated_retrieval": {"type": "boolean"},
+              "normalized_facts": {"type": "boolean"},
+              "full_text_storage": {"type": "boolean"},
+              "embeddings": {"type": "boolean"},
+              "model_training": {"type": "boolean"},
+              "model_evaluation": {"type": "boolean"},
+              "human_reference": {"type": "boolean"}
+            }
+          },
+          "freshness": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["cadence", "max_age_days", "reviewed_at"],
+            "properties": {
+              "cadence": {"enum": ["DAILY", "WEEKLY", "MONTHLY", "QUARTERLY", "RELEASE", "ON_DEMAND"]},
+              "max_age_days": {"type": "integer", "minimum": 1, "maximum": 366},
+              "reviewed_at": {"type": "string", "format": "date-time"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

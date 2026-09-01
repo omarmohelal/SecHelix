@@ -23,11 +23,20 @@ PORTABLE_REQUIRED = (
     "agents/independent-verifier.md",
     "schemas/scope-v1.schema.json",
     "schemas/report-v1.schema.json",
+    "schemas/source-registry-v1.schema.json",
+    "schemas/knowledge-graph-v1.schema.json",
+    "schemas/lesson-card-v1.schema.json",
+    "schemas/research-packet-v1.schema.json",
     "sechelix_core/applicability.py",
+    "sechelix_core/knowledge.py",
     "adapters/cli.py",
     "reports/report_renderer.py",
     "scripts/security_gate.py",
+    "scripts/validate_knowledge.py",
     "policies/default.json",
+    "knowledge/source-registry.json",
+    "knowledge/graph/relationships.json",
+    "knowledge/lesson-cards/CWE-918.json",
 )
 
 

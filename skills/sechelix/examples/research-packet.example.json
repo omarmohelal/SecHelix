@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "research_id": "RSR-TEMPLATE-001",
+  "trigger": "UNKNOWN_PACKAGE",
+  "question": "Is the exact installed component version affected by the candidate advisory?",
+  "checked_at": "2026-09-01T00:00:00Z",
+  "subject": {
+    "component": "replace-with-component",
+    "version": "replace-with-exact-version",
+    "ecosystem": "replace-with-ecosystem"
+  },
+  "claim": "Applicability is not established until current sources and exact local version evidence are attached.",
+  "sources": [],
+  "code_evidence": {
+    "present": false,
+    "evidence_refs": []
+  },
+  "safe_reproduction": {
+    "performed": false,
+    "evidence_refs": []
+  },
+  "confidence": "UNVERIFIED",
+  "limitations": ["Template only; replace placeholders and add at least two independent current sources before promotion."]
+}

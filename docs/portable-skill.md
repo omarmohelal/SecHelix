@@ -8,8 +8,9 @@ does not rely on files outside the installed `sechelix/` directory.
 - the canonical evidence-first workflow in `SKILL.md`;
 - all 546 stable catalog hypotheses and frozen IDs;
 - 17 specialist role profiles;
-- Draft 2020-12 scope, attack-surface, applicability, evidence, finding, report,
-  and catalog schemas;
+- fourteen Draft 2020-12 contracts spanning the audit lifecycle, extensions,
+  source trust, knowledge graph, lesson cards, and live research;
+- a rights-aware source registry, provenance graph, and compact lesson cards;
 - deterministic applicability and attack-surface helpers;
 - evidence adapters and safe execution profiles;
 - report rendering, release gates, and public policy examples;

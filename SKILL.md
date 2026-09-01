@@ -32,8 +32,9 @@ If the user does not specify a mode, start with `STATIC`, then ask/derive whethe
 When the repository runtime is available, use its versioned contracts rather
 than inventing parallel report shapes:
 
-- eight JSON Schema Draft 2020-12 contracts cover scope, attack surface,
-  applicability input/output, evidence, findings, reports, and catalog entries;
+- fourteen JSON Schema Draft 2020-12 contracts cover scope, attack surface,
+  applicability, evidence, findings, reports, catalog, extensions, source trust,
+  knowledge graph, lesson cards, and live research packets;
 - all 546 catalog hypotheses have explicit, stable IDs from the frozen manifest;
 - applicability has exactly four outcomes: `APPLICABLE`, `NOT_APPLICABLE`,
   `UNKNOWN`, and `BLOCKED`;
@@ -104,6 +105,28 @@ Prioritize by potential impact and reachability:
 8. AI/agent/MCP/tool boundaries;
 9. cloud/CI/release configuration;
 10. privacy/logging and operational exposure.
+
+## Phase 2.5 — resolve current knowledge
+
+Read `references/knowledge-engine.md` when a decision depends on an unknown
+package, new advisory, recent framework/database/cloud/provider behavior,
+conflicting sources, or an unfamiliar runtime claim.
+
+- Resolve sources through `knowledge/source-registry.json` before retrieval or
+  ingestion. A public URL is not permission to crawl, copy, embed, train, or
+  benchmark.
+- Never automate `HUMAN_ONLY` sources. PortSwigger Academy, TryHackMe, and Hack
+  The Box stay manual references unless separate written permission exists.
+- Prefer subject-vendor/official sources, then OSV/NVD/CISA KEV/GitHub Advisory
+  data, then primary research. Cross-check with at least two independent reputable
+  sources unless an exact-version official advisory exists.
+- Record a `research-packet`; compare dates and exact versions; retain conflicts
+  and limitations.
+- Use `UNVERIFIED`, `SUPPORTED`, `HIGH_CONFIDENCE`, or `CONFIRMED` exactly as the
+  research contract computes them. Only code evidence plus a bounded safe
+  reproduction produces `CONFIRMED`.
+- Research confidence does not replace finding verification. Return to the local
+  evidence chain before reporting a vulnerability.
 
 ## Phase 3 — parallel specialist review
 
@@ -350,6 +373,9 @@ Also report:
 - `references/methodology.md` — evidence and verification philosophy.
 - `references/tooling.md` — scanner/tool adapter guidance.
 - `references/sources.md` — standards and source references.
+- `references/knowledge-engine.md` — source trust, rights, live research,
+  confidence, graph, lesson-card, lab, and de-identified learning policy.
+- `knowledge/` — source registry, provenance graph, and lesson cards.
 - `catalog/checks.json` — structured hypothesis catalog.
 - `agents/` — specialist reviewer profiles.
 - `schemas/` — versioned scope, evidence, finding, and report contracts.
@@ -363,12 +389,14 @@ Also report:
 - `scripts/applicability.py` — deterministic applicability decision helper.
 - `scripts/attack_surface.py` — attack-surface and Mermaid graph helper.
 - `scripts/validate_catalog.py` — catalog validation.
+- `scripts/validate_knowledge.py` — knowledge-source, graph, card, and research validation.
 
 Typical repository-runtime commands:
 
 ```bash
 python scripts/attack_surface.py --help
 python scripts/applicability.py --help
+python scripts/validate_knowledge.py
 python -m adapters.cli --help
 python -m reports.report_renderer examples/report.example.json --format markdown
 python scripts/security_gate.py examples/report.example.json --policy policies/default.json

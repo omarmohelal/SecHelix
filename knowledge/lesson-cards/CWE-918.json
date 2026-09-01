@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "lesson_id": "LC-CWE-918",
+  "title": "Server-Side Request Forgery at URL-fetch boundaries",
+  "updated_at": "2026-09-01T00:00:00Z",
+  "domains": ["web", "api", "cloud"],
+  "summary": "SSRF becomes plausible when attacker-influenced URL, host, scheme, redirect, or resolver state reaches a server-side network client. Verification must establish the real parser and resolution path, the reachable destination class, the server identity or network privilege used, and a bounded impact rather than assuming every URL-fetch feature is exploitable.",
+  "detection_signals": [
+    "Untrusted URL or hostname data reaches an HTTP client, webhook tester, image fetcher, document renderer, import feature, proxy, or callback validator.",
+    "Validation and request execution use different parsers, canonicalization rules, DNS resolutions, redirect policies, or proxy settings.",
+    "The request path can reach loopback, link-local, private, internal service-discovery, cloud metadata, or attacker-controlled redirect destinations."
+  ],
+  "safe_local_tests": [
+    "Use an isolated local listener and fixture hostname to prove whether the application performs the request without contacting third-party or production systems.",
+    "Exercise redirect, alternate-address, and re-resolution behavior only inside a controlled network namespace with explicit destination assertions.",
+    "Record the exact normalized URL, resolved address, redirect chain, request identity, response handling, and deny decision as regression evidence."
+  ],
+  "false_positive_traps": [
+    "A URL parameter alone is not proof when a fixed allowlist, egress proxy, network policy, or post-resolution address check blocks unsafe destinations.",
+    "A static code path may be unreachable for the attacker's role, disabled configuration, required state, or production network boundary.",
+    "Blocking only literal localhost is not a complete control, but bypass speculation is not verification without evidence from the real parser and resolver path."
+  ],
+  "remediation_patterns": [
+    "Prefer identifier-to-destination mappings over arbitrary URLs and enforce an allowlist for schemes, hosts, ports, paths, and redirect destinations.",
+    "Canonicalize once, resolve, reject non-public or otherwise forbidden address ranges, connect to the validated destination, and repeat checks after every redirect or re-resolution.",
+    "Combine application validation with least-privilege egress controls and isolate metadata, control-plane, and internal administrative services."
+  ],
+  "regression_proof": [
+    "A local test proves the previously reachable forbidden fixture is blocked before a network connection while an explicitly allowed destination still works.",
+    "Tests cover parser ambiguity, redirects, resolution changes, IPv4 and IPv6 representations, and fail-closed behavior when validation or resolution is uncertain."
+  ],
+  "mapping_node_ids": [
+    "CWE-918",
+    "CAPEC-664",
+    "OWASP-TOP10-2021-A10",
+    "OWASP-ASVS-5.0.0-V1.3.6",
+    "SHX-FAMILY-SSRF"
+  ],
+  "source_ids": ["mitre-cwe", "mitre-capec", "owasp-top-10", "owasp-asvs"]
+}

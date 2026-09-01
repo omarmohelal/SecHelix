@@ -11,7 +11,7 @@
   <a href="https://skills.sh/omarmohelal/SecHelix"><img src="https://img.shields.io/badge/skills.sh-SecHelix-6ee7b7?style=flat-square" alt="skills.sh"/></a>
   <a href="https://github.com/omarmohelal/SecHelix/actions"><img src="https://img.shields.io/github/actions/workflow/status/omarmohelal/SecHelix/validate.yml?branch=main&style=flat-square&label=validate" alt="validation"/></a>
   <a href="SKILL.md"><img src="https://img.shields.io/badge/security%20hypotheses-546-7dd3fc?style=flat-square" alt="546 hypotheses"/></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-3.0.0--alpha.2-9b8cff?style=flat-square" alt="3.0.0 alpha 2"/></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-3.0.0--alpha.3-9b8cff?style=flat-square" alt="3.0.0 alpha 3"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-a78bfa?style=flat-square" alt="Apache-2.0"/></a>
   <a href="https://sechelix-vnext.magnoumx.chatgpt.site/support"><img src="https://img.shields.io/badge/support-crypto-facc15?style=flat-square" alt="Support SecHelix"/></a>
 </p>
@@ -48,7 +48,8 @@ A finding becomes trusted only when the evidence supports attacker control, reac
 |---|---|
 | Coverage | **546 explicit, stable hypothesis IDs** across 21 families and 26 lenses |
 | Specialist mesh | **17 model-neutral role profiles**, including an independent verifier |
-| Contracts | **10 JSON Schema Draft 2020-12 contracts** for scope through report plus extension manifests and registry state |
+| Contracts | **14 JSON Schema Draft 2020-12 contracts** from scope/report through extensions, source trust, graph, lessons, and research |
+| Knowledge engine | Rights-aware source registry, deterministic live-research confidence, provenance graph, and lesson-card seed |
 | Evidence adapters | Semgrep, CodeQL/SARIF, OSV, Gitleaks, Trivy, npm/pnpm audit, Playwright, ZAP, Nuclei |
 | Reports | Markdown, redacted JSON, SARIF 2.1.0, escaped standalone HTML |
 | Release truth | `PASS`, `PASS_WITH_KNOWN_RISK`, `BLOCKED`, or fail-closed `INCOMPLETE` |
@@ -151,6 +152,9 @@ See [COMPATIBILITY.md](COMPATIBILITY.md).
                              ↓
             select APPLICABLE hypotheses only
                              ↓
+             resolve CURRENT / UNKNOWN claims
+             rights gate • 2-source research
+                             ↓
       ┌──────────┬──────────┬──────────┬──────────┐
       │ Auth/Z   │ Web/API  │ Logic    │ Races    │  ...
       │ reviewer │ reviewer │ reviewer │ reviewer │
@@ -214,6 +218,19 @@ The catalog contains **546 structured security hypotheses across 21 families**.
 
 SecHelix marks each hypothesis `APPLICABLE`, `NOT_APPLICABLE`, `UNKNOWN`, or `BLOCKED`. Missing evidence is never treated as absence, and an unauthorized scope is blocked rather than mislabeled inapplicable. It does **not** spray every check at every target.
 
+### Knowledge without blind ingestion
+
+Current security claims pass through a source registry that records authority,
+publisher independence, license state, allowed uses, and refresh cadence. One
+source creates a lead, not a fact. Two independent reputable sources produce
+`SUPPORTED`; an exact-version official advisory can produce `HIGH_CONFIDENCE`;
+only code evidence plus bounded safe reproduction produces `CONFIRMED`.
+
+PortSwigger Web Security Academy, TryHackMe, and Hack The Box remain
+`HUMAN_ONLY` references under their current terms—no autonomous retrieval,
+copying, embeddings, training, evaluation, or benchmarking without separate
+permission. See [the Knowledge Engine policy](references/knowledge-engine.md).
+
 ## Where SecHelix is different
 
 ### Business logic is first-class
@@ -264,6 +281,7 @@ SecHelix/
 ├── .codex/skills/sechelix/     # Codex adapter
 ├── agents/                     # specialist reviewer profiles
 ├── catalog/                    # 546 explicit structured hypotheses
+├── knowledge/                  # source trust, provenance graph, lesson cards
 ├── schemas/                    # versioned JSON contracts
 ├── sechelix_core/              # applicability, graph, catalog, contract core
 ├── adapters/                   # normalized tool evidence adapters
@@ -299,13 +317,17 @@ python -m unittest discover -s tests -v
 python -m unittest discover -s adapters/tests -v
 python scripts/validate_catalog.py
 python scripts/validate_extensions.py
+python scripts/validate_knowledge.py
 python scripts/validate_skill.py
 python scripts/check_no_secrets.py
 python scripts/check_private_site_leakage.py
 npx skills@latest add . --list
 ```
 
-The repository validates catalog identity, the standalone install bundle, schemas, adapters, reporting, policy gates, secrets, private-site separation, and public-release invariants in GitHub Actions.
+The repository validates catalog identity, source rights/use boundaries, knowledge
+provenance, research confidence, the standalone install bundle, schemas,
+adapters, reporting, policy gates, secrets, private-site separation, and
+public-release invariants in GitHub Actions.
 
 ## Trophy case
 
@@ -324,8 +346,12 @@ Implemented in the VNext alpha:
 - paired vulnerable/clean eval fixtures with blind export and honest `NOT_MEASURED` results;
 - canonical Markdown/JSON/SARIF/HTML reports and fail-closed policy gates;
 - signed evidence-bundle, audit/retention, CI, and private-policy-pack designs.
+- rights-aware source registry, deterministic live-research packets, and the
+  first provenance-backed graph and lesson card.
 
-Next work is calibration: reproducible benchmark runs, model/provider scorecards, more fixtures, and design-partner evidence. No capability ranking is claimed before measurement.
+Next work is rights-reviewed SARD/OWASP Benchmark ingestion, broader verified
+graph/lesson coverage, reproducible benchmark runs, model/provider scorecards,
+and design-partner evidence. No capability ranking is claimed before measurement.
 
 See [ROADMAP.md](ROADMAP.md).
 
@@ -351,6 +377,7 @@ Contributions are welcome, especially:
 - false-positive fixtures;
 - vulnerable/clean eval pairs;
 - security hypothesis proposals;
+- source-registry reviews, verified graph mappings, and original lesson cards;
 - scanner/SARIF adapters;
 - company rollout feedback;
 - documentation improvements.

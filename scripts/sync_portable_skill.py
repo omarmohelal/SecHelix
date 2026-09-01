@@ -15,6 +15,7 @@ DIRECTORIES = (
     "agents",
     "catalog",
     "examples",
+    "knowledge",
     "policies",
     "references",
     "reports",
@@ -30,8 +31,8 @@ SCRIPT_FILES = (
     "attack_surface.py",
     "security_gate.py",
     "validate_contract.py",
+    "validate_knowledge.py",
 )
-
 
 def include(path: Path) -> bool:
     relative = path.relative_to(ROOT)

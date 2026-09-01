@@ -47,7 +47,8 @@ SecHelix should earn trust through evals before adding complexity.
 
 ## v3.0 alpha — contract-first orchestration foundation — current
 
-- ten versioned JSON contracts, including community extension manifests and registry state;
+- fourteen versioned JSON contracts, including community extensions, source trust,
+  knowledge graph, lesson cards, and live research packets;
 - deterministic four-state applicability;
 - explicit 546-ID catalog and frozen manifest;
 - 17 specialist roles;
@@ -56,6 +57,17 @@ SecHelix should earn trust through evals before adding complexity.
 - self-contained skills distribution;
 - private product-site source separation.
 - curated community extension lifecycle with contract, safety, fixture, and maintainer gates.
+- rights-aware source registry with executable restrictions for human-only curricula;
+- deterministic live-research confidence and a provenance-backed graph/lesson-card seed.
+
+## v3.1 — expert knowledge engine
+
+- pin and rights-review selected NIST SARD suites and OWASP Benchmark repositories;
+- build reproducible importers that preserve origin, revision, license, and attribution;
+- expand CWE ↔ CAPEC ↔ OWASP ↔ ASVS graph coverage from verified release mappings;
+- add framework, database, cloud, container, supply-chain, and AI-security lesson cards;
+- run isolated vulnerable/clean evals and publish only reproducible measurements;
+- add eight cumulative exam levels with de-identified mistake-class memory.
 
 Benchmark rows remain `NOT_MEASURED`; the alpha does not claim a winning model,
 provider, or scanner.

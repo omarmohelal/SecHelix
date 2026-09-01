@@ -2,6 +2,29 @@
 
 All notable changes to SecHelix are documented here.
 
+## [3.0.0-alpha.3] - 2026-09-01
+
+### Expert knowledge foundation
+
+- Added versioned contracts for a source trust registry, security knowledge
+  graph, lesson cards, and live-research packets.
+- Added an executable rights/use registry for canonical standards, public
+  datasets, vulnerability intelligence, official query sources, and restricted
+  curricula.
+- Enforced human-only boundaries for PortSwigger Web Security Academy,
+  TryHackMe, and Hack The Box: no autonomous retrieval, copying, embeddings,
+  training, evaluation, or benchmarking without separate permission.
+- Added deterministic `UNVERIFIED`, `SUPPORTED`, `HIGH_CONFIDENCE`, and
+  `CONFIRMED` research states; confirmation requires code evidence and bounded
+  safe reproduction.
+- Seeded a provenance-backed CWE/CAPEC/OWASP/ASVS graph and an original SSRF
+  lesson card, plus validation, tests, CI, and portable-bundle integration.
+- Documented rights-reviewed SARD/OWASP Benchmark ingestion, isolated labs,
+  current-source research, refresh cadence, and de-identified learning memory.
+- The release candidate passes 67 core/repository tests and 19 adapter/safety
+  tests, plus catalog, skill, extension, knowledge, link, secret, install, and
+  private-source-boundary checks.
+
 ## [3.0.0-alpha.2] - 2026-09-01
 
 ### Community extension forge

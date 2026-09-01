@@ -22,6 +22,8 @@ jobs:
         run: python scripts/validate_skill.py
       - name: Validate community extension registry
         run: python scripts/validate_extensions.py
+      - name: Validate knowledge engine
+        run: python scripts/validate_knowledge.py
       - name: Validate canonical skill basics
         shell: python
         run: |

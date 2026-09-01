@@ -1,0 +1,72 @@
+{
+  "schema_version": "1.0",
+  "graph_id": "KG-APPSEC-CORE",
+  "updated_at": "2026-09-01T00:00:00Z",
+  "nodes": [
+    {
+      "id": "CWE-918",
+      "type": "CWE",
+      "label": "Server-Side Request Forgery",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-cwe"]
+    },
+    {
+      "id": "CAPEC-664",
+      "type": "CAPEC",
+      "label": "Server Side Request Forgery",
+      "provenance": "EXTERNAL",
+      "source_ids": ["mitre-capec"]
+    },
+    {
+      "id": "OWASP-TOP10-2021-A10",
+      "type": "OWASP_TOP10",
+      "label": "Server-Side Request Forgery",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-top-10"]
+    },
+    {
+      "id": "OWASP-ASVS-5.0.0-V1.3.6",
+      "type": "OWASP_ASVS",
+      "label": "SSRF protection requirement",
+      "provenance": "EXTERNAL",
+      "source_ids": ["owasp-asvs"]
+    },
+    {
+      "id": "SHX-FAMILY-SSRF",
+      "type": "SECHELIX_FAMILY",
+      "label": "SecHelix SSRF and URL-fetching family",
+      "provenance": "INTERNAL",
+      "source_ids": []
+    }
+  ],
+  "edges": [
+    {
+      "id": "KGE-CWE918-CAPEC664",
+      "from": "CWE-918",
+      "to": "CAPEC-664",
+      "relation": "IS_EXPLOITED_BY",
+      "source_ids": ["mitre-cwe", "mitre-capec"]
+    },
+    {
+      "id": "KGE-OWASPA10-CWE918",
+      "from": "OWASP-TOP10-2021-A10",
+      "to": "CWE-918",
+      "relation": "INCLUDES",
+      "source_ids": ["owasp-top-10", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-ASVS136-CWE918",
+      "from": "OWASP-ASVS-5.0.0-V1.3.6",
+      "to": "CWE-918",
+      "relation": "MITIGATES",
+      "source_ids": ["owasp-asvs", "mitre-cwe"]
+    },
+    {
+      "id": "KGE-SHXSSRF-CWE918",
+      "from": "SHX-FAMILY-SSRF",
+      "to": "CWE-918",
+      "relation": "CLASSIFIES_WITH",
+      "source_ids": ["mitre-cwe"]
+    }
+  ]
+}

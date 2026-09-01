@@ -9,6 +9,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from .catalog import expected_ids
+from .knowledge import expected_research_confidence
 from .schema_validation import validate_schema
 
 
@@ -24,6 +25,10 @@ SCHEMAS = {
     "report": "report-v1.schema.json",
     "extension-manifest": "extension-manifest-v1.schema.json",
     "extension-registry": "extension-registry-v1.schema.json",
+    "source-registry": "source-registry-v1.schema.json",
+    "knowledge-graph": "knowledge-graph-v1.schema.json",
+    "lesson-card": "lesson-card-v1.schema.json",
+    "research-packet": "research-packet-v1.schema.json",
 }
 
 
@@ -262,3 +267,99 @@ def _validate_extension_registry(data: dict[str, Any], errors: list[str], **_: A
         review = item.get("review")
         if item["lifecycle"] in {"INCUBATING", "OFFICIAL"} and not review:
             errors.append(f"$.extensions[{index}].review: promoted extensions require a maintainer review record")
+
+
+def _knowledge_source_index() -> dict[str, dict[str, Any]]:
+    registry = load_json(ROOT / "knowledge" / "source-registry.json")
+    return {source["id"]: source for source in registry["sources"]}
+
+
+def _knowledge_node_ids() -> set[str]:
+    graph = load_json(ROOT / "knowledge" / "graph" / "relationships.json")
+    return {node["id"] for node in graph["nodes"]}
+
+
+def _validate_source_registry(data: dict[str, Any], errors: list[str], **_: Any) -> None:
+    if data["policy"]["trust_order"] != ["S", "A", "B", "C", "R"]:
+        errors.append("$.policy.trust_order: expected canonical S, A, B, C, R order")
+    ids = [source["id"] for source in data["sources"]]
+    for duplicate in _duplicates(ids):
+        errors.append(f"$.sources: duplicate source id {duplicate!r}")
+    for index, source in enumerate(data["sources"]):
+        for field in ("canonical_url", "terms_url"):
+            parsed = urlsplit(source[field])
+            if parsed.scheme != "https" or not parsed.netloc:
+                errors.append(f"$.sources[{index}].{field}: expected an absolute HTTPS URL")
+        uses = source["allowed_uses"]
+        if source["access_mode"] == "HUMAN_ONLY" or source["trust_tier"] == "R":
+            forbidden = [name for name, allowed in uses.items() if name != "human_reference" and allowed]
+            if forbidden:
+                errors.append(f"$.sources[{index}].allowed_uses: restricted source permits {forbidden}")
+            if not uses["human_reference"]:
+                errors.append(f"$.sources[{index}].allowed_uses.human_reference: HUMAN_ONLY source must allow manual reference")
+        license_data = source["license"]
+        if license_data["per_artifact_review"] and (uses["full_text_storage"] or uses["embeddings"]):
+            errors.append(f"$.sources[{index}].allowed_uses: per-artifact review forbids full text and embeddings by default")
+        if (uses["full_text_storage"] or uses["embeddings"] or uses["model_training"]) and license_data["status"] != "VERIFIED":
+            errors.append(f"$.sources[{index}].allowed_uses: sensitive reuse requires a VERIFIED license")
+        if source["source_class"] == "CURRICULUM" and (uses["model_training"] or uses["model_evaluation"]):
+            errors.append(f"$.sources[{index}].allowed_uses: curriculum sources cannot train or evaluate models by default")
+
+
+def _validate_knowledge_graph(data: dict[str, Any], errors: list[str], **_: Any) -> None:
+    source_ids = set(_knowledge_source_index())
+    node_ids = [node["id"] for node in data["nodes"]]
+    node_set = set(node_ids)
+    for label, values in (("node", node_ids), ("edge", [edge["id"] for edge in data["edges"]])):
+        for duplicate in _duplicates(values):
+            errors.append(f"$.{label}s: duplicate {label} id {duplicate!r}")
+    for index, node in enumerate(data["nodes"]):
+        if node["provenance"] == "EXTERNAL" and not node["source_ids"]:
+            errors.append(f"$.nodes[{index}].source_ids: external node requires provenance")
+        unknown = sorted(set(node["source_ids"]) - source_ids)
+        if unknown:
+            errors.append(f"$.nodes[{index}].source_ids: unknown source IDs {unknown}")
+    for index, edge in enumerate(data["edges"]):
+        for endpoint in ("from", "to"):
+            if edge[endpoint] not in node_set:
+                errors.append(f"$.edges[{index}].{endpoint}: unknown node {edge[endpoint]!r}")
+        unknown = sorted(set(edge["source_ids"]) - source_ids)
+        if unknown:
+            errors.append(f"$.edges[{index}].source_ids: unknown source IDs {unknown}")
+
+
+def _validate_lesson_card(data: dict[str, Any], errors: list[str], **_: Any) -> None:
+    sources = _knowledge_source_index()
+    unknown_sources = sorted(set(data["source_ids"]) - set(sources))
+    if unknown_sources:
+        errors.append(f"$.source_ids: unknown source IDs {unknown_sources}")
+    restricted = sorted(
+        source_id for source_id in data["source_ids"]
+        if source_id in sources and sources[source_id]["access_mode"] == "HUMAN_ONLY"
+    )
+    if restricted:
+        errors.append(f"$.source_ids: lesson cards cannot ingest HUMAN_ONLY sources {restricted}")
+    unknown_nodes = sorted(set(data["mapping_node_ids"]) - _knowledge_node_ids())
+    if unknown_nodes:
+        errors.append(f"$.mapping_node_ids: unknown graph nodes {unknown_nodes}")
+
+
+def _validate_research_packet(data: dict[str, Any], errors: list[str], **_: Any) -> None:
+    sources = _knowledge_source_index()
+    for index, reference in enumerate(data["sources"]):
+        source = sources.get(reference["source_id"])
+        if not source:
+            errors.append(f"$.sources[{index}].source_id: unknown source ID {reference['source_id']!r}")
+            continue
+        if source["access_mode"] == "HUMAN_ONLY" or not source["allowed_uses"]["normalized_facts"]:
+            errors.append(f"$.sources[{index}].source_id: source cannot be used in an automated research packet")
+        if reference["official_advisory"] and source["source_class"] != "OFFICIAL_ADVISORY":
+            errors.append(f"$.sources[{index}].official_advisory: registry does not classify this source as an official advisory")
+    for field, state in (("code_evidence", "present"), ("safe_reproduction", "performed")):
+        if data[field][state] and not data[field]["evidence_refs"]:
+            errors.append(f"$.{field}.evidence_refs: declared proof requires at least one evidence reference")
+        if not data[field][state] and data[field]["evidence_refs"]:
+            errors.append(f"$.{field}.evidence_refs: references contradict the false proof flag")
+    expected = expected_research_confidence(data, {"sources": list(sources.values())})
+    if data["confidence"] != expected:
+        errors.append(f"$.confidence: expected deterministic state {expected!r}")

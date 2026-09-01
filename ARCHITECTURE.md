@@ -1,6 +1,6 @@
 # SecHelix architecture
 
-SecHelix is deliberately split into five layers so the methodology can remain portable while vendor-specific adapters evolve independently.
+SecHelix is deliberately split into six layers so the methodology can remain portable while vendor-specific adapters evolve independently.
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
@@ -11,6 +11,11 @@ SecHelix is deliberately split into five layers so the methodology can remain po
 ┌─────────────────────────────▼───────────────────────────────┐
 │  Canonical SKILL.md                                         │
 │  scope · mapping · applicability · verification · fix       │
+└─────────────────────────────┬───────────────────────────────┘
+                              │
+┌─────────────────────────────▼───────────────────────────────┐
+│  Knowledge resolution                                      │
+│  source trust · rights · research · graph · lesson cards   │
 └─────────────────────────────┬───────────────────────────────┘
                               │
 ┌─────────────────────────────▼───────────────────────────────┐
@@ -38,6 +43,19 @@ The root `SKILL.md` owns methodology. Vendor adapters may add invocation/orchest
 `catalog/checks.json` is a structured cross product rather than a static payload list. Families identify where a security property lives; lenses identify how an invariant can fail. The combination produces a hypothesis that must be marked applicable before testing.
 
 This model makes it easy to add a new family or verification lens without copying hundreds of near-identical checks.
+
+## Knowledge resolution
+
+`knowledge/source-registry.json` is the executable authority and rights boundary
+for external knowledge. It records trust tier, publisher independence, license
+state, allowed uses, and review cadence. `HUMAN_ONLY` curriculum sources cannot
+enter automated research, datasets, embeddings, training, or evaluation.
+
+Live research packets use deterministic confidence states and preserve dates,
+exact versions, contradictions, and source provenance. The versioned graph links
+CWE/CAPEC/OWASP/ASVS concepts without treating label similarity as proof, while
+lesson cards store original SecHelix detection and verification guidance rather
+than copied source prose.
 
 ## Evidence adapters
 

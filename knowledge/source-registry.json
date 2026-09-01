@@ -1,0 +1,504 @@
+{
+  "schema_version": "1.0",
+  "checked_at": "2026-09-01T00:00:00Z",
+  "policy": {
+    "trust_order": ["S", "A", "B", "C", "R"],
+    "single_source_claims": "One source may create a research lead, but it must not promote a current security claim beyond UNVERIFIED.",
+    "restricted_source_rule": "Tier R sources are human-reference links only. SecHelix must not crawl them, copy their content, build embeddings or datasets from them, or use them for model training or evaluation without separate written permission."
+  },
+  "sources": [
+    {
+      "id": "mitre-cwe",
+      "name": "Common Weakness Enumeration",
+      "publisher": "MITRE",
+      "independence_group": "mitre",
+      "trust_tier": "S",
+      "source_class": "CANONICAL_STANDARD",
+      "domains": ["classification", "web", "api", "auth", "database", "cloud", "supply-chain", "crypto", "containers", "ai-security"],
+      "canonical_url": "https://cwe.mitre.org/",
+      "terms_url": "https://cwe.mitre.org/about/termsofuse.html",
+      "access_mode": "BULK",
+      "license": {
+        "status": "VERIFIED",
+        "expression": "LicenseRef-MITRE-CWE",
+        "attribution_required": true,
+        "per_artifact_review": false,
+        "note": "MITRE grants research, development, and commercial use subject to retaining its copyright designation and license."
+      },
+      "allowed_uses": {
+        "automated_retrieval": true,
+        "normalized_facts": true,
+        "full_text_storage": false,
+        "embeddings": false,
+        "model_training": false,
+        "model_evaluation": false,
+        "human_reference": true
+      },
+      "freshness": {"cadence": "QUARTERLY", "max_age_days": 95, "reviewed_at": "2026-09-01T00:00:00Z"}
+    },
+    {
+      "id": "mitre-capec",
+      "name": "Common Attack Pattern Enumeration and Classification",
+      "publisher": "MITRE",
+      "independence_group": "mitre",
+      "trust_tier": "S",
+      "source_class": "CANONICAL_STANDARD",
+      "domains": ["classification", "web", "api", "auth", "cloud"],
+      "canonical_url": "https://capec.mitre.org/",
+      "terms_url": "https://capec.mitre.org/about/termsofuse.html",
+      "access_mode": "BULK",
+      "license": {
+        "status": "VERIFIED",
+        "expression": "LicenseRef-MITRE-CAPEC",
+        "attribution_required": true,
+        "per_artifact_review": false,
+        "note": "MITRE grants research, development, and commercial use subject to retaining its copyright designation and license."
+      },
+      "allowed_uses": {
+        "automated_retrieval": true,
+        "normalized_facts": true,
+        "full_text_storage": false,
+        "embeddings": false,
+        "model_training": false,
+        "model_evaluation": false,
+        "human_reference": true
+      },
+      "freshness": {"cadence": "QUARTERLY", "max_age_days": 95, "reviewed_at": "2026-09-01T00:00:00Z"}
+    },
+    {
+      "id": "owasp-top-10",
+      "name": "OWASP Top 10",
+      "publisher": "OWASP Foundation",
+      "independence_group": "owasp",
+      "trust_tier": "S",
+      "source_class": "CANONICAL_STANDARD",
+      "domains": ["web", "classification"],
+      "canonical_url": "https://owasp.org/www-project-top-ten/",
+      "terms_url": "https://owasp.org/www-policy/operational/general-disclaimer.html",
+      "access_mode": "WEB",
+      "license": {
+        "status": "PROJECT_SPECIFIC",
+        "expression": "NOASSERTION",
+        "attribution_required": true,
+        "per_artifact_review": true,
+        "note": "Verify the exact project release and repository license before copying or redistributing content."
+      },
+      "allowed_uses": {
+        "automated_retrieval": false,
+        "normalized_facts": true,
+        "full_text_storage": false,
+        "embeddings": false,
+        "model_training": false,
+        "model_evaluation": false,
+        "human_reference": true
+      },
+      "freshness": {"cadence": "RELEASE", "max_age_days": 95, "reviewed_at": "2026-09-01T00:00:00Z"}
+    },
+    {
+      "id": "owasp-api-top-10",
+      "name": "OWASP API Security Top 10",
+      "publisher": "OWASP Foundation",
+      "independence_group": "owasp",
+      "trust_tier": "S",
+      "source_class": "CANONICAL_STANDARD",
+      "domains": ["api", "classification"],
+      "canonical_url": "https://owasp.org/API-Security/",
+      "terms_url": "https://owasp.org/www-policy/operational/general-disclaimer.html",
+      "access_mode": "WEB",
+      "license": {
+        "status": "PROJECT_SPECIFIC",
+        "expression": "NOASSERTION",
+        "attribution_required": true,
+        "per_artifact_review": true,
+        "note": "Verify the exact project release and repository license before copying or redistributing content."
+      },
+      "allowed_uses": {
+        "automated_retrieval": false,
+        "normalized_facts": true,
+        "full_text_storage": false,
+        "embeddings": false,
+        "model_training": false,
+        "model_evaluation": false,
+        "human_reference": true
+      },
+      "freshness": {"cadence": "RELEASE", "max_age_days": 95, "reviewed_at": "2026-09-01T00:00:00Z"}
+    },
+    {
+      "id": "owasp-asvs",
+      "name": "OWASP Application Security Verification Standard 5",
+      "publisher": "OWASP Foundation",
+      "independence_group": "owasp",
+      "trust_tier": "S",
+      "source_class": "CANONICAL_STANDARD",
+      "domains": ["web", "api", "auth", "database", "crypto", "classification"],
+      "canonical_url": "https://github.com/OWASP/ASVS/tree/master/5.0",
+      "terms_url": "https://github.com/OWASP/ASVS/blob/master/LICENSE.md",
+      "access_mode": "REPOSITORY",
+      "license": {
+        "status": "VERIFIED",
+        "expression": "CC-BY-SA-4.0",
+        "attribution_required": true,
+        "per_artifact_review": false,
+        "note": "Use the versioned release, retain attribution, and mark adaptations."
+      },
+      "allowed_uses": {
+        "automated_retrieval": true,
+        "normalized_facts": true,
+        "full_text_storage": false,
+        "embeddings": false,
+        "model_training": false,
+        "model_evaluation": true,
+        "human_reference": true
+      },
+      "freshness": {"cadence": "RELEASE", "max_age_days": 45, "reviewed_at": "2026-09-01T00:00:00Z"}
+    },
+    {
+      "id": "nist-sard",
+      "name": "NIST Software Assurance Reference Dataset",
+      "publisher": "NIST",
+      "independence_group": "nist",
+      "trust_tier": "S",
+      "source_class": "PUBLIC_DATASET",
+      "domains": ["evals", "web", "database", "classification"],
+      "canonical_url": "https://samate.nist.gov/SARD/",
+      "terms_url": "https://samate.nist.gov/SARD/documentation",
+      "access_mode": "BULK",
+      "license": {
+        "status": "PER_ARTIFACT_REVIEW",
+        "expression": "NOASSERTION",
+        "attribution_required": true,
+        "per_artifact_review": true,
+        "note": "SARD aggregates suites from multiple authors. Review the selected suite's notices and license before ingestion or redistribution."
+      },
+      "allowed_uses": {
+        "automated_retrieval": true,
+        "normalized_facts": true,
+        "full_text_storage": false,
+        "embeddings": false,
+        "model_training": false,
+        "model_evaluation": true,
+        "human_reference": true
+      },
+      "freshness": {"cadence": "QUARTERLY", "max_age_days": 95, "reviewed_at": "2026-09-01T00:00:00Z"}
+    },
+    {
+      "id": "owasp-benchmark",
+      "name": "OWASP Benchmark",
+      "publisher": "OWASP Foundation",
+      "independence_group": "owasp-benchmark",
+      "trust_tier": "S",
+      "source_class": "PUBLIC_DATASET",
+      "domains": ["evals", "web", "classification"],
+      "canonical_url": "https://owasp.org/www-project-benchmark/",
+      "terms_url": "https://github.com/OWASP-Benchmark/BenchmarkJava/blob/master/LICENSE",
+      "access_mode": "REPOSITORY",
+      "license": {
+        "status": "PROJECT_SPECIFIC",
+        "expression": "NOASSERTION",
+        "attribution_required": true,
+        "per_artifact_review": true,
+        "note": "Benchmark language repositories and utilities may use different licenses; pin and review the exact repository and revision."
+      },
+      "allowed_uses": {
+        "automated_retrieval": true,
+        "normalized_facts": true,
+        "full_text_storage": false,
+        "embeddings": false,
+        "model_training": false,
+        "model_evaluation": true,
+        "human_reference": true
+      },
+      "freshness": {"cadence": "RELEASE", "max_age_days": 45, "reviewed_at": "2026-09-01T00:00:00Z"}
+    },
+    {
+      "id": "nist-ssdf",
+      "name": "NIST Secure Software Development Framework",
+      "publisher": "NIST",
+      "independence_group": "nist",
+      "trust_tier": "S",
+      "source_class": "CANONICAL_STANDARD",
+      "domains": ["supply-chain", "cloud", "containers", "ai-security"],
+      "canonical_url": "https://csrc.nist.gov/pubs/sp/800/218/final",
+      "terms_url": "https://www.nist.gov/disclaimer",
+      "access_mode": "WEB",
+      "license": {
+        "status": "PROJECT_SPECIFIC",
+        "expression": "NOASSERTION",
+        "attribution_required": true,
+        "per_artifact_review": true,
+        "note": "Store normalized mappings and links; review publication and third-party material notices before redistribution."
+      },
+      "allowed_uses": {
+        "automated_retrieval": false,
+        "normalized_facts": true,
+        "full_text_storage": false,
+        "embeddings": false,
+        "model_training": false,
+        "model_evaluation": false,
+        "human_reference": true
+      },
+      "freshness": {"cadence": "RELEASE", "max_age_days": 95, "reviewed_at": "2026-09-01T00:00:00Z"}
+    },
+    {
+      "id": "nvd",
+      "name": "National Vulnerability Database",
+      "publisher": "NIST",
+      "independence_group": "nist",
+      "trust_tier": "S",
+      "source_class": "PUBLIC_DATASET",
+      "domains": ["vuln-intel", "supply-chain", "cloud", "containers"],
+      "canonical_url": "https://nvd.nist.gov/developers/vulnerabilities",
+      "terms_url": "https://nvd.nist.gov/developers/terms-of-use",
+      "access_mode": "API",
+      "license": {
+        "status": "PER_ARTIFACT_REVIEW",
+        "expression": "NOASSERTION",
+        "attribution_required": true,
+        "per_artifact_review": true,
+        "note": "NVD records can include upstream material; retain provenance and honor upstream data-source restrictions."
+      },
+      "allowed_uses": {
+        "automated_retrieval": true,
+        "normalized_facts": true,
+        "full_text_storage": false,
+        "embeddings": false,
+        "model_training": false,
+        "model_evaluation": false,
+        "human_reference": true
+      },
+      "freshness": {"cadence": "DAILY", "max_age_days": 2, "reviewed_at": "2026-09-01T00:00:00Z"}
+    },
+    {
+      "id": "cisa-kev",
+      "name": "CISA Known Exploited Vulnerabilities Catalog",
+      "publisher": "CISA",
+      "independence_group": "cisa",
+      "trust_tier": "S",
+      "source_class": "OFFICIAL_ADVISORY",
+      "domains": ["vuln-intel", "prioritization"],
+      "canonical_url": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+      "terms_url": "https://www.cisa.gov/about/website-policies",
+      "access_mode": "BULK",
+      "license": {
+        "status": "PROJECT_SPECIFIC",
+        "expression": "NOASSERTION",
+        "attribution_required": true,
+        "per_artifact_review": false,
+        "note": "Use the official machine-readable catalog as prioritization evidence and retain CISA provenance."
+      },
+      "allowed_uses": {
+        "automated_retrieval": true,
+        "normalized_facts": true,
+        "full_text_storage": false,
+        "embeddings": false,
+        "model_training": false,
+        "model_evaluation": false,
+        "human_reference": true
+      },
+      "freshness": {"cadence": "DAILY", "max_age_days": 2, "reviewed_at": "2026-09-01T00:00:00Z"}
+    },
+    {
+      "id": "osv",
+      "name": "Open Source Vulnerabilities",
+      "publisher": "OpenSSF",
+      "independence_group": "openssf-osv",
+      "trust_tier": "S",
+      "source_class": "PUBLIC_DATASET",
+      "domains": ["vuln-intel", "supply-chain"],
+      "canonical_url": "https://osv.dev/",
+      "terms_url": "https://github.com/ossf/osv-schema/blob/main/LICENSE",
+      "access_mode": "API",
+      "license": {
+        "status": "PER_ARTIFACT_REVIEW",
+        "expression": "NOASSERTION",
+        "attribution_required": true,
+        "per_artifact_review": true,
+        "note": "The schema/tooling license does not replace the licenses and provenance of aggregated upstream advisory records."
+      },
+      "allowed_uses": {
+        "automated_retrieval": true,
+        "normalized_facts": true,
+        "full_text_storage": false,
+        "embeddings": false,
+        "model_training": false,
+        "model_evaluation": false,
+        "human_reference": true
+      },
+      "freshness": {"cadence": "DAILY", "max_age_days": 2, "reviewed_at": "2026-09-01T00:00:00Z"}
+    },
+    {
+      "id": "github-advisory-database",
+      "name": "GitHub Advisory Database",
+      "publisher": "GitHub",
+      "independence_group": "github",
+      "trust_tier": "S",
+      "source_class": "PUBLIC_DATASET",
+      "domains": ["vuln-intel", "supply-chain"],
+      "canonical_url": "https://github.com/github/advisory-database",
+      "terms_url": "https://github.com/github/advisory-database/blob/main/LICENSE.md",
+      "access_mode": "REPOSITORY",
+      "license": {
+        "status": "VERIFIED",
+        "expression": "CC-BY-4.0",
+        "attribution_required": true,
+        "per_artifact_review": false,
+        "note": "Retain attribution and provenance when storing or redistributing normalized advisory data."
+      },
+      "allowed_uses": {
+        "automated_retrieval": true,
+        "normalized_facts": true,
+        "full_text_storage": false,
+        "embeddings": false,
+        "model_training": false,
+        "model_evaluation": true,
+        "human_reference": true
+      },
+      "freshness": {"cadence": "DAILY", "max_age_days": 2, "reviewed_at": "2026-09-01T00:00:00Z"}
+    },
+    {
+      "id": "github-codeql-queries",
+      "name": "GitHub CodeQL queries and libraries",
+      "publisher": "GitHub",
+      "independence_group": "github",
+      "trust_tier": "A",
+      "source_class": "OFFICIAL_TOOL_KNOWLEDGE",
+      "domains": ["queries", "web", "api", "database", "supply-chain"],
+      "canonical_url": "https://github.com/github/codeql",
+      "terms_url": "https://github.com/github/codeql/blob/main/LICENSE",
+      "access_mode": "REPOSITORY",
+      "license": {
+        "status": "VERIFIED",
+        "expression": "MIT",
+        "attribution_required": true,
+        "per_artifact_review": false,
+        "note": "The query repository is MIT-licensed; the separate CodeQL CLI has different terms and must not be conflated with query source."
+      },
+      "allowed_uses": {
+        "automated_retrieval": true,
+        "normalized_facts": true,
+        "full_text_storage": false,
+        "embeddings": false,
+        "model_training": false,
+        "model_evaluation": true,
+        "human_reference": true
+      },
+      "freshness": {"cadence": "WEEKLY", "max_age_days": 8, "reviewed_at": "2026-09-01T00:00:00Z"}
+    },
+    {
+      "id": "semgrep-community-rules",
+      "name": "Semgrep Community Edition rules",
+      "publisher": "Semgrep",
+      "independence_group": "semgrep",
+      "trust_tier": "A",
+      "source_class": "OFFICIAL_TOOL_KNOWLEDGE",
+      "domains": ["queries", "web", "api", "cloud", "containers", "supply-chain"],
+      "canonical_url": "https://github.com/semgrep/semgrep-rules",
+      "terms_url": "https://semgrep.dev/legal/rules-license",
+      "access_mode": "ON_DEMAND",
+      "license": {
+        "status": "RESTRICTED_TERMS",
+        "expression": "LicenseRef-Semgrep-Rules-1.0",
+        "attribution_required": true,
+        "per_artifact_review": true,
+        "note": "Use only within the Semgrep Rules License; do not treat the rules repository as generic permissively licensed training data."
+      },
+      "allowed_uses": {
+        "automated_retrieval": false,
+        "normalized_facts": true,
+        "full_text_storage": false,
+        "embeddings": false,
+        "model_training": false,
+        "model_evaluation": false,
+        "human_reference": true
+      },
+      "freshness": {"cadence": "MONTHLY", "max_age_days": 31, "reviewed_at": "2026-09-01T00:00:00Z"}
+    },
+    {
+      "id": "portswigger-web-security-academy",
+      "name": "PortSwigger Web Security Academy",
+      "publisher": "PortSwigger",
+      "independence_group": "portswigger",
+      "trust_tier": "R",
+      "source_class": "CURRICULUM",
+      "domains": ["web", "curriculum"],
+      "canonical_url": "https://portswigger.net/web-security",
+      "terms_url": "https://portswigger.net/burp/eula",
+      "access_mode": "HUMAN_ONLY",
+      "license": {
+        "status": "RESTRICTED_TERMS",
+        "expression": "LicenseRef-PortSwigger-EULA",
+        "attribution_required": true,
+        "per_artifact_review": true,
+        "note": "The EULA restricts autonomous AI access to the Academy without prior written consent. Keep only this link and human-authored topic references."
+      },
+      "allowed_uses": {
+        "automated_retrieval": false,
+        "normalized_facts": false,
+        "full_text_storage": false,
+        "embeddings": false,
+        "model_training": false,
+        "model_evaluation": false,
+        "human_reference": true
+      },
+      "freshness": {"cadence": "MONTHLY", "max_age_days": 31, "reviewed_at": "2026-09-01T00:00:00Z"}
+    },
+    {
+      "id": "tryhackme",
+      "name": "TryHackMe",
+      "publisher": "TryHackMe",
+      "independence_group": "tryhackme",
+      "trust_tier": "R",
+      "source_class": "CURRICULUM",
+      "domains": ["curriculum"],
+      "canonical_url": "https://tryhackme.com/",
+      "terms_url": "https://tryhackme.com/legal/acceptable-use-policy",
+      "access_mode": "HUMAN_ONLY",
+      "license": {
+        "status": "RESTRICTED_TERMS",
+        "expression": "LicenseRef-TryHackMe-AUP",
+        "attribution_required": true,
+        "per_artifact_review": true,
+        "note": "The AUP prohibits automated collection and use of platform content for AI grounding, training, evaluation, benchmarking, or datasets."
+      },
+      "allowed_uses": {
+        "automated_retrieval": false,
+        "normalized_facts": false,
+        "full_text_storage": false,
+        "embeddings": false,
+        "model_training": false,
+        "model_evaluation": false,
+        "human_reference": true
+      },
+      "freshness": {"cadence": "MONTHLY", "max_age_days": 31, "reviewed_at": "2026-09-01T00:00:00Z"}
+    },
+    {
+      "id": "hack-the-box",
+      "name": "Hack The Box",
+      "publisher": "Hack The Box",
+      "independence_group": "hack-the-box",
+      "trust_tier": "R",
+      "source_class": "CURRICULUM",
+      "domains": ["curriculum"],
+      "canonical_url": "https://www.hackthebox.com/",
+      "terms_url": "https://www.hackthebox.com/hubfs/Legal/AUP.pdf",
+      "access_mode": "HUMAN_ONLY",
+      "license": {
+        "status": "RESTRICTED_TERMS",
+        "expression": "LicenseRef-HTB-AUP",
+        "attribution_required": true,
+        "per_artifact_review": true,
+        "note": "The AUP restricts automated agent access and use of platform content for AI training, evaluation, benchmarking, or datasets without authorization."
+      },
+      "allowed_uses": {
+        "automated_retrieval": false,
+        "normalized_facts": false,
+        "full_text_storage": false,
+        "embeddings": false,
+        "model_training": false,
+        "model_evaluation": false,
+        "human_reference": true
+      },
+      "freshness": {"cadence": "MONTHLY", "max_age_days": 31, "reviewed_at": "2026-09-01T00:00:00Z"}
+    }
+  ]
+}
