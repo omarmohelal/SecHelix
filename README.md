@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <strong>Multi-agent application security that verifies before it accuses.</strong><br/>
-  Map the attack surface → hunt in parallel → independently verify → fix the root cause → prove the regression.
+  <strong>Security findings are claims. SecHelix proves them.</strong><br/>
+  Map the attack surface → select applicable checks → hunt in parallel → independently verify → fix the root cause → prove the regression → gate the release.
 </p>
 
 <p align="center">
@@ -13,90 +13,86 @@
   <a href="SKILL.md"><img src="https://img.shields.io/badge/security%20hypotheses-546-7dd3fc?style=flat-square" alt="546 hypotheses"/></a>
   <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-3.0.0--alpha.4-9b8cff?style=flat-square" alt="3.0.0 alpha 4"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-a78bfa?style=flat-square" alt="Apache-2.0"/></a>
-  <a href="https://sechelix.com/support"><img src="https://img.shields.io/badge/support-crypto-facc15?style=flat-square" alt="Support SecHelix"/></a>
 </p>
 
 <p align="center">
   <a href="#install-in-30-seconds">Install</a> ·
-  <a href="#how-it-works">How it works</a> ·
+  <a href="docs/QUICKSTART.md">Quickstart</a> ·
+  <a href="docs/COMMANDS.md">Commands</a> ·
   <a href="#coverage">Coverage</a> ·
-  <a href="#model-mesh">Model mesh</a> ·
-  <a href="#company-rollout">Companies</a> ·
-  <a href="ROADMAP.md">Roadmap</a> ·
-  <a href="https://sechelix.com">Website</a> ·
-  <a href="https://sechelix.com/support">Support</a>
+  <a href="docs/EVALUATION.md">Evaluation</a> ·
+  <a href="docs/ENTERPRISE-ADOPTION.md">Enterprise</a> ·
+  <a href="https://sechelix.com/docs">Docs</a> ·
+  <a href="https://sechelix.com/faq">FAQ</a> ·
+  <a href="ROADMAP.md">Roadmap</a>
 </p>
 
 ---
 
 ## What is SecHelix?
 
-SecHelix is an **evidence-first AppSec skill and orchestration methodology** for repositories and environments you are authorized to test.
+SecHelix is an **open-source, evidence-first application-security Agent Skill and orchestration methodology** for repositories and environments you are authorized to test.
 
-It is intentionally not “an AI scanner with 500 payloads.” Instead, it coordinates code-reading agents, security tools, browser/runtime evidence, and an independent verifier under one shared standard.
+It is not a scanner wrapper that turns every alert into a vulnerability. SecHelix coordinates code-reading agents, security tools, browser/runtime evidence, and an independent verifier under one shared standard.
 
 > [!IMPORTANT]
 > A scanner alert is not a vulnerability.  
 > A model suspicion is not a vulnerability.  
 > Two models agreeing is not independent proof.
 
-A finding becomes trusted only when the evidence supports attacker control, reachability, a failed security boundary, a safe reproduction, concrete impact, root cause, and regression proof.
+A trusted finding should establish attacker control, reachability, a failed security boundary, bounded safe reproduction, concrete impact, root cause, a fix, and regression proof.
 
-### What ships in V2
+### Current public alpha
 
 | Surface | Current state |
 |---|---|
-| Coverage | **546 explicit, stable hypothesis IDs** across 21 families and 26 lenses |
+| Coverage | **546 stable security hypothesis IDs** across 21 families and 26 lenses |
 | Specialist mesh | **17 model-neutral role profiles**, including an independent verifier |
-| Contracts | **15 JSON Schema Draft 2020-12 contracts** from scope/report through extensions, source trust, graph, research, and Gold Check Packs |
-| Gold Pack + variants | One authorization reference pack plus a deterministic Variant Hunter foundation; matches remain hypotheses until verified |
-| Knowledge engine | Rights-aware source registry, deterministic live-research confidence, provenance graph, and lesson-card seed |
+| Contracts | **15 JSON Schema Draft 2020-12 contracts** for scope, applicability, evidence, findings, reports, extensions, knowledge, and Gold Check Packs |
 | Evidence adapters | Semgrep, CodeQL/SARIF, OSV, Gitleaks, Trivy, npm/pnpm audit, Playwright, ZAP, Nuclei |
 | Reports | Markdown, redacted JSON, SARIF 2.1.0, escaped standalone HTML |
 | Release truth | `PASS`, `PASS_WITH_KNOWN_RISK`, `BLOCKED`, or fail-closed `INCOMPLETE` |
-| Evals | Eight vulnerable/clean fixture families; public aggregate results are **NOT_MEASURED** |
+| Public benchmark | **NOT_MEASURED** until a reproducible run satisfies the published evaluation protocol |
+| Trophy case | Public attributable results only; no unverifiable entries |
 
-### Product preview
-
-The product site authoring source is private. The canonical live product is
-[**sechelix.com**](https://sechelix.com), while this repository intentionally
-contains the open framework rather than the private website source.
-
-<p align="center">
-  <a href="https://sechelix.com"><img src="https://sechelix.com/sechelix-og.png" alt="SecHelix — Security findings are claims. SecHelix proves them." width="100%" /></a>
-</p>
-
-[Open the Workbench](https://sechelix.com/workbench) ·
-[Attack Surface](https://sechelix.com/attack-surface) ·
-[Authorization Matrix](https://sechelix.com/authorization) ·
-[Variant Analysis](https://sechelix.com/variants) ·
-[Benchmark Lab](https://sechelix.com/benchmarks)
+The canonical live product is **[sechelix.com](https://sechelix.com)**. The website source remains private; this repository contains the open security framework, portable Agent Skill, adapters, schemas, eval fixtures, and public documentation.
 
 ## Install in 30 seconds
 
-### Recommended — skills CLI
+### Recommended — Agent Skills CLI
 
 ```bash
 npx skills@latest add omarmohelal/SecHelix --skill sechelix
 ```
 
-Then tell your coding agent:
+Then ask your coding agent:
 
 ```text
-Run a SecHelix security audit on this repository.
-Start with scope and attack-surface mapping.
-Only execute applicable checks.
-Independently verify every High/Critical finding before reporting it.
+Use SecHelix for a complete authorized security audit of this repository.
+Start STATIC, map the attack surface and trust boundaries, evaluate only applicable hypotheses,
+independently verify High/Critical candidates, fix root causes, add regression proof, retest,
+and produce the final release gate.
 ```
+
+**Next:** [5-minute Quickstart](docs/QUICKSTART.md) · [Command cookbook](docs/COMMANDS.md) · [Compatibility](COMPATIBILITY.md)
 
 <details>
 <summary><strong>Claude Code</strong></summary>
 
+Install as a standard Agent Skill:
+
 ```bash
 npx skills@latest add omarmohelal/SecHelix --skill sechelix
 ```
 
-Or copy the project-local adapter:
+The repository also includes a Claude Code plugin manifest for packaged/team use:
+
+```bash
+git clone https://github.com/omarmohelal/SecHelix.git
+claude --plugin-dir ./SecHelix
+```
+
+Project-local adapter:
 
 ```bash
 mkdir -p .claude/skills
@@ -112,98 +108,138 @@ cp -R skills/sechelix .claude/skills/sechelix
 npx skills@latest add omarmohelal/SecHelix --skill sechelix
 ```
 
-The repository also ships a `.codex/skills/sechelix/` adapter.
+The repository ships both `.agents/skills/sechelix/` and `.codex/skills/sechelix/` adapters for repo-local discovery patterns.
 
 </details>
 
 <details>
-<summary><strong>Z.AI / GLM</strong></summary>
+<summary><strong>GitHub Copilot / VS Code agents</strong></summary>
 
-SecHelix stays model-agnostic. Run GLM inside a supported coding host (Claude Code, Cursor, OpenCode, Cline, etc.) and install the skill through that host's skill loader.
+The repository includes:
 
-Use `skills/sechelix/` as the vendor-neutral source of truth.
+```text
+.github/skills/sechelix/SKILL.md
+```
+
+You can also install the portable source with the Agent Skills CLI.
 
 </details>
 
 <details>
-<summary><strong>Cursor / Copilot / other Agent Skills clients</strong></summary>
+<summary><strong>Cursor / Gemini CLI / GLM / OpenCode / other Agent Skills clients</strong></summary>
 
-Use:
+Use the cross-client installer when supported:
 
 ```bash
 npx skills@latest add omarmohelal/SecHelix --skill sechelix
 ```
 
-If your host has no installer, copy `skills/sechelix/` into its documented Agent Skills directory.
-
-See [COMPATIBILITY.md](COMPATIBILITY.md).
+Otherwise use the vendor-neutral `skills/sechelix/` bundle with the host's documented skill loader.
 
 </details>
+
+## Common commands
+
+SecHelix is a skill, so the main interface is a clear instruction to the coding agent rather than a single scanner CLI.
+
+### Full audit
+
+```text
+Use SecHelix for a complete authorized security audit of this repository.
+Map first. Select only applicable checks. Verify important candidates independently.
+Fix root causes, add regression tests, retest, and return the release decision.
+```
+
+### Authorization / IDOR / BOLA
+
+```text
+Use SecHelix to audit authorization.
+Build a Guest/User A/User B/Staff/Admin role × object × action matrix.
+Focus on BOLA/IDOR, BFLA, tenant isolation, ownership, mass assignment, client-controlled identity/role fields,
+UI-only authorization, and storage/RLS policy gaps.
+```
+
+### Business logic / payments / races
+
+```text
+Use SecHelix to audit business logic, payment/accounting truth, idempotency, and concurrency.
+Map state transitions and test replay, duplicate execution, partial success, late callbacks,
+price/quantity tampering, negative values, stale state, TOCTOU, and double-spend windows in a safe environment.
+```
+
+### AI / Agent / MCP security
+
+```text
+Use SecHelix to audit AI/LLM/agent/MCP security.
+Map prompt/context sources, RAG, memory, tool permissions, MCP servers, external URLs, and autonomous side effects.
+Check prompt injection, tool authorization, unsafe output reaching sinks, cross-user leakage, poisoning,
+SSRF through tools, excessive agency, and tool/plugin supply-chain risk.
+```
+
+### Pull request security review
+
+```text
+Use SecHelix to security-review this PR.
+Map changed trust boundaries and dataflows, verify material candidates against existing controls,
+and state whether the PR introduces a verified blocker, known risk, or no evidence-backed security regression.
+```
+
+### Release gate
+
+```text
+Run the SecHelix release gate.
+Return PASS, PASS_WITH_KNOWN_RISK, BLOCKED, or INCOMPLETE.
+Fail closed for missing required evidence and never convert UNKNOWN/BLOCKED into NOT_APPLICABLE.
+```
+
+More recipes: **[docs/COMMANDS.md](docs/COMMANDS.md)**.
 
 ## How it works
 
 ```text
-                 ┌──────────────────────────────┐
-                 │          SCOPE               │
-                 │ authorization + stop rules   │
-                 └──────────────┬───────────────┘
-                                ↓
-      ┌──────────────────────────────────────────────────┐
-      │ MAP identities • assets • entrypoints • states  │
-      │ trust boundaries • roles • providers • data     │
-      └──────────────────────┬───────────────────────────┘
-                             ↓
-            select APPLICABLE hypotheses only
-                             ↓
-             resolve CURRENT / UNKNOWN claims
-             rights gate • 2-source research
-                             ↓
-      ┌──────────┬──────────┬──────────┬──────────┐
-      │ Auth/Z   │ Web/API  │ Logic    │ Races    │  ...
-      │ reviewer │ reviewer │ reviewer │ reviewer │
-      └────┬─────┴────┬─────┴────┬─────┴────┬─────┘
-           └──────────┴───────────┴──────────┘
-                             ↓
-                   INDEPENDENT VERIFIER
-                   tries to refute claims
-                             ↓
-                    ROOT-CAUSE FIX
-                             ↓
-                    REGRESSION PROOF
-                             ↓
-                       RELEASE GATE
+SCOPE
+  ↓
+MAP identities • assets • routes • state machines • trust boundaries
+  ↓
+SELECT only applicable hypotheses
+  ↓
+HUNT with specialists + scanner/tool evidence
+  ↓
+INDEPENDENT VERIFIER tries to refute important candidates
+  ↓
+ROOT-CAUSE FIX
+  ↓
+SECURITY REGRESSION PROOF
+  ↓
+RETEST
+  ↓
+REPORT + RELEASE GATE
 ```
 
-### Evidence standard
+### Four honest applicability outcomes
+
+- `APPLICABLE` — required architecture capability is evidenced as present.
+- `NOT_APPLICABLE` — required capability is explicitly evidenced as absent.
+- `UNKNOWN` — evidence is missing or unresolved.
+- `BLOCKED` — authorization, access, tooling, or environment prevents a legitimate decision.
+
+Missing evidence is never treated as absence.
+
+### Finding evidence standard
 
 A verified vulnerability should establish:
 
-1. **Attacker control**
-2. **Reachability**
-3. **Boundary failure**
-4. **Safe reproduction**
-5. **Concrete impact**
-6. **Preconditions**
-7. **Root cause**
-8. **Fix**
-9. **Regression proof**
+1. attacker control;
+2. reachability;
+3. security boundary failure;
+4. safe reproducibility;
+5. concrete impact;
+6. preconditions;
+7. root cause;
+8. fix;
+9. regression proof.
 
-High/Critical candidates get an independent refutation pass before final reporting.
-
-## Model mesh
-
-Different models can own different lanes without creating different security policies.
-
-| Lane | Good fit | Role |
-|---|---|---|
-| Mapper | large-context model | architecture, entrypoints, trust boundaries |
-| Authorization | strong reasoning model | role/object/action matrix, BOLA/BFLA, fail-open paths |
-| Business logic | strong reasoning model | money, refunds, inventory, partial success, abuse cases |
-| Variants | fast/cheap model | repeated-pattern and sibling-path hunting |
-| Runtime | browser + DB + test tools | prove behavior rather than infer it |
-| Verifier | **different model/provider** | reconstruct and try to disprove important findings |
-
-SecHelix can sit above Claude, Codex, GLM, Gemini, Cursor-hosted models, and scanners. **Model reputation never replaces evidence.**
+High/Critical candidates receive an independent refutation pass before final reporting.
 
 ## Coverage
 
@@ -219,22 +255,13 @@ The catalog contains **546 structured security hypotheses across 21 families**.
 | Cloud / configuration | Privacy / logging | AI / Agent / MCP |
 | Operational security | Release security | Attack-surface mapping |
 
-SecHelix marks each hypothesis `APPLICABLE`, `NOT_APPLICABLE`, `UNKNOWN`, or `BLOCKED`. Missing evidence is never treated as absence, and an unauthorized scope is blocked rather than mislabeled inapplicable. It does **not** spray every check at every target.
-
-### Knowledge without blind ingestion
-
-Current security claims pass through a source registry that records authority,
-publisher independence, license state, allowed uses, and refresh cadence. One
-source creates a lead, not a fact. Two independent reputable sources produce
-`SUPPORTED`; an exact-version official advisory can produce `HIGH_CONFIDENCE`;
-only code evidence plus bounded safe reproduction produces `CONFIRMED`.
-
-PortSwigger Web Security Academy, TryHackMe, and Hack The Box remain
-`HUMAN_ONLY` references under their current terms—no autonomous retrieval,
-copying, embeddings, training, evaluation, or benchmarking without separate
-permission. See [the Knowledge Engine policy](references/knowledge-engine.md).
+SecHelix does **not** spray every check at every target. Applicability is determined from architecture evidence first.
 
 ## Where SecHelix is different
+
+### Verification is first-class
+
+Important candidates can be routed to a verifier whose job is to **disprove** them. Compensation controls, unreachable states, missing attacker control, or impossible prerequisites are valid reasons to reject a candidate.
 
 ### Business logic is first-class
 
@@ -250,15 +277,15 @@ partial fulfillment + "mark full"
 seller A + seller B's object
 ```
 
-SecHelix treats exact-once, state machines, accounting truth, retries, and race windows as security surfaces.
-
-### Noise gets challenged
-
-Every important candidate can be routed to a verifier whose job is to **disprove** it. Compensation controls, unreachable states, role prerequisites, and impossible attacker inputs are valid reasons to reject a finding.
+SecHelix treats exact-once behavior, state machines, accounting truth, retries, and race windows as security surfaces.
 
 ### Runtime proof can outrank static confidence
 
-Typecheck can be green while the browser bundle is broken. Unit tests can be green while a database constraint rejects the real write. SecHelix can require build, browser, database, or migration proof at the layer where the invariant actually lives.
+A typecheck can be green while the browser flow is broken. Unit tests can be green while a real database constraint or authorization boundary behaves differently. SecHelix can require browser, API, database, migration, or local-runtime proof at the layer where the invariant exists.
+
+### AI-built code gets normal AppSec scrutiny
+
+"Built with AI" is not itself a vulnerability class. SecHelix checks the actual implementation for missing server-side authorization, client-controlled identity/price fields, dynamic queries, unsafe HTML, SSRF, weak upload validation, permissive CORS, home-grown auth/JWT logic, missing replay/idempotency controls, unsafe logs, source-map exposure, overprivileged agent tools, and related failure modes.
 
 ## Safe execution modes
 
@@ -266,52 +293,105 @@ Typecheck can be green while the browser bundle is broken. Unit tests can be gre
 |---|---|---|
 | `STATIC` | source/config/schema review | none |
 | `LOCAL` | local app + fixtures | local only |
-| `STAGING` | authorized non-production environment | allowlisted |
+| `STAGING` | explicitly authorized non-production environment | allowlisted |
 | `PRODUCTION_SAFE` | bounded non-destructive verification | tightly restricted |
 
 > [!WARNING]
-> SecHelix is for systems you own or are explicitly authorized to test. It does not turn code review into uncontrolled internet scanning, credential theft, persistence, destructive payloads, or denial-of-service testing.
+> SecHelix is for systems you own or are explicitly authorized to test. It does not turn code review into uncontrolled internet scanning, credential theft, persistence, destructive payloads, malware, or denial-of-service testing.
 
 See [SECURITY.md](SECURITY.md).
 
-## Repository layout
+## Evaluation and proof status
+
+SecHelix deliberately does not claim a measured accuracy number yet.
+
+A public score is allowed only after a reproducible run records the exact SecHelix commit, target/fixture version, model/provider configuration, enabled tools, expected ground truth, observed outcomes, false positives, false negatives, `UNKNOWN`/`BLOCKED` cases, and supporting artifacts.
+
+Metrics are defined in **[docs/EVALUATION.md](docs/EVALUATION.md)**, including:
+
+- verified precision;
+- detection recall on known-ground-truth fixtures;
+- false-positive rejection rate;
+- applicability accuracy;
+- regression-proof rate;
+- release-gate accuracy.
+
+Until then, benchmark status remains **`NOT_MEASURED`**.
+
+## Model mesh
+
+Different models can own different lanes without creating different security policy.
+
+| Lane | Role |
+|---|---|
+| Mapper | architecture, entrypoints, trust boundaries |
+| Authorization specialist | roles, ownership, BOLA/BFLA, fail-open paths |
+| Business-logic specialist | money, inventory, refunds, retries, partial success |
+| Variant hunter | sibling paths and repeated unsafe patterns |
+| Runtime verifier | browser/API/DB/test evidence |
+| Independent verifier | reconstructs and tries to disprove important findings |
+
+**Model reputation never replaces evidence.**
+
+## Enterprise adoption
+
+SecHelix is designed to coexist with existing SAST, SCA, DAST, browser, runtime, cloud, and organization-specific tooling.
+
+Recommended rollout:
+
+1. baseline one representative service;
+2. measure verified findings and rejected false positives;
+3. add organization-specific policy and trust-boundary invariants;
+4. gate verified High/Critical regressions in CI;
+5. keep `UNKNOWN`/`BLOCKED` visible and fail closed where evidence is required;
+6. measure precision, recall on known fixtures, time to verification, regression-proof rate, and recurrence.
+
+Full guide: **[docs/ENTERPRISE-ADOPTION.md](docs/ENTERPRISE-ADOPTION.md)** · [COMMERCIAL.md](COMMERCIAL.md)
+
+## Repository map
 
 ```text
 SecHelix/
 ├── SKILL.md                    # canonical methodology
-├── skills/sechelix/            # self-contained portable Agent Skills bundle
-├── .claude/skills/sechelix/    # Claude Code adapter
-├── .codex/skills/sechelix/     # Codex adapter
-├── agents/                     # specialist reviewer profiles
-├── catalog/                    # 546 explicit structured hypotheses
-├── knowledge/                  # source trust, provenance graph, lesson cards
-├── schemas/                    # versioned JSON contracts
-├── sechelix_core/              # applicability, graph, catalog, contract core
-├── adapters/                   # normalized tool evidence adapters
-├── reports/                    # Markdown/JSON/SARIF/HTML renderer
-├── policies/                   # public release-gate policy examples
-├── references/                 # methodology + standards + tooling
-├── scripts/                    # validation + release gates
-├── examples/                   # scope + report examples
-├── extensions/                 # curated community extension registry
-├── evals/                      # paired fixtures + NOT_MEASURED baseline
-├── docs/                       # rollout + design docs
-├── assets/                     # public brand/readme assets
-└── .github/                    # pinned CI + contribution templates
+├── skills/sechelix/           # portable Agent Skills bundle
+├── .claude-plugin/            # Claude Code plugin manifest
+├── .claude/skills/sechelix/   # Claude Code project adapter
+├── .agents/skills/sechelix/   # repo-local Agent Skills adapter
+├── .codex/skills/sechelix/    # Codex adapter
+├── .github/skills/sechelix/   # GitHub Copilot / VS Code adapter
+├── agents/                    # specialist reviewer profiles
+├── catalog/                   # 546 structured hypotheses
+├── knowledge/                 # source trust, provenance graph, lesson cards
+├── schemas/                   # versioned JSON contracts
+├── sechelix_core/             # applicability, graph, catalog, contract core
+├── adapters/                  # normalized scanner/tool evidence adapters
+├── reports/                   # Markdown/JSON/SARIF/HTML renderer
+├── policies/                  # release-gate policies
+├── references/                # methodology + standards + tooling
+├── scripts/                   # validation + release gates
+├── examples/                  # scope + report examples
+├── extensions/                # community extension registry
+├── evals/                     # paired fixtures + NOT_MEASURED baseline
+├── docs/                      # quickstart, commands, evaluation, rollout
+└── .github/                   # CI + contribution templates
 ```
 
-## Company rollout
+## Documentation
 
-SecHelix is designed so a company can keep the open methodology while adding private policy:
-
-1. baseline one service;
-2. measure verified findings and false positives;
-3. add organization-specific trust boundaries and policy packs;
-4. gate verified High/Critical findings in CI;
-5. require browser/staging proof for critical workflows;
-6. evaluate model/scanner performance on internal fixtures.
-
-See [docs/company-rollout.md](docs/company-rollout.md) and [COMMERCIAL.md](COMMERCIAL.md).
+- [Quickstart](docs/QUICKSTART.md)
+- [Command cookbook](docs/COMMANDS.md)
+- [Evaluation protocol](docs/EVALUATION.md)
+- [Enterprise adoption](docs/ENTERPRISE-ADOPTION.md)
+- [Compatibility](COMPATIBILITY.md)
+- [Architecture](ARCHITECTURE.md)
+- [Security policy](SECURITY.md)
+- [Contributing](CONTRIBUTING.md)
+- [Extensions](docs/EXTENSIONS.md)
+- [Roadmap](ROADMAP.md)
+- [Trophy case](TROPHY_CASE.md)
+- [Live docs](https://sechelix.com/docs)
+- [FAQ](https://sechelix.com/faq)
+- [AI-readable llms.txt](https://sechelix.com/llms.txt)
 
 ## Validation
 
@@ -327,82 +407,34 @@ python scripts/check_private_site_leakage.py
 npx skills@latest add . --list
 ```
 
-The repository validates catalog identity, source rights/use boundaries, knowledge
-provenance, research confidence, the standalone install bundle, schemas,
-adapters, reporting, policy gates, secrets, private-site separation, and
-public-release invariants in GitHub Actions.
+The repository validates catalog identity, source rights/use boundaries, knowledge provenance, research confidence, the standalone install bundle, schemas, adapters, reporting, policy gates, secrets, private-site separation, and public-release invariants in GitHub Actions.
 
 ## Trophy case
 
-SecHelix is young, so the trophy case starts empty **on purpose**. We will only list issues where the evidence is public and the project/maintainer permits attribution.
+SecHelix only lists findings that have **public, attributable evidence** and permission to be referenced.
 
-Found a real bug using SecHelix? Open an issue and include the safe public evidence.
+Current state: **no public entries yet**. That is deliberate; a new project is better served by an empty trophy case than unverifiable claims.
+
+Found a real bug using SecHelix? Use the trophy-case issue template with the public repository, SecHelix version, safe evidence, fix reference, and attribution permission.
 
 See [TROPHY_CASE.md](TROPHY_CASE.md).
 
-## Roadmap
-
-Implemented in the V2 alpha:
-
-- deterministic applicability and attack-surface graph contracts;
-- SARIF, Semgrep, CodeQL, OSV, Trivy, Gitleaks, package-audit, browser, ZAP, and Nuclei adapters;
-- paired vulnerable/clean eval fixtures with blind export and honest `NOT_MEASURED` results;
-- canonical Markdown/JSON/SARIF/HTML reports and fail-closed policy gates;
-- signed evidence-bundle, audit/retention, CI, and private-policy-pack designs.
-- rights-aware source registry, deterministic live-research packets, and the
-  first provenance-backed graph and lesson card.
-- Gold Check Pack contracts, one authorization reference pack, and a
-  deterministic Variant Hunter foundation;
-- the V2 Pro product surfaces: Evidence Workbench, Attack Surface,
-  Authorization Matrix, Variant Analysis, Benchmark Lab, and Command Center.
-
-Next work is rights-reviewed SARD/OWASP Benchmark ingestion, broader verified
-graph/lesson coverage, reproducible benchmark runs, model/provider scorecards,
-and design-partner evidence. No capability ranking is claimed before measurement.
-
-See [ROADMAP.md](ROADMAP.md).
-
-## Support the project
-
-SecHelix is open source. Donations help fund model/API evals, intentionally vulnerable fixtures, scanner adapters, domain/hosting, and maintainer time.
-
-**Official crypto addresses live only in the repository and the official SecHelix domain. Always verify the asset and network before sending.**
-
-[Open the public support page →](https://sechelix.com/support)
-
-The product-grade VNext website is maintained and built from a separate private
-repository. This public repository contains the framework, intentionally
-selected non-source previews, and a tiny GitHub Pages handoff—never the website
-authoring source or source maps. As with every web application, the HTML, CSS,
-and JavaScript delivered to a browser remain inspectable; the protected boundary
-is the TypeScript/component source, build configuration, and source maps.
-
 ## Contributing
 
-Contributions are welcome, especially:
+Useful contributions include:
 
 - false-positive fixtures;
 - vulnerable/clean eval pairs;
 - security hypothesis proposals;
-- source-registry reviews, verified graph mappings, and original lesson cards;
+- verified knowledge mappings and lesson cards;
 - scanner/SARIF adapters;
+- Gold Check Packs;
 - company rollout feedback;
 - documentation improvements.
 
 Security checks should be proposed as **testable hypotheses**, not slogans.
 
-### Build on SecHelix
-
-The curated extension program accepts community adapters, catalog/eval/policy
-packs, reporters, specialists, and integrations. Submissions carry a versioned
-manifest with declared permissions, safe defaults, deterministic fixtures, and an
-evidence-contract target. They enter the `COMMUNITY` channel; only maintainers can
-promote proven work to `INCUBATING` or `OFFICIAL` in a separate review.
-
-[Read the extension program →](docs/EXTENSIONS.md) ·
-[Propose an extension →](https://github.com/omarmohelal/SecHelix/issues/new?template=extension.yml)
-
-Read [CONTRIBUTING.md](CONTRIBUTING.md).
+[Read the contribution guide](CONTRIBUTING.md) · [Propose an extension](https://github.com/omarmohelal/SecHelix/issues/new?template=extension.yml)
 
 ## License
 
@@ -412,5 +444,6 @@ Apache-2.0.
 
 <p align="center">
   <strong>SecHelix</strong><br/>
-  Verify before you accuse.
+  Verify before you accuse.<br/>
+  <a href="https://sechelix.com">sechelix.com</a>
 </p>
