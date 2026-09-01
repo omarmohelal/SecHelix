@@ -11,7 +11,7 @@
   <a href="https://skills.sh/omarmohelal/SecHelix"><img src="https://img.shields.io/badge/skills.sh-SecHelix-6ee7b7?style=flat-square" alt="skills.sh"/></a>
   <a href="https://github.com/omarmohelal/SecHelix/actions"><img src="https://img.shields.io/github/actions/workflow/status/omarmohelal/SecHelix/validate.yml?branch=main&style=flat-square&label=validate" alt="validation"/></a>
   <a href="SKILL.md"><img src="https://img.shields.io/badge/security%20hypotheses-546-7dd3fc?style=flat-square" alt="546 hypotheses"/></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-3.0.0--alpha.3-9b8cff?style=flat-square" alt="3.0.0 alpha 3"/></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-3.0.0--alpha.4-9b8cff?style=flat-square" alt="3.0.0 alpha 4"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-a78bfa?style=flat-square" alt="Apache-2.0"/></a>
   <a href="https://sechelix.magnoumx.chatgpt.site/support"><img src="https://img.shields.io/badge/support-crypto-facc15?style=flat-square" alt="Support SecHelix"/></a>
 </p>
@@ -42,7 +42,7 @@ It is intentionally not “an AI scanner with 500 payloads.” Instead, it coord
 
 A finding becomes trusted only when the evidence supports attacker control, reachability, a failed security boundary, a safe reproduction, concrete impact, root cause, and regression proof.
 
-### What ships in VNext
+### What ships in V2
 
 | Surface | Current state |
 |---|---|
@@ -56,19 +56,35 @@ A finding becomes trusted only when the evidence supports attacker control, reac
 | Release truth | `PASS`, `PASS_WITH_KNOWN_RISK`, `BLOCKED`, or fail-closed `INCOMPLETE` |
 | Evals | Eight vulnerable/clean fixture families; public aggregate results are **NOT_MEASURED** |
 
-### VNext product preview
+### V2 product preview
 
 The product site authoring source is private; these selected, source-free
 screenshots are published intentionally so the public framework has an honest
 visual preview. [Open the current SecHelix site →](https://sechelix.magnoumx.chatgpt.site)
 
 <p align="center">
-  <img src="assets/vnext-preview/home-alpha2.jpg" alt="SecHelix VNext alpha 2 interactive evidence workbench" width="100%" />
+  <img src="assets/vnext-preview/home-1440x900.jpg" alt="SecHelix V2 overview and interactive evidence console" width="100%" />
 </p>
 
-<p align="center">
-  <img src="assets/vnext-preview/extension-forge-alpha2.jpg" alt="SecHelix community extension manifest and review pipeline" width="100%" />
-</p>
+Additional responsive captures: [1920×1080 desktop](assets/vnext-preview/home-1920x1080.jpg) · [390×844 mobile](assets/vnext-preview/home-390x844.jpg)
+
+| Evidence Workbench | Attack Surface |
+|---|---|
+| <img src="assets/vnext-preview/workbench-1440x900.jpg" alt="SecHelix Evidence Workbench" width="100%" /> | <img src="assets/vnext-preview/attack-surface-1440x900.jpg" alt="SecHelix Attack Surface digital twin" width="100%" /> |
+
+| Authorization Matrix | Variant Analysis |
+|---|---|
+| <img src="assets/vnext-preview/authorization-matrix-1440x900.jpg" alt="SecHelix Authorization Matrix" width="100%" /> | <img src="assets/vnext-preview/variant-analysis-1440x900.jpg" alt="SecHelix Variant Analysis" width="100%" /> |
+
+| Benchmark Lab | Contribution workflow |
+|---|---|
+| <img src="assets/vnext-preview/benchmark-lab-1440x900.jpg" alt="SecHelix Benchmark Lab with honest NOT_MEASURED state" width="100%" /> | <img src="assets/vnext-preview/contribute-1440x900.jpg" alt="SecHelix governed contribution workflow" width="100%" /> |
+
+[Open the Workbench](https://sechelix.magnoumx.chatgpt.site/workbench) ·
+[Attack Surface](https://sechelix.magnoumx.chatgpt.site/attack-surface) ·
+[Authorization Matrix](https://sechelix.magnoumx.chatgpt.site/authorization) ·
+[Variant Analysis](https://sechelix.magnoumx.chatgpt.site/variants) ·
+[Benchmark Lab](https://sechelix.magnoumx.chatgpt.site/benchmarks)
 
 ## Install in 30 seconds
 
@@ -340,7 +356,7 @@ See [TROPHY_CASE.md](TROPHY_CASE.md).
 
 ## Roadmap
 
-Implemented in the VNext alpha:
+Implemented in the V2 alpha:
 
 - deterministic applicability and attack-surface graph contracts;
 - SARIF, Semgrep, CodeQL, OSV, Trivy, Gitleaks, package-audit, browser, ZAP, and Nuclei adapters;
@@ -349,6 +365,10 @@ Implemented in the VNext alpha:
 - signed evidence-bundle, audit/retention, CI, and private-policy-pack designs.
 - rights-aware source registry, deterministic live-research packets, and the
   first provenance-backed graph and lesson card.
+- Gold Check Pack contracts, one authorization reference pack, and a
+  deterministic Variant Hunter foundation;
+- the V2 Pro product surfaces: Evidence Workbench, Attack Surface,
+  Authorization Matrix, Variant Analysis, Benchmark Lab, and Command Center.
 
 Next work is rights-reviewed SARD/OWASP Benchmark ingestion, broader verified
 graph/lesson coverage, reproducible benchmark runs, model/provider scorecards,

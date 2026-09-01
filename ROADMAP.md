@@ -47,8 +47,8 @@ SecHelix should earn trust through evals before adding complexity.
 
 ## v3.0 alpha — contract-first orchestration foundation — current
 
-- fourteen versioned JSON contracts, including community extensions, source trust,
-  knowledge graph, lesson cards, and live research packets;
+- fifteen versioned JSON contracts, including community extensions, source trust,
+  knowledge graph, lesson cards, live research packets, and Gold Check Packs;
 - deterministic four-state applicability;
 - explicit 546-ID catalog and frozen manifest;
 - 17 specialist roles;
@@ -59,6 +59,10 @@ SecHelix should earn trust through evals before adding complexity.
 - curated community extension lifecycle with contract, safety, fixture, and maintainer gates.
 - rights-aware source registry with executable restrictions for human-only curricula;
 - deterministic live-research confidence and a provenance-backed graph/lesson-card seed.
+- one authorization Gold Check reference pack and deterministic Variant Hunter
+  classification foundation;
+- V2 Pro overview, Evidence Workbench, Attack Surface, Authorization Matrix,
+  Variant Analysis, Benchmark Lab, and Command Center product surfaces.
 
 ## v3.1 — expert knowledge engine
 
@@ -87,7 +91,7 @@ provider, or scanner.
 
 ## Research backlog
 
-- variant-analysis automation after a verified root cause;
+- broader variant-analysis automation after a verified root cause;
 - architecture-aware check selection;
 - proof minimization (smallest safe reproduction);
 - independent verifier calibration;
