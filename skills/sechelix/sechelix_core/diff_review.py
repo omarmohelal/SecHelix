@@ -232,24 +232,33 @@ def parse_unified_diff(text: str) -> list[FileDiff]:
             files.append(FileDiff(path, tuple(added), tuple(removed), binary))
         path, added, removed, binary = None, [], [], False
 
+    in_hunk = False
     for raw in text.splitlines():
         if raw.startswith("diff --git"):
             flush()
+            in_hunk = False
             parts = raw.split(" b/")
             path = parts[-1].strip() if len(parts) > 1 else raw.split()[-1]
             continue
         if raw.startswith("Binary files"):
             binary = True
             continue
-        if raw.startswith("+++ b/"):
+        # "---" and "+++" are file headers only before the first hunk. Inside a
+        # hunk they are content: removing the SQL comment "-- x" produces the
+        # line "--- x", and treating that as a header made the removed line
+        # vanish. A removed "-- ALTER TABLE ... ENABLE ROW LEVEL SECURITY" then
+        # read as UNCHANGED — a silent miss rather than a flagged gap, which is
+        # the worst outcome this classifier can produce.
+        if not in_hunk and raw.startswith("+++ b/"):
             if path is None:
                 path = raw[6:].strip()
             continue
-        if raw.startswith("--- "):
+        if not in_hunk and raw.startswith("--- "):
             continue
         match = _HUNK.match(raw)
         if match:
             new_line = int(match.group(1))
+            in_hunk = True
             continue
         if raw.startswith("+"):
             added.append((new_line, raw[1:]))
