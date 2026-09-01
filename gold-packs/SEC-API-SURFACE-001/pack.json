@@ -1,0 +1,211 @@
+{
+  "schema_version": "1.0",
+  "id": "SEC-API-SURFACE-001",
+  "version": "0.1.0",
+  "title": "API surface breadth: generic entry points, field writes, and batch amplification",
+  "lifecycle": "REFERENCE",
+  "threat_model": {
+    "actor": "Any caller who can reach the API directly rather than through the client the team designed for, including with a hand-written query, a batched document, or a persistent connection",
+    "asset": "Objects, fields, and operations exposed through the API, and the capacity of the systems behind it",
+    "trust_boundary": "The operation the client was expected to perform and the operation the transport actually admits",
+    "failure_mode": "A generic or alternate entry point reaches objects the typed path guards, a write accepts whatever fields the body names, or one request expands into many without the per-item checks",
+    "impact": "A caller reads or writes objects and fields outside the intended boundary, or amplifies one request into work the system was never sized or authorized for"
+  },
+  "applicability": {
+    "capability_tags": ["http_api", "rpc", "webhooks", "graph_api", "realtime_transport"],
+    "rule": "ANY_CAPABILITY_PRESENT",
+    "required_evidence": [
+      "The application exposes an interface callers can invoke without the first-party client",
+      "At least one operation resolves objects, writes fields, or expands into multiple units of work from a single request"
+    ]
+  },
+  "framework_fingerprints": [
+    {
+      "framework": "graph-api",
+      "versions": ["any"],
+      "signals": [
+        "A generic node or entity lookup resolves objects by an opaque identifier with no viewer predicate",
+        "Field resolvers assume their parent was authorized by the query that usually calls them",
+        "Query depth, complexity, and aliasing are unbounded, and batched documents multiply the cost",
+        "Introspection or a persisted-query bypass exposes operations the client never uses"
+      ]
+    },
+    {
+      "framework": "rest-resource",
+      "versions": ["any"],
+      "signals": [
+        "An update handler copies the request body onto a model or hands it to an ORM update",
+        "A filter, sort, include, or expand parameter reaches the query without an allowlist",
+        "A collection endpoint enforces a narrower predicate than the item endpoint, or the reverse"
+      ]
+    },
+    {
+      "framework": "rpc-and-streaming",
+      "versions": ["any"],
+      "signals": [
+        "A streaming or long-lived connection authorizes at handshake and never re-checks per message",
+        "Reflection or a debug service is registered alongside the production services",
+        "A subscription topic is taken from the client message and only prefix-checked"
+      ]
+    },
+    {
+      "framework": "batch-and-bulk",
+      "versions": ["any"],
+      "signals": [
+        "A batch endpoint dispatches sub-requests without repeating the per-item authorization",
+        "Rate limits are applied per request rather than per unit of work performed",
+        "A partial failure inside a batch is reported as overall success"
+      ]
+    },
+    {
+      "framework": "python-synthetic-fixture",
+      "versions": ["3.x"],
+      "signals": [
+        "A generic node resolver loads objects that the typed query resolver guards with an ownership check",
+        "An update handler copies the request body onto an object whose declared field list is never enforced"
+      ]
+    }
+  ],
+  "sources": {
+    "source_ids": ["mitre-cwe", "owasp-api-top-10", "owasp-asvs", "owasp-top-10"],
+    "catalog_hypothesis_ids": ["SHX-API-L01", "SHX-API-L04", "SHX-API-L06", "SHX-API-L07", "SHX-API-L08"],
+    "references": [
+      "https://cwe.mitre.org/data/definitions/915.html",
+      "https://cwe.mitre.org/data/definitions/639.html",
+      "https://owasp.org/API-Security/",
+      "https://owasp.org/www-project-application-security-verification-standard/",
+      "https://owasp.org/www-project-top-ten/"
+    ]
+  },
+  "boundary": {
+    "type": "API_OPERATION_SCOPE",
+    "subject": "the effective caller and the operation they are entitled to perform",
+    "object": "the objects resolved, the fields written, and the work expanded from one request",
+    "action": "INVOKE",
+    "invariant": "Every entry point that reaches an object applies the same authorization as the typed path, every written field is one the caller may write, and every expanded unit of work is checked and counted individually"
+  },
+  "sinks": [
+    {"kind": "GENERIC_RESOLVER", "examples": ["Global node lookup by opaque identifier", "Reflection or introspection service", "Generic entity fetch by type name"]},
+    {"kind": "FIELD_WRITE", "examples": ["Request body copied onto a model", "ORM update from an unfiltered dictionary", "Nested write through a relation"]},
+    {"kind": "COLLECTION_QUERY", "examples": ["List endpoint with caller-supplied filters", "Search or export operation", "Cursor pagination over a shared index"]},
+    {"kind": "BATCH_DISPATCH", "examples": ["Batched document or multi-operation request", "Bulk mutation endpoint", "Aliased fields repeating one expensive resolver"]},
+    {"kind": "PERSISTENT_CONNECTION", "examples": ["Subscription established over a long-lived connection", "Streaming RPC after a handshake authorization"]},
+    {"kind": "ERROR_SURFACE", "examples": ["Validation error revealing field names or existence", "Stack trace or schema dump returned to the caller"]}
+  ],
+  "detection_layers": [
+    {
+      "layer": "STATIC",
+      "signals": [
+        "Enumerate every way an object can be reached, not only the documented one, and compare the authorization each path applies",
+        "Trace field writes from the request body to the persisted columns and identify what constrains the set",
+        "Find where one request becomes many, and check whether authorization and accounting follow each unit"
+      ]
+    },
+    {
+      "layer": "CONTRACT",
+      "signals": [
+        "State the writable field set for each role and compare it with what the write path actually accepts",
+        "Compare the predicates on item, collection, export, and generic paths for the same object type",
+        "Decide whether authorization is established once per connection or per message, and whether that matches the model"
+      ]
+    },
+    {
+      "layer": "DATA",
+      "signals": [
+        "Identify privileged columns reachable by name: role, tenant, owner, balance, verification flags",
+        "Establish what a schema, introspection response, or verbose error discloses about operations the client never calls"
+      ]
+    },
+    {
+      "layer": "LOCAL_RUNTIME",
+      "signals": [
+        "Call every alternate entry point with two synthetic subjects and compare which objects each returns",
+        "Submit an update that names a privileged field and record whether it is rejected, ignored, or written"
+      ]
+    }
+  ],
+  "validation": {
+    "default_mode": "LOCAL",
+    "destructive_actions": false,
+    "production_mutation": false,
+    "steps": [
+      "Confirm explicit authorization, use two isolated synthetic subjects, and keep all traffic on a local instance",
+      "Exercise the intended operation for the owning subject first, so a later denial is distinguishable from a broken harness",
+      "Repeat the operation through every alternate entry point and record which objects each returns for the non-owning subject",
+      "Submit a write naming a privileged field and read the object back to establish whether the field changed",
+      "Bound any batch or depth probe to a small, non-disruptive size and record cost per request rather than attempting to exhaust anything"
+    ]
+  },
+  "false_positive_filters": [
+    "Every entry point resolves objects through the same authorized loader, so the generic path is not a weaker path",
+    "The write path constrains fields structurally or through an allowlist that has been read rather than inferred from a field list constant",
+    "The privileged field is not persisted from this path, evidenced by the persistence layer rather than by the handler alone",
+    "Depth, complexity, and batch size limits are enforced by the server configuration, evidenced rather than assumed",
+    "The endpoint is intentionally public under a documented policy and exposes no subject-scoped object",
+    "The extra operation is unreachable in the deployed schema, for example disabled introspection or an unregistered debug service"
+  ],
+  "verification": {
+    "independent_required": true,
+    "required_evidence": [
+      "The alternate entry point or writable field, and the reachable path from the caller to it",
+      "Two-subject evidence showing an object or field crossing the intended boundary",
+      "A safe local reproduction with the owned control alongside the foreign case",
+      "The defective invariant stated as a coverage, field-scope, or amplification failure, with the concrete impact"
+    ],
+    "refutation_tests": [
+      "Follow the generic path into the data layer to see whether it converges on the same authorized loader",
+      "Read the persistence layer to confirm the privileged field is actually written rather than silently dropped",
+      "Repeat with the caller's own object to distinguish a general failure from an authorization decision",
+      "Check the server configuration for depth, complexity, and batch limits before reporting amplification"
+    ]
+  },
+  "root_causes": [
+    "A generic entry point exists beside the typed one and was never given the typed path's authorization",
+    "Field resolvers inherit authorization from an expected parent instead of establishing it themselves",
+    "A field list is used to initialise an object rather than to constrain what may be assigned to it",
+    "Batch and bulk dispatch repeat the transport but not the per-item checks or the accounting",
+    "A long-lived connection is authorized at handshake and never re-evaluated as the subscription changes",
+    "Filters, includes, and expansions reach the query without an allowlist"
+  ],
+  "variant_strategy": {
+    "anchor_fields": ["invariant", "boundary", "action"],
+    "variant_dimensions": ["actor", "object", "identity_state", "enforcement_layer", "sink_kind", "framework"],
+    "result_contract": "EXACT | VARIANT | REFUTED | BLOCKED; exact and variant matches remain hypotheses until verified"
+  },
+  "remediation": {
+    "canonical_invariant": "Give every entry point the same authorized data path, constrain writable fields at the type rather than by convention, and check and count every unit of work a request expands into",
+    "patterns": [
+      "Resolve objects only through viewer-scoped loaders, and make the generic entry point use exactly those loaders",
+      "Have each field resolver re-establish the boundary instead of trusting the parent that called it",
+      "Express the writable projection as a type the object model enforces, so an undeclared field cannot be assigned at all",
+      "Apply authorization and rate accounting per item inside batch and bulk dispatch, and report partial failure honestly",
+      "Re-authorize per message on long-lived connections, and derive subscription topics server-side from the connection's binding",
+      "Bound query depth, complexity, aliasing, and batch size at the server, and disable introspection and reflection where the client does not need them"
+    ]
+  },
+  "regression": {
+    "fixture_ids": ["EVAL-AUTHZ-004", "EVAL-AUTHZ-005"],
+    "assertions": [
+      "The vulnerable resolver set returns another customer's object through the generic node entry point while the typed query refuses it",
+      "The vulnerable field resolvers expose a related object because they inherit authorization from an expected parent",
+      "The remediated resolver set routes the typed and generic paths through the same viewer-scoped loaders and still serves the owning viewer",
+      "The vulnerable update writes a privileged field named in the request body because the declared field list only initialises attributes",
+      "The compensated update copies the whole request body onto an object yet cannot write an undeclared field, because the type itself refuses the assignment"
+    ]
+  },
+  "mappings": {
+    "cwe": ["CWE-915", "CWE-639", "CWE-863", "CWE-770"],
+    "owasp": ["OWASP-ASVS:V13", "OWASP-API1:2023", "OWASP-API3:2023", "OWASP-API4:2023"]
+  },
+  "calibration": {
+    "measurement_status": "NOT_MEASURED",
+    "sample_size": 0,
+    "notes": "This pack has not completed a reproducible benchmark run and makes no precision or recall claim."
+  },
+  "limitations": [
+    "Gateways, schema stitching, and persisted-query layers often decide the real reachable surface and live outside the repository",
+    "Amplification impact depends on capacity and downstream cost, which a code review cannot establish on its own",
+    "A field accepted by a handler may be discarded by the persistence layer, so handler evidence alone does not prove a write",
+    "The synthetic fixtures demonstrate the contract shape, not behaviour under a specific server framework's defaults"
+  ]
+}

@@ -1,0 +1,207 @@
+{
+  "schema_version": "1.0",
+  "id": "SEC-INJECTION-DATAFLOW-001",
+  "version": "0.1.0",
+  "title": "Untrusted data reaching an interpreter as syntax rather than value",
+  "lifecycle": "REFERENCE",
+  "threat_model": {
+    "actor": "Any caller who can place a value anywhere the application later reads it, directly on a request or indirectly through storage, a queue, an import, or a webhook",
+    "asset": "The integrity of every statement the application hands to a query planner, shell, template engine, or expression evaluator",
+    "trust_boundary": "The point where a value stops being data and becomes part of the program the interpreter runs",
+    "failure_mode": "A value is concatenated into a statement, or the statement is assembled in one place and executed in another where the escaping context is different from the one assumed",
+    "impact": "The caller changes what the statement means: reading or writing outside the intended predicate, executing a command, or evaluating an expression the application never authored"
+  },
+  "applicability": {
+    "capability_tags": ["interpreters", "database_queries", "templates", "shell_execution", "stored_input_reuse"],
+    "rule": "ANY_CAPABILITY_PRESENT",
+    "required_evidence": [
+      "The application composes a statement, command, or template that an interpreter later executes",
+      "At least one component of that statement originates outside the application's own source, whether from a request or from stored data"
+    ]
+  },
+  "framework_fingerprints": [
+    {
+      "framework": "sql-query-builder",
+      "versions": ["any"],
+      "signals": [
+        "Values are bound while identifiers, sort columns, table names, or operators are interpolated",
+        "A raw or fragment escape hatch exists beside the parameterized API",
+        "A dynamic WHERE clause is assembled by string joining before any binding happens"
+      ]
+    },
+    {
+      "framework": "document-store-query",
+      "versions": ["any"],
+      "signals": [
+        "A request object is passed as a query filter without shape validation, so an operator key can be supplied",
+        "A caller-supplied string is compiled into a query expression or aggregation stage"
+      ]
+    },
+    {
+      "framework": "shell-and-process",
+      "versions": ["any"],
+      "signals": [
+        "A command is built as one string and executed with a shell rather than as an argument vector",
+        "A safe argument-vector path exists alongside a legacy branch that still builds a command line",
+        "An argument value begins with a character the tool treats as an option"
+      ]
+    },
+    {
+      "framework": "template-and-expression",
+      "versions": ["any"],
+      "signals": [
+        "A template is built by concatenation and then compiled, so the input becomes template source",
+        "An expression or rule string from configuration or storage is evaluated at runtime"
+      ]
+    },
+    {
+      "framework": "python-synthetic-fixture",
+      "versions": ["3.x"],
+      "signals": [
+        "A saved view stores a SQL fragment that a later read concatenates into a WHERE clause",
+        "A worker builds an argument vector on the primary path and a shell command line on a legacy preset branch"
+      ]
+    }
+  ],
+  "sources": {
+    "source_ids": ["mitre-cwe", "mitre-capec", "owasp-asvs", "owasp-top-10"],
+    "catalog_hypothesis_ids": ["SHX-INJ-L01", "SHX-INJ-L04", "SHX-INJ-L17", "SHX-INJ-L18"],
+    "references": [
+      "https://cwe.mitre.org/data/definitions/89.html",
+      "https://cwe.mitre.org/data/definitions/78.html",
+      "https://capec.mitre.org/data/definitions/66.html",
+      "https://owasp.org/www-project-application-security-verification-standard/",
+      "https://owasp.org/www-project-top-ten/"
+    ]
+  },
+  "boundary": {
+    "type": "INTERPRETER_INPUT",
+    "subject": "the application as the sole author of the statement being executed",
+    "object": "the statement, command, or template the interpreter receives",
+    "action": "EXECUTE",
+    "invariant": "Every component of an executed statement is either written by the application or bound as a value that the interpreter cannot read as syntax"
+  },
+  "sinks": [
+    {"kind": "SQL_EXECUTION", "examples": ["Query with an interpolated ORDER BY or WHERE fragment", "Raw query escape hatch", "Stored procedure body built from a string"]},
+    {"kind": "DOCUMENT_QUERY", "examples": ["Filter object built from a request body", "Aggregation pipeline stage from caller input", "Server-side expression evaluation"]},
+    {"kind": "PROCESS_EXECUTION", "examples": ["Shell command built by concatenation", "Argument value that can be read as an option flag"]},
+    {"kind": "TEMPLATE_COMPILATION", "examples": ["Template source assembled from user content", "Server-side render of a caller-supplied layout"]},
+    {"kind": "EXPRESSION_EVALUATION", "examples": ["Rule or formula string evaluated at runtime", "Deserialized expression tree executed by the application"]},
+    {"kind": "SECOND_ORDER_READ", "examples": ["Stored filter reused when a scheduled report runs", "Imported record reused in a later query", "Queue payload rendered into a command"]}
+  ],
+  "detection_layers": [
+    {
+      "layer": "STATIC",
+      "signals": [
+        "Trace each statement backwards to every component and label each as application-authored, bound, or external",
+        "Search for the escape hatch beside the safe API, because the parameterized call is rarely where the defect is",
+        "Follow stored values on the read path, not only on the write path, since the write is usually the safe half"
+      ]
+    },
+    {
+      "layer": "CONTRACT",
+      "signals": [
+        "State which parts of the statement are structural and confirm that each maps to a fixed literal rather than a sanitized string",
+        "Decide whether the escaping applied matches the context the value actually lands in, including nested contexts",
+        "Treat re-validation on read as a requirement rather than assuming stored data inherits the trust of the writer"
+      ]
+    },
+    {
+      "layer": "DATA",
+      "signals": [
+        "Identify columns, queue payloads, and imported records whose contents are later used to build statements",
+        "Establish who can write into those stores, since a second-order path can start at a lower privilege than the read"
+      ]
+    },
+    {
+      "layer": "LOCAL_RUNTIME",
+      "signals": [
+        "Exercise the builder function alone on structural inputs and record what reaches the generated statement",
+        "Use a local database or a recording interpreter double and assert on the statement text, never on production data"
+      ]
+    }
+  ],
+  "validation": {
+    "default_mode": "LOCAL",
+    "destructive_actions": false,
+    "production_mutation": false,
+    "steps": [
+      "Confirm explicit authorization and use a local database or an interpreter double that records rather than executes",
+      "Establish a working benign control call first, so a later difference is attributable to the input and not the harness",
+      "Submit structural rather than destructive inputs and assert on the generated statement text",
+      "For a second-order path, write the value through the ordinary feature and trigger the later read that consumes it",
+      "Record the composed statement, the interpreter, and the reachable entrypoint without running destructive operations"
+    ]
+  },
+  "false_positive_filters": [
+    "Every interpolated component maps through an allowlist to a fixed literal the application authored",
+    "The value is bound as a parameter and the interpreter cannot read a bound value as syntax",
+    "The value is server-derived from a trusted record and no caller-controlled path reaches it",
+    "The builder is unreachable from any entrypoint, or is a test double that cannot execute in the deployed path",
+    "A database policy or a separate authorization layer constrains the statement's effect regardless of the injected predicate, which changes impact but not the defect",
+    "The interpreter is invoked without a shell and the value occupies its own argument, so no metacharacter can change the command"
+  ],
+  "verification": {
+    "independent_required": true,
+    "required_evidence": [
+      "The composed statement showing which component is caller-influenced",
+      "A reachable path from the entrypoint to the interpreter call, including the storage hop for a second-order finding",
+      "A safe reproduction that changes the statement's meaning without a destructive payload",
+      "The defective invariant stated as a data-becoming-syntax failure, and what the changed statement actually achieves"
+    ],
+    "refutation_tests": [
+      "Re-read the call for a parameterized form that the surrounding string formatting disguises",
+      "Check whether the interpolated component is constrained to an allowlist earlier in the call chain",
+      "For a second-order candidate, establish that the value can actually be written by someone other than the reader",
+      "Confirm the process call really uses a shell before treating an argument value as command syntax"
+    ]
+  },
+  "root_causes": [
+    "Structural components of a statement cannot be bound, so they are interpolated with sanitization standing in for an allowlist",
+    "Stored data is treated as trusted on read because the write path was parameterized",
+    "A legacy or fallback branch survives beside the safe path and still assembles a command line",
+    "Escaping is applied for one context and the value lands in another",
+    "A request object is passed straight to a query API that accepts operators as keys"
+  ],
+  "variant_strategy": {
+    "anchor_fields": ["invariant", "boundary", "action"],
+    "variant_dimensions": ["actor", "object", "identity_state", "enforcement_layer", "sink_kind", "framework"],
+    "result_contract": "EXACT | VARIANT | REFUTED | BLOCKED; exact and variant matches remain hypotheses until verified"
+  },
+  "remediation": {
+    "canonical_invariant": "Bind every value and map every structural component through an allowlist to a literal the application authored, on the read path as well as the write path",
+    "patterns": [
+      "Map sort columns, table names, and operators to fixed literals and reject anything unlisted",
+      "Store structured predicates rather than statement fragments, and compile them with the same validator on write and on read",
+      "Execute processes as an argument vector without a shell, and delete the legacy command-line branch rather than escaping it",
+      "Validate the shape of query filter objects so an operator key cannot arrive from a request body",
+      "Keep the parameterized API the only reachable path by removing or gating the raw escape hatch",
+      "Treat stored data as untrusted input at the point of reuse, regardless of who wrote it"
+    ]
+  },
+  "regression": {
+    "fixture_ids": ["EVAL-INJ-003", "EVAL-INJ-004"],
+    "assertions": [
+      "The vulnerable saved-view variant concatenates a stored expression into the WHERE clause despite a fully parameterized write path",
+      "The remediated saved-view variant stores structured predicates and compiles them through the same allowlist on write and on read",
+      "The vulnerable worker reaches a shell command line through its legacy preset branch while its primary path uses an argument vector",
+      "The compensated worker keeps a process execution and a rendered command string yet passes every caller value as its own argument with no shell",
+      "Remediated variants still execute the legitimate query and the legitimate transcode, so the assertion distinguishes enforcement from refusal"
+    ]
+  },
+  "mappings": {
+    "cwe": ["CWE-89", "CWE-78", "CWE-943", "CWE-1336"],
+    "owasp": ["OWASP-ASVS:V5", "OWASP-A03:2021", "OWASP-API8:2023"]
+  },
+  "calibration": {
+    "measurement_status": "NOT_MEASURED",
+    "sample_size": 0,
+    "notes": "This pack has not completed a reproducible benchmark run and makes no precision or recall claim."
+  },
+  "limitations": [
+    "Interpreter behaviour differs by engine and version, so a fixture result does not transfer between database or shell implementations",
+    "Second-order paths cross process and time boundaries, and the writing entrypoint may live outside the reviewed repository",
+    "A statement whose meaning changes may still be constrained by database policies, which alters impact without removing the defect",
+    "Static tracing alone cannot establish reachability through queues, schedulers, or imports without evidence about the deployment"
+  ]
+}

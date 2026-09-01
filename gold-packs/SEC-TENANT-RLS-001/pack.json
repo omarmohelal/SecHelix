@@ -1,0 +1,211 @@
+{
+  "schema_version": "1.0",
+  "id": "SEC-TENANT-RLS-001",
+  "version": "0.1.0",
+  "title": "Tenant isolation at the database boundary and the policies it depends on",
+  "lifecycle": "REFERENCE",
+  "threat_model": {
+    "actor": "A legitimate user of one tenant, or any code path that reaches the database with a role or a session setting other than the one the isolation model assumes",
+    "asset": "Row-level separation between tenants, and the correctness of every aggregate, export, and background job derived from it",
+    "trust_boundary": "The tenant the request belongs to and the rows the executed statement is actually able to touch",
+    "failure_mode": "A statement omits the tenant predicate while the policy that was supposed to supply it does not apply to the connecting role, is not forced, or was never given its setting",
+    "impact": "Rows belonging to other tenants are read, aggregated, exported, or written, frequently through a reporting or background path rather than the primary request path"
+  },
+  "applicability": {
+    "capability_tags": ["database", "multi_tenancy", "database_policies", "migrations", "background_jobs"],
+    "rule": "ANY_CAPABILITY_PRESENT",
+    "required_evidence": [
+      "Rows belonging to different tenants, owners, or organisations share a table",
+      "At least one statement relies on something other than its own predicate to stay within one tenant"
+    ]
+  },
+  "framework_fingerprints": [
+    {
+      "framework": "row-level-security",
+      "versions": ["any"],
+      "signals": [
+        "A policy is enabled but not forced, while the application connects with the table's owning role",
+        "The policy reads a runtime setting that some code paths never set",
+        "The setting is applied for the session rather than for the transaction, so it survives on a pooled connection",
+        "A privileged or definer-rights function reads the table on behalf of the caller and applies no predicate of its own"
+      ]
+    },
+    {
+      "framework": "connection-management",
+      "versions": ["any"],
+      "signals": [
+        "More than one pool or role reaches the same tables, and only one of them enforces isolation",
+        "Reporting, analytics, migration, or admin paths use a separate connection with wider rights",
+        "A connection is returned to the pool without resetting the state a previous request set on it"
+      ]
+    },
+    {
+      "framework": "orm-and-scoping",
+      "versions": ["any"],
+      "signals": [
+        "A default scope supplies the tenant predicate and an escape hatch bypasses it",
+        "A raw query helper is used where the scoped API would have added the predicate",
+        "An association or eager-load traverses to rows the root scope never constrained"
+      ]
+    },
+    {
+      "framework": "migration-drift",
+      "versions": ["any"],
+      "signals": [
+        "The repository's migrations and the live schema can disagree about which policies exist",
+        "A later migration replaces or drops a policy without restoring it",
+        "A new table is added without the isolation the other tables received"
+      ]
+    },
+    {
+      "framework": "python-synthetic-fixture",
+      "versions": ["3.x"],
+      "signals": [
+        "A reporting path borrows a pool whose role bypasses the row policy and carries no tenant predicate",
+        "A migration enables row level security without forcing it while the runtime role owns the table"
+      ]
+    }
+  ],
+  "sources": {
+    "source_ids": ["mitre-cwe", "owasp-asvs", "owasp-api-top-10", "owasp-top-10"],
+    "catalog_hypothesis_ids": ["SHX-DB-L01", "SHX-DB-L02", "SHX-DB-L19", "SHX-DB-L21", "SHX-DB-L22"],
+    "references": [
+      "https://cwe.mitre.org/data/definitions/863.html",
+      "https://cwe.mitre.org/data/definitions/1220.html",
+      "https://owasp.org/www-project-application-security-verification-standard/",
+      "https://owasp.org/API-Security/",
+      "https://owasp.org/www-project-top-ten/"
+    ]
+  },
+  "boundary": {
+    "type": "TENANT_ROW_ISOLATION",
+    "subject": "the tenant the executing statement belongs to",
+    "object": "the rows the statement can read or write in a shared table",
+    "action": "QUERY",
+    "invariant": "Every statement against a shared table is constrained to one tenant, either by its own predicate or by a policy that demonstrably applies to the connecting role with its setting bound for that transaction"
+  },
+  "sinks": [
+    {"kind": "SHARED_TABLE_READ", "examples": ["Item or list query without a tenant predicate", "Join reaching a table the root scope never constrained"]},
+    {"kind": "SHARED_TABLE_WRITE", "examples": ["Update or delete matched by primary key alone", "Insert whose tenant column comes from the request"]},
+    {"kind": "AGGREGATE_QUERY", "examples": ["Reporting summary", "Analytics rollup", "Dashboard count over a shared table"]},
+    {"kind": "PRIVILEGED_ROUTINE", "examples": ["Definer-rights or security-definer function", "Stored procedure invoked on behalf of a caller", "Trigger that writes across tenants"]},
+    {"kind": "BACKGROUND_JOB", "examples": ["Scheduled export", "Queue worker processing rows in bulk", "Backfill or migration task"]},
+    {"kind": "CONNECTION_STATE", "examples": ["Session setting left on a pooled connection", "Role assumed for a maintenance path"]}
+  ],
+  "detection_layers": [
+    {
+      "layer": "STATIC",
+      "signals": [
+        "List every statement against shared tables and mark which carry a tenant predicate and which rely on a policy",
+        "Identify every role and pool that reaches those tables, including reporting, migration, and admin paths",
+        "Trace how the runtime setting a policy reads is established, and find the paths that never establish it"
+      ]
+    },
+    {
+      "layer": "CONTRACT",
+      "signals": [
+        "State the isolation mechanism per table and confirm it applies to the connecting role rather than only to some roles",
+        "Decide whether the setting is bound per transaction or per session, and what a pooled connection therefore inherits",
+        "Compare the policies the migrations create with the policies the deployed database actually holds"
+      ]
+    },
+    {
+      "layer": "DATA",
+      "signals": [
+        "Establish which tables hold rows for more than one tenant and which of them have no policy at all",
+        "Check whether privileged routines, views, and materialised aggregates carry the predicate their callers assume"
+      ]
+    },
+    {
+      "layer": "LOCAL_RUNTIME",
+      "signals": [
+        "Against a local database seeded with two synthetic tenants, run each path and record which rows it returns",
+        "Borrow and release a pooled connection across two synthetic tenants and record what state the second request inherits"
+      ]
+    }
+  ],
+  "validation": {
+    "default_mode": "LOCAL",
+    "destructive_actions": false,
+    "production_mutation": false,
+    "steps": [
+      "Confirm explicit authorization and use a local database seeded with two synthetic tenants and no real customer data",
+      "Run the owning tenant's request first and record the rows returned, so a later difference is attributable to the boundary",
+      "Repeat every path — item, list, aggregate, export, and background — and record the rows each returns for the other tenant",
+      "Connect with each role the application uses and observe whether the policy applies to it",
+      "Record the role, the setting, the policy definition, and the statement text without mutating any shared environment"
+    ]
+  },
+  "false_positive_filters": [
+    "The statement carries its own tenant predicate, so the policy is defence in depth rather than the only control",
+    "The policy is forced and the connecting role neither owns the table nor holds a bypass attribute, evidenced from the schema rather than assumed",
+    "The setting the policy reads is bound per transaction on every path that reaches the table",
+    "The table holds no rows for more than one tenant, so the missing predicate has no isolation consequence",
+    "The path is a maintenance or migration tool that no request can reach, and its credentials are not available to the application",
+    "Separate databases or schemas per tenant make a shared-table predicate unnecessary, evidenced by the connection routing"
+  ],
+  "verification": {
+    "independent_required": true,
+    "required_evidence": [
+      "The statement without a predicate, the role it executes as, and the policy that was supposed to constrain it",
+      "A reachable path from a caller of one tenant to that statement",
+      "A two-tenant reproduction on a local database showing which rows were returned or written",
+      "The defective invariant stated as a predicate, role, or setting failure, with the concrete isolation impact"
+    ],
+    "refutation_tests": [
+      "Read the policy definition and the connecting role together, since enabling a policy does not bind the owner unless it is forced",
+      "Check whether the setting is bound per transaction before concluding a pooled connection carries state across requests",
+      "Look for the predicate in a view, a default scope, or a wrapper the statement passes through",
+      "Confirm the table actually holds more than one tenant's rows before asserting cross-tenant impact"
+    ]
+  },
+  "root_causes": [
+    "A policy is enabled but not forced while the application connects as the table owner, which is exempt from it",
+    "A second pool or role reaches the same tables without the isolation the primary path relies on",
+    "The runtime setting a policy reads is never established on some paths, so the policy evaluates against nothing",
+    "The setting is session-scoped and survives on a pooled connection into the next request",
+    "Reporting and background paths omit the predicate because the primary path appears to be protected",
+    "Migrations and the deployed schema drift, so the policy in the repository is not the policy in force"
+  ],
+  "variant_strategy": {
+    "anchor_fields": ["invariant", "boundary", "action"],
+    "variant_dimensions": ["actor", "object", "identity_state", "enforcement_layer", "sink_kind", "framework"],
+    "result_contract": "EXACT | VARIANT | REFUTED | BLOCKED; exact and variant matches remain hypotheses until verified"
+  },
+  "remediation": {
+    "canonical_invariant": "Force the row policy, connect with a role it binds, bind its setting per transaction on every path, and keep the tenant predicate in the statement as defence in depth",
+    "patterns": [
+      "Force row level security so the owning role is subject to the policy, and give the application a separate non-owning role",
+      "Bind the tenant setting as a parameter, scoped to the transaction, so nothing survives on a pooled connection",
+      "Route reporting, export, and background work through the same role and the same enforcement as the request path",
+      "Keep an explicit tenant predicate in each statement, so the policy is a second layer rather than the only one",
+      "Give security-definer routines their own predicate rather than inheriting the caller's assumptions",
+      "Assert the deployed policy set in a test that reads the live schema, so migration drift fails visibly"
+    ]
+  },
+  "regression": {
+    "fixture_ids": ["EVAL-AUTHZ-006", "EVAL-AUTHZ-007"],
+    "assertions": [
+      "The vulnerable reporting path aggregates rows across tenants because it borrows a role that bypasses the policy and carries no predicate",
+      "The vulnerable primary path interpolates the tenant into a session-scoped setting that survives on the pooled connection",
+      "The remediated database uses one enforcing role, binds the setting per transaction, and repeats the predicate, while still returning the owning tenant's rows",
+      "The vulnerable repository runs predicate-free statements under a policy that is enabled but not forced, with the runtime role owning the table",
+      "The compensated repository runs the same predicate-free statements safely because the policy is forced and the runtime role is not the owner"
+    ]
+  },
+  "mappings": {
+    "cwe": ["CWE-863", "CWE-1220", "CWE-269", "CWE-566"],
+    "owasp": ["OWASP-ASVS:V4", "OWASP-API1:2023", "OWASP-A01:2021"]
+  },
+  "calibration": {
+    "measurement_status": "NOT_MEASURED",
+    "sample_size": 0,
+    "notes": "This pack has not completed a reproducible benchmark run and makes no precision or recall claim."
+  },
+  "limitations": [
+    "Policy semantics differ between database engines, so conclusions about forcing, ownership, and bypass do not transfer between them",
+    "The deployed schema is the authority and may differ from the migrations in the repository, which code review alone cannot settle",
+    "Connection pooling and role assignment are usually configured outside the repository and decide much of the real behaviour",
+    "The synthetic fixtures demonstrate the enforcement contract, not the policy set of any particular production database"
+  ]
+}
