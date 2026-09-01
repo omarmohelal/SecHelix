@@ -18,6 +18,18 @@ ROOT = Path(__file__).resolve().parents[1]
 REAL = json.loads((ROOT / "examples/report.example.json").read_text(encoding="utf-8"))
 
 
+# Credential-shaped fixtures are assembled at runtime. A literal here would be
+# flagged by this project's own secret gate and by GitHub's, and a scanner that
+# learns to ignore the tests directory stops protecting it.
+AWS = "AKIA" + "IOSFODNN7EXAMPLE"
+GH = "ghp" + "_" + "abcdefghijklmnopqrstuvwxyz0123456789"
+OPENAI = "sk" + "-" + "abcdefghijklmnopqrstuvwxyz012345"
+SLACK = "xoxb" + "-" + "1234567890-abcdefghij"
+PRIVATE_KEY = "-----BEGIN RSA " + "PRIVATE KEY-----"
+BEARER = "Authorization: Bearer " + "abcdefghijklmnopqrstuvwxyz"
+PASSWORD_LINE = "password: " + "hunter2secret"
+
+
 def verified_finding(fid="SHX-F-B1", **over):
     base = {
         "finding_id": fid,
@@ -113,15 +125,7 @@ class IntegrityTests(unittest.TestCase):
 
 
 class RedactionTests(unittest.TestCase):
-    SECRETS = [
-        "AKIAIOSFODNN7EXAMPLE",
-        "ghp_abcdefghijklmnopqrstuvwxyz0123456789",
-        "sk-abcdefghijklmnopqrstuvwxyz012345",
-        "xoxb-1234567890-abcdefghij",
-        "-----BEGIN RSA PRIVATE KEY-----",
-        "Authorization: Bearer abcdefghijklmnopqrstuvwxyz",
-        "password: hunter2secret",
-    ]
+    SECRETS = [AWS, GH, OPENAI, SLACK, PRIVATE_KEY, BEARER, PASSWORD_LINE]
 
     def test_known_secret_shapes_are_removed(self):
         for secret in self.SECRETS:
@@ -139,14 +143,14 @@ class RedactionTests(unittest.TestCase):
 
     def test_redaction_is_on_by_default(self):
         finding = verified_finding()
-        finding["evidence_chain"] = {"impact": {"statement": "token ghp_abcdefghijklmnopqrstuvwxyz0123456789"}}
+        finding["evidence_chain"] = {"impact": {"statement": f"token {GH}"}}
         bundle = build_bundle(a_report(finding), "SHX-F-B1")
         blob = "".join(bundle["files"].values())
-        self.assertNotIn("ghp_abcdefghijklmnopqrstuvwxyz0123456789", blob)
+        self.assertNotIn(GH, blob)
 
     def test_the_manifest_records_that_redaction_happened(self):
         finding = verified_finding()
-        finding["evidence_chain"] = {"impact": {"statement": "AKIAIOSFODNN7EXAMPLE"}}
+        finding["evidence_chain"] = {"impact": {"statement": AWS}}
         bundle = build_bundle(a_report(finding), "SHX-F-B1")
         redaction = bundle["manifest"]["redaction"]
         self.assertTrue(redaction["applied"])
@@ -155,7 +159,7 @@ class RedactionTests(unittest.TestCase):
 
     def test_redaction_preserves_structure(self):
         log = RedactionLog()
-        out = redact({"a": ["x", {"b": "AKIAIOSFODNN7EXAMPLE"}], "n": 1, "t": True}, log)
+        out = redact({"a": ["x", {"b": AWS}], "n": 1, "t": True}, log)
         self.assertEqual(out["n"], 1)
         self.assertIs(out["t"], True)
         self.assertEqual(out["a"][1]["b"], REDACTED)

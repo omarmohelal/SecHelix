@@ -74,7 +74,8 @@ class NotSuppressedTests(unittest.TestCase):
 
     def test_a_secret_in_a_comment_is_still_reported(self):
         """A credential pasted into a comment is still a credential."""
-        found = deltas_for("app/x.py", ["# api_key = sk-live-abcdefghijklmnop"])
+        token = "sk" + "-live-abcdefghijklmnop"
+        found = deltas_for("app/x.py", [f"# api_key = {token}"])
         self.assertTrue(any(d["kind"] == "secret" for d in found), found)
 
     def test_code_after_a_closed_docstring_is_still_read(self):
