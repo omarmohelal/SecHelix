@@ -13,7 +13,7 @@
   <a href="SKILL.md"><img src="https://img.shields.io/badge/security%20hypotheses-546-7dd3fc?style=flat-square" alt="546 hypotheses"/></a>
   <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-3.0.0--alpha.4-9b8cff?style=flat-square" alt="3.0.0 alpha 4"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-a78bfa?style=flat-square" alt="Apache-2.0"/></a>
-  <a href="https://sechelix.magnoumx.chatgpt.site/support"><img src="https://img.shields.io/badge/support-crypto-facc15?style=flat-square" alt="Support SecHelix"/></a>
+  <a href="https://sechelix-production.up.railway.app/support"><img src="https://img.shields.io/badge/support-crypto-facc15?style=flat-square" alt="Support SecHelix"/></a>
 </p>
 
 <p align="center">
@@ -23,8 +23,8 @@
   <a href="#model-mesh">Model mesh</a> ·
   <a href="#company-rollout">Companies</a> ·
   <a href="ROADMAP.md">Roadmap</a> ·
-  <a href="https://sechelix.magnoumx.chatgpt.site">Website</a> ·
-  <a href="https://sechelix.magnoumx.chatgpt.site/support">Support</a>
+  <a href="https://sechelix-production.up.railway.app">Website</a> ·
+  <a href="https://sechelix-production.up.railway.app/support">Support</a>
 </p>
 
 ---
@@ -60,7 +60,7 @@ A finding becomes trusted only when the evidence supports attacker control, reac
 
 The product site authoring source is private; these selected, source-free
 screenshots are published intentionally so the public framework has an honest
-visual preview. [Open the current SecHelix site →](https://sechelix.magnoumx.chatgpt.site)
+visual preview. [Open the current SecHelix site →](https://sechelix-production.up.railway.app)
 
 <p align="center">
   <img src="assets/vnext-preview/home-1440x900.jpg" alt="SecHelix V2 overview and interactive evidence console" width="100%" />
@@ -80,11 +80,11 @@ Additional responsive captures: [1920×1080 desktop](assets/vnext-preview/home-1
 |---|---|
 | <img src="assets/vnext-preview/benchmark-lab-1440x900.jpg" alt="SecHelix Benchmark Lab with honest NOT_MEASURED state" width="100%" /> | <img src="assets/vnext-preview/contribute-1440x900.jpg" alt="SecHelix governed contribution workflow" width="100%" /> |
 
-[Open the Workbench](https://sechelix.magnoumx.chatgpt.site/workbench) ·
-[Attack Surface](https://sechelix.magnoumx.chatgpt.site/attack-surface) ·
-[Authorization Matrix](https://sechelix.magnoumx.chatgpt.site/authorization) ·
-[Variant Analysis](https://sechelix.magnoumx.chatgpt.site/variants) ·
-[Benchmark Lab](https://sechelix.magnoumx.chatgpt.site/benchmarks)
+[Open the Workbench](https://sechelix-production.up.railway.app/workbench) ·
+[Attack Surface](https://sechelix-production.up.railway.app/attack-surface) ·
+[Authorization Matrix](https://sechelix-production.up.railway.app/authorization) ·
+[Variant Analysis](https://sechelix-production.up.railway.app/variants) ·
+[Benchmark Lab](https://sechelix-production.up.railway.app/benchmarks)
 
 ## Install in 30 seconds
 
@@ -382,7 +382,7 @@ SecHelix is open source. Donations help fund model/API evals, intentionally vuln
 
 **Official crypto addresses live only in the repository and the official SecHelix domain. Always verify the asset and network before sending.**
 
-[Open the public support page →](https://sechelix.magnoumx.chatgpt.site/support)
+[Open the public support page →](https://sechelix-production.up.railway.app/support)
 
 The product-grade VNext website is maintained and built from a separate private
 repository. This public repository contains the framework, intentionally
