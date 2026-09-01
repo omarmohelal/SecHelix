@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.check_local_links import check_file, mask_code
+from scripts.check_local_links import check_file, mask_code, unclosed_fence
 
 
 class MaskingTests(unittest.TestCase):
@@ -26,6 +26,45 @@ class MaskingTests(unittest.TestCase):
 
     def test_a_tilde_fence_is_masked(self):
         self.assertNotIn("nope.md", mask_code("~~~\n[x](../nope.md)\n~~~\n"))
+
+
+class UnclosedFenceTests(unittest.TestCase):
+    """An open fence hides links from the renderer AND from this checker."""
+
+    def test_a_balanced_document_reports_nothing(self):
+        self.assertIsNone(unclosed_fence("a\n```\ncode\n```\nb\n"))
+
+    def test_an_info_string_opens_but_does_not_close(self):
+        self.assertIsNone(unclosed_fence("```python\nx = 1\n```\n"))
+
+    def test_a_nested_fence_needs_a_wider_outer_fence(self):
+        """The real defect this found: a ```markdown block wrapping a ```json one."""
+        nested = "````markdown\n\n```json\n{}\n```\n\ntext\n````\n"
+        self.assertIsNone(unclosed_fence(nested))
+
+    def test_an_equal_width_nested_fence_closes_early(self):
+        """Why the outer fence must be wider: the inner closer ends the outer block."""
+        self.assertIsNotNone(unclosed_fence("```markdown\n\n```json\n{}\n```\n\ntext\n```\n"))
+
+    def test_an_unclosed_fence_is_reported_with_its_line(self):
+        self.assertEqual(unclosed_fence("a\n```\ncode\n```\nb\n```\ndangling\n"), 6)
+
+    def test_a_tilde_fence_closes_a_tilde_fence(self):
+        self.assertIsNone(unclosed_fence("~~~\nx\n~~~\n"))
+
+    def test_a_longer_closing_fence_still_closes(self):
+        self.assertIsNone(unclosed_fence("```\nx\n````\n"))
+
+    def test_a_document_with_no_fences_is_fine(self):
+        self.assertIsNone(unclosed_fence("just prose with `code` in it\n"))
+
+    def test_check_file_surfaces_the_dangling_fence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            doc = Path(tmp) / "doc.md"
+            doc.write_text("intro\n\n```\nnever closed\n", encoding="utf-8")
+            findings = check_file(doc)
+            self.assertTrue(any("never closed" in f for f in findings), findings)
+
 
 
 class CheckFileTests(unittest.TestCase):

@@ -134,6 +134,49 @@ class HonestyTests(unittest.TestCase):
         chain = [c for c in correlate(ATO_PARTS) if c["chain_id"] == "CHAIN-ATO-001"][0]
         self.assertEqual(chain["severity"], "CRITICAL")
 
+    def test_no_signal_is_a_dead_stem(self):
+        """A signal that cannot match itself as a whole word can never match anything."""
+        from sechelix_core.attack_chains import CHAINS, _signal_pattern
+
+        dead = [
+            (link.key, signal)
+            for chain in CHAINS
+            for link in chain.links
+            for signal in link.signals
+            if not _signal_pattern(signal).search(signal)
+        ]
+        self.assertEqual(dead, [], "word-boundary matching makes truncated stems unreachable")
+
+    def test_the_textbook_takeover_wording_is_recognized(self):
+        """"enumeration" is how a reviewer writes it; "enumerat" never appears alone."""
+        parts = [
+            finding("SHX-F-20", "Account enumeration via the password reset endpoint"),
+            finding("SHX-F-21", "Reset token is predictable and does not expire"),
+            finding("SHX-F-22", "Recovery flow skips MFA"),
+        ]
+        chain = [c for c in correlate(parts) if c["chain_id"] == "CHAIN-ATO-001"][0]
+        self.assertEqual(chain["status"], CONFIRMED)
+        self.assertEqual(chain["severity"], "CRITICAL")
+
+    def test_an_unrelated_candidate_does_not_demote_a_proven_chain(self):
+        """Every link is verified; a hypothesis sharing a signal word must not matter."""
+        parts = XTENANT_PARTS + [
+            finding("SHX-F-30", "Object listing page leaks an internal bucket name",
+                    status="HYPOTHESIS"),
+        ]
+        chain = [c for c in correlate(parts) if c["chain_id"] == "CHAIN-XTENANT-001"][0]
+        self.assertEqual(chain["status"], CONFIRMED)
+        self.assertEqual(chain["severity"], "CRITICAL")
+        self.assertEqual(chain["unverified_components"], [])
+
+    def test_unverified_components_are_not_repeated(self):
+        parts = [dict(f, status="HYPOTHESIS") for f in XTENANT_PARTS]
+        chain = [c for c in correlate(parts) if c["chain_id"] == "CHAIN-XTENANT-001"][0]
+        self.assertEqual(
+            len(chain["unverified_components"]),
+            len(set(chain["unverified_components"])),
+        )
+
     def test_confirmed_chains_are_ordered_before_potential_ones(self):
         parts = ATO_PARTS + [dict(f, status="HYPOTHESIS") for f in XTENANT_PARTS]
         chains = correlate(parts)

@@ -164,7 +164,7 @@ Add SecHelix to security
 
 ### PR body
 
-```markdown
+````markdown
 ### What
 
 Adds one entry to `data/tools.json` under `category: "security"`, and regenerates the README.
@@ -235,7 +235,7 @@ Claude marketplace: `/plugin marketplace add omarmohelal/sechelix-marketplace` t
 - [ ] Ran `node scripts/generate.mjs` and committed the regenerated README
 - [ ] Link is HTTPS and resolves
 - [ ] One entry, one PR
-```
+````
 
 ---
 

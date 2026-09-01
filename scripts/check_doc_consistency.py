@@ -95,12 +95,25 @@ RULES: tuple[tuple[str, str], ...] = (
     ("fixtures", r"(\d+)\s+paired\s+(?:eval\s+|vulnerable/clean\s+)?fixtures"),
     ("fixtures", r"(\d+)\s+fixtures\s*/"),
     ("blind_cases", r"(\d+)\s+blind\s+cases"),
-    ("blind_cases", r"(\d+)\s+cases\s+across"),
+    # "N cases across M families" describes the fixture corpus (2x fixtures), which
+    # is a different number from the blind packet's case count. They happen to be
+    # equal today; checking prose about one against the other would either
+    # false-fail or stop catching drift the moment they diverge.
+    ("cases", r"(\d+)\s+cases\s+across"),
+    ("cases", r"(\d+)\s+(?:paired\s+)?eval(?:uation)?\s+cases"),
     ("schemas", r"(\d+)\s+JSON\s+Schema"),
     ("agents", r"(\d+)\s+specialist\s+(?:role|agent)"),
     ("adapters", r"(\d+)\s+(?:read-only\s+|evidence\s+)?adapters"),
     ("families", r"(\d+)\s+families\s*(?:×|x)\s*\d+\s+lenses"),
-    ("hypotheses", r"(\d+)\s+(?:structured\s+|catalog\s+|explicit\s+)?(?:security\s+)?hypotheses"),
+    # The second number in "21 families x 26 lenses" was captured by nothing, so a
+    # doc could claim 20 lenses and pass — against the one count CLAUDE.md pins.
+    ("lenses", r"\d+\s+families\s*(?:×|x)\s*(\d+)\s+lenses"),
+    ("lenses", r"(\d+)\s+verification\s+lenses"),
+    # Requires a qualifier so ordinary prose ("3 hypotheses were generated") is not
+    # read as a claim about the frozen catalog. The lookbehind keeps the lens count
+    # in "21 x 26 structured hypothesis catalog" from being read as the total.
+    ("hypotheses",
+     r"(?<![×x] )(?<!\d)(\d+)\s+(?:structured|catalog|explicit|stable)\s+(?:security\s+)?hypothes"),
     ("lesson_cards", r"(\d+)\s+lesson\s+cards"),
 )
 

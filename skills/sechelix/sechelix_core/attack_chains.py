@@ -66,8 +66,8 @@ CHAINS: tuple[ChainDefinition, ...] = (
         (
             _link("enumeration", "A way to confirm that an account exists",
                   ("AUTH", "API", "PRIV"),
-                  ("enumerat", "user exists", "account exists", "timing", "different error",
-                   "response differs")),
+                  ("enumerate", "enumerated", "enumeration", "enumerable", "user exists",
+                   "account exists", "timing", "different error", "response differs")),
             _link("weak_recovery", "A guessable, long-lived, or replayable reset artifact",
                   ("AUTH", "CRYPTO", "SESS"),
                   ("reset", "recovery", "forgot password", "otp", "one-time", "token entropy",
@@ -116,7 +116,7 @@ CHAINS: tuple[ChainDefinition, ...] = (
                    "nonce", "timestamp")),
             _link("missing_idempotency", "No idempotency key or conditional write",
                   ("RACE", "MONEY", "DB"),
-                  ("idempot", "idempotent", "idempotency", "check-then-act", "race",
+                  ("idempotent", "idempotency", "idempotence", "check-then-act", "race",
                    "races", "concurrent", "concurrency", "duplicate", "duplicates",
                    "not atomic", "toctou")),
             _link("value_transition", "The action moves money or irreversible state",
@@ -284,7 +284,15 @@ def correlate(findings: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
                 else:
                     unverified_matched.setdefault(link.key, finding_id)
 
-        satisfied = set(matched) | set(unverified_matched)
+        # Only links that no verified finding covers count as unverified. Judging
+        # the chain on whether *any* unverified finding matched anywhere demotes a
+        # fully proven chain because some unrelated candidate happened to share a
+        # signal word — and signal words like "listing" and "leak" are common
+        # across unrelated titles in a real report.
+        unverified_gaps = {
+            key: fid for key, fid in unverified_matched.items() if key not in matched
+        }
+        satisfied = set(matched) | set(unverified_gaps)
         # One satisfied link out of several is a finding, not a chain. Requiring a
         # majority keeps POTENTIAL chains worth reading.
         if len(satisfied) * 2 <= len(definition.links) - 1:
@@ -294,13 +302,15 @@ def correlate(findings: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
             link.description for link in definition.links if link.key not in satisfied
         )
 
-        if not missing and not unverified_matched:
+        # CONFIRMED means every link is carried by a verified finding — not that
+        # nothing unverified appeared anywhere in the report.
+        if all(link.key in matched for link in definition.links):
             results.append(ChainMatch(definition, CONFIRMED, matched, ()))
         else:
-            combined = {**unverified_matched, **matched}
+            combined = {**unverified_gaps, **matched}
             results.append(ChainMatch(
                 definition, POTENTIAL, combined, missing,
-                tuple(sorted(unverified_matched.values())),
+                tuple(sorted(set(unverified_gaps.values()))),
             ))
 
     # Confirmed chains first, then by how complete the potential ones are.
