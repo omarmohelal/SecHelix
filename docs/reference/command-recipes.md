@@ -54,6 +54,6 @@ Return PASS, PASS_WITH_KNOWN_RISK, BLOCKED, or INCOMPLETE.
 Fail closed for missing required evidence and never convert UNKNOWN/BLOCKED into NOT_APPLICABLE.
 ```
 
-More recipes: **[docs/COMMANDS.md](docs/COMMANDS.md)**.
+More recipes: **[the command cookbook](../COMMANDS.md)**.
 
 
