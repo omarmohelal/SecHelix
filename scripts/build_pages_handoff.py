@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
-DEFAULT_ORIGIN = "https://sechelix-production.up.railway.app"
+DEFAULT_ORIGIN = "https://sechelix.com"
 ROUTES = ("", "workbench", "benchmarks", "docs", "contribute", "support")
 
 
