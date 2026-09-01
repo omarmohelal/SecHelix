@@ -8,10 +8,10 @@
 </p>
 
 <p align="center">
-  <a href="https://skills.sh/omarmohelal/SecHelix"><img src="https://img.shields.io/badge/skills.sh-SecHelix-6ee7b7?style=flat-square" alt="skills.sh"/></a>
   <a href="https://github.com/omarmohelal/SecHelix/actions"><img src="https://img.shields.io/github/actions/workflow/status/omarmohelal/SecHelix/validate.yml?branch=main&style=flat-square&label=validate" alt="validation"/></a>
   <a href="SKILL.md"><img src="https://img.shields.io/badge/security%20hypotheses-546-7dd3fc?style=flat-square" alt="546 hypotheses"/></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-3.0.0--alpha.4-9b8cff?style=flat-square" alt="3.0.0 alpha 4"/></a>
+  <a href="#evaluation-and-proof-status"><img src="https://img.shields.io/badge/benchmark-NOT__MEASURED-f59e0b?style=flat-square" alt="benchmark NOT_MEASURED"/></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-3.0.0--alpha.5-9b8cff?style=flat-square" alt="3.0.0 alpha 5"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-a78bfa?style=flat-square" alt="Apache-2.0"/></a>
 </p>
 
@@ -19,9 +19,10 @@
   <a href="#install-in-30-seconds">Install</a> ·
   <a href="docs/QUICKSTART.md">Quickstart</a> ·
   <a href="docs/COMMANDS.md">Commands</a> ·
+  <a href="#what-proof-exists">Proof</a> ·
   <a href="#coverage">Coverage</a> ·
-  <a href="docs/EVALUATION.md">Evaluation</a> ·
-  <a href="docs/ENTERPRISE-ADOPTION.md">Enterprise</a> ·
+  <a href="#evaluation-and-proof-status">Evaluation</a> ·
+  <a href="#limitations">Limitations</a> ·
   <a href="https://sechelix.com/docs">Docs</a> ·
   <a href="https://sechelix.com/faq">FAQ</a> ·
   <a href="ROADMAP.md">Roadmap</a>
@@ -46,16 +47,38 @@ A trusted finding should establish attacker control, reachability, a failed secu
 
 | Surface | Current state |
 |---|---|
-| Coverage | **546 stable security hypothesis IDs** across 21 families and 26 lenses |
+| Coverage | **546 stable security hypothesis IDs** across 21 families × 26 lenses |
 | Specialist mesh | **17 model-neutral role profiles**, including an independent verifier |
 | Contracts | **15 JSON Schema Draft 2020-12 contracts** for scope, applicability, evidence, findings, reports, extensions, knowledge, and Gold Check Packs |
+| Gold Check Packs | **5 deep reference packs** (IDOR, SSRF, race/idempotency, money invariants, AI/MCP tool authority) |
+| Eval fixtures | **19 paired fixtures — 38 cases across 10 families**, each with a vulnerable and a clean variant |
+| Knowledge graph | **73 nodes, 96 edges**, provenance-backed, plus **7 lesson cards** |
 | Evidence adapters | Semgrep, CodeQL/SARIF, OSV, Gitleaks, Trivy, npm/pnpm audit, Playwright, ZAP, Nuclei |
 | Reports | Markdown, redacted JSON, SARIF 2.1.0, escaped standalone HTML |
 | Release truth | `PASS`, `PASS_WITH_KNOWN_RISK`, `BLOCKED`, or fail-closed `INCOMPLETE` |
-| Public benchmark | **NOT_MEASURED** until a reproducible run satisfies the published evaluation protocol |
-| Trophy case | Public attributable results only; no unverifiable entries |
+| Real-world proof | **1 published case study** — [gamingops-store](docs/case-studies/gamingops-store-2026-09-01.md) |
+| Public benchmark | **`NOT_MEASURED`** — [blocker documented](evals/results/not-measured.json), see [Evaluation](#evaluation-and-proof-status) |
+| Trophy case | Public attributable results only; **no entries yet** |
 
 The canonical live product is **[sechelix.com](https://sechelix.com)**. The website source remains private; this repository contains the open security framework, portable Agent Skill, adapters, schemas, eval fixtures, and public documentation.
+
+## What proof exists
+
+Not a benchmark. One real, end-to-end audit, published with its artifacts — including the finding SecHelix **threw away**.
+
+**[Case study: gamingops-store, 2026-09-01](docs/case-studies/gamingops-store-2026-09-01.md)** — authorized owner self-audit of a ~600 LOC Next.js storefront. `STATIC` + `LOCAL` mode, **zero scanners enabled**, nothing outside `127.0.0.1` contacted.
+
+```text
+1 external data source → 41 of 546 hypotheses applicable
+3 candidates → 1 verified · 2 refuted
+1 fix + 1 hardening → 10 regression assertions → PASS after remediation
+```
+
+- **Refuted (the interesting one).** Remote config values reached `href`/`src` with only `.trim()` — exactly the shape a scanner or a confident reviewer reports as high-severity XSS. Verification killed it: React 19 rewrote the payload to `href="javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"`, and attacker control was never established. Recorded as `FALSE_POSITIVE`. A scheme allowlist was still added — and labelled **hardening, not a vulnerability fix**.
+- **Verified.** `SHX-F-GOS-HEADERS-001`, **MEDIUM** clickjacking. No `CSP`, `X-Frame-Options`, or `HSTS` on any route; a probe page on a separate origin framed the whole UI including the sign-in entry point. Severity held at MEDIUM on purpose — phishing amplification, not account takeover, because the app performs no authenticated state-changing actions.
+- **Regression proof.** The browser's own words on retest: `Framing 'http://localhost:3009/' violates the following Content Security Policy directive: "frame-ancestors 'none'". The request has been blocked.`
+
+The first retest *appeared to fail* — a stale Next.js prerender cache and a server still bound to the old port. That is recorded too, because it is exactly how a real fix silently becomes a false claim of remediation.
 
 ## Install in 30 seconds
 
@@ -303,20 +326,49 @@ See [SECURITY.md](SECURITY.md).
 
 ## Evaluation and proof status
 
-SecHelix deliberately does not claim a measured accuracy number yet.
+SecHelix has **no measured accuracy number**, and the reason is written down rather than glossed over.
 
-A public score is allowed only after a reproducible run records the exact SecHelix commit, target/fixture version, model/provider configuration, enabled tools, expected ground truth, observed outcomes, false positives, false negatives, `UNKNOWN`/`BLOCKED` cases, and supporting artifacts.
+**The blocker is `CONTAMINATED_EVALUATOR`.** The fixture suite was expanded on 2026-09-01 by the same assistant session that would have acted as the evaluated model, so that session had prior knowledge of 11 of the 19 fixtures. Scoring it would measure recall of authored answers, not security-review capability. Full record: [`evals/results/not-measured.json`](evals/results/not-measured.json).
 
-Metrics are defined in **[docs/EVALUATION.md](docs/EVALUATION.md)**, including:
+Unblocking it requires a run by a model or session that did not author the fixtures, using blind cases exported with `python evals/run_evals.py --export-cases`.
 
-- verified precision;
-- detection recall on known-ground-truth fixtures;
-- false-positive rejection rate;
-- applicability accuracy;
-- regression-proof rate;
-- release-gate accuracy.
+**The harness itself is validated.** [`evals/results/baseline-keyword-v1.json`](evals/results/baseline-keyword-v1.json) records a naive regex keyword matcher run against all 38 cases. It carries `"is_sechelix_result": false` and **is not a SecHelix score.** It exists to prove two things: the scoring harness works, and the fixtures cannot be solved by pattern matching — the matcher lands at chance on a balanced 19/19 split. That is a statement about fixture difficulty, nothing else.
+
+Metrics are defined in **[docs/EVALUATION.md](docs/EVALUATION.md)**: verified precision, detection recall on known-ground-truth fixtures, false-positive rejection rate, applicability accuracy, regression-proof rate, and release-gate accuracy. A public score is allowed only after a reproducible run records the exact SecHelix commit, fixture version, model/provider configuration, enabled tools, ground truth, observed outcomes, false positives and negatives, `UNKNOWN`/`BLOCKED` cases, and supporting artifacts.
 
 Until then, benchmark status remains **`NOT_MEASURED`**.
+
+## Limitations
+
+Read this before adopting.
+
+- **No benchmark.** See above. Any accuracy claim about SecHelix today would be unsupported.
+- **One case study, `n = 1`.** A ~600 LOC app with no authentication and no server-side state, audited by its own owner. It demonstrates the workflow; it measures nothing about general performance.
+- **No public third-party results.** The [trophy case](TROPHY_CASE.md) is empty on purpose.
+- **Alpha.** `3.0.0-alpha.5`. Contracts are versioned, but they can still change.
+- **SecHelix is a methodology, not a scanner.** Output quality depends on the host agent, the model, and the tools you enable. It does not run itself.
+- **It cannot verify what it cannot reach.** Missing evidence yields `UNKNOWN` or `BLOCKED`, never `NOT_APPLICABLE`. That is the design, but it means an under-instrumented run returns honest non-answers rather than coverage.
+- **Authorized targets only.** See [SECURITY.md](SECURITY.md).
+
+## Can my company use it?
+
+Yes — Apache-2.0, and the repository is standard-library Python with no runtime dependencies to vet.
+
+- **Nothing phones home.** No telemetry, no accounts, no network calls in the skill bundle or the validators.
+- **Your code stays where your agent runs.** SecHelix ships instructions, schemas, and local scripts; it adds no data path of its own.
+- **Default mode is `STATIC`.** Dynamic testing is opt-in and bounded.
+- **It composes rather than replaces.** Existing SAST/SCA/DAST output is consumed as *evidence*, not as findings.
+
+Recommended rollout:
+
+1. baseline one representative service;
+2. measure verified findings and rejected false positives;
+3. add organization-specific policy and trust-boundary invariants;
+4. gate verified High/Critical regressions in CI;
+5. keep `UNKNOWN`/`BLOCKED` visible and fail closed where evidence is required;
+6. measure precision, recall on known fixtures, time to verification, regression-proof rate, and recurrence.
+
+Full guide: **[docs/ENTERPRISE-ADOPTION.md](docs/ENTERPRISE-ADOPTION.md)** · commercial boundary: [COMMERCIAL.md](COMMERCIAL.md)
 
 ## Model mesh
 
@@ -333,21 +385,6 @@ Different models can own different lanes without creating different security pol
 
 **Model reputation never replaces evidence.**
 
-## Enterprise adoption
-
-SecHelix is designed to coexist with existing SAST, SCA, DAST, browser, runtime, cloud, and organization-specific tooling.
-
-Recommended rollout:
-
-1. baseline one representative service;
-2. measure verified findings and rejected false positives;
-3. add organization-specific policy and trust-boundary invariants;
-4. gate verified High/Critical regressions in CI;
-5. keep `UNKNOWN`/`BLOCKED` visible and fail closed where evidence is required;
-6. measure precision, recall on known fixtures, time to verification, regression-proof rate, and recurrence.
-
-Full guide: **[docs/ENTERPRISE-ADOPTION.md](docs/ENTERPRISE-ADOPTION.md)** · [COMMERCIAL.md](COMMERCIAL.md)
-
 ## Repository map
 
 ```text
@@ -361,6 +398,7 @@ SecHelix/
 ├── .github/skills/sechelix/   # GitHub Copilot / VS Code adapter
 ├── agents/                    # specialist reviewer profiles
 ├── catalog/                   # 546 structured hypotheses
+├── gold-packs/                # 5 deep reference check packs
 ├── knowledge/                 # source trust, provenance graph, lesson cards
 ├── schemas/                   # versioned JSON contracts
 ├── sechelix_core/             # applicability, graph, catalog, contract core
@@ -371,8 +409,9 @@ SecHelix/
 ├── scripts/                   # validation + release gates
 ├── examples/                  # scope + report examples
 ├── extensions/                # community extension registry
-├── evals/                     # paired fixtures + NOT_MEASURED baseline
-├── docs/                      # quickstart, commands, evaluation, rollout
+├── evals/                     # 19 paired fixtures + NOT_MEASURED baseline
+├── artifacts/                 # case-study evidence artifacts
+├── docs/                      # quickstart, commands, evaluation, case studies
 └── .github/                   # CI + contribution templates
 ```
 
@@ -380,6 +419,7 @@ SecHelix/
 
 - [Quickstart](docs/QUICKSTART.md)
 - [Command cookbook](docs/COMMANDS.md)
+- [Case study: gamingops-store](docs/case-studies/gamingops-store-2026-09-01.md)
 - [Evaluation protocol](docs/EVALUATION.md)
 - [Enterprise adoption](docs/ENTERPRISE-ADOPTION.md)
 - [Compatibility](COMPATIBILITY.md)
@@ -395,19 +435,29 @@ SecHelix/
 
 ## Validation
 
+Everything GitHub Actions runs, in order — run all of it before opening a pull request:
+
 ```bash
-python -m unittest discover -s tests -v
-python -m unittest discover -s adapters/tests -v
 python scripts/validate_catalog.py
+python scripts/validate_skill.py
 python scripts/validate_extensions.py
 python scripts/validate_knowledge.py
-python scripts/validate_skill.py
-python scripts/check_no_secrets.py
+python scripts/validate_gold_packs.py
 python scripts/check_private_site_leakage.py
-npx skills@latest add . --list
+python scripts/check_no_secrets.py
+python scripts/check_local_links.py
+python scripts/check_install_snippets.py
+python -m unittest discover -s tests -p 'test_*.py'      # 93 tests
+python -m unittest discover -s adapters/tests            # 19 tests
 ```
 
-The repository validates catalog identity, source rights/use boundaries, knowledge provenance, research confidence, the standalone install bundle, schemas, adapters, reporting, policy gates, secrets, private-site separation, and public-release invariants in GitHub Actions.
+If you changed the canonical `SKILL.md` or any shared resource, re-sync the portable bundle and re-run the suite:
+
+```bash
+python scripts/sync_portable_skill.py
+```
+
+This validates catalog identity, source rights and use boundaries, knowledge provenance, research confidence, the standalone install bundle, schemas, adapters, reporting, policy gates, secrets, private-site separation, and public-release invariants.
 
 ## Trophy case
 
@@ -415,7 +465,9 @@ SecHelix only lists findings that have **public, attributable evidence** and per
 
 Current state: **no public entries yet**. That is deliberate; a new project is better served by an empty trophy case than unverifiable claims.
 
-Found a real bug using SecHelix? Use the trophy-case issue template with the public repository, SecHelix version, safe evidence, fix reference, and attribution permission.
+The [gamingops-store case study](docs/case-studies/gamingops-store-2026-09-01.md) is deliberately *not* a trophy entry — the target repository is private, so the result is not independently verifiable by a reader. It is published as a worked example instead.
+
+Found a real bug using SecHelix? Open a [trophy-case submission](https://github.com/omarmohelal/SecHelix/issues/new?template=trophy-case.yml) with the public repository, SecHelix version, safe evidence, a public fix reference, and attribution permission.
 
 See [TROPHY_CASE.md](TROPHY_CASE.md).
 

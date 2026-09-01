@@ -67,7 +67,7 @@ FIXTURES: list[dict] = []
 # ---------------------------------------------------------------- authorization
 FIXTURES.append(fixture(
     "EVAL-AUTHZ-002",
-    "Authorization / BOLA / tenant isolation",
+    "Authorization / BOLA / BFLA",
     "Decide whether a caller can read or export objects owned by another tenant.",
     language="python",
     filename="reports_service.py",
@@ -157,7 +157,7 @@ class ReportService:
 
 FIXTURES.append(fixture(
     "EVAL-AUTHZ-003",
-    "Authorization / BFLA / privileged function",
+    "Authorization / BOLA / BFLA",
     "Decide whether a non-administrative role can reach an administrative action.",
     language="python",
     filename="admin_routes.py",
@@ -237,7 +237,7 @@ class Billing:
 # ------------------------------------------------------- authentication/session
 FIXTURES.append(fixture(
     "EVAL-AUTH-002",
-    "Authentication / session lifecycle",
+    "Authentication / Sessions",
     "Decide whether the session lifecycle allows a pre-authentication identifier to survive privilege change.",
     language="python",
     filename="sessions.py",
@@ -317,7 +317,7 @@ class SessionStore:
 # ------------------------------------------------------------------- injection
 FIXTURES.append(fixture(
     "EVAL-INJ-002",
-    "SQL / ORM injection through a dataflow",
+    "Injection / Dataflow",
     "Decide whether caller-controlled input reaches a query without parameterization.",
     language="python",
     filename="search_repository.py",
@@ -398,7 +398,7 @@ class SearchRepository:
 # ------------------------------------------------------------------------- xss
 FIXTURES.append(fixture(
     "EVAL-WEB-002",
-    "XSS / browser trust boundary",
+    "Browser / XSS",
     "Decide whether stored user content reaches the DOM without contextual escaping.",
     language="javascript",
     filename="comment-view.js",
@@ -472,7 +472,7 @@ export function renderComment(node, comment) {
 # ------------------------------------------------------------------------ ssrf
 FIXTURES.append(fixture(
     "EVAL-SSRF-002",
-    "SSRF / URL fetching with redirect handling",
+    "SSRF / URL Fetching",
     "Decide whether a validated URL can still reach an internal destination.",
     language="python",
     filename="link_preview.py",
@@ -559,7 +559,7 @@ def fetch_preview(url, http_client):
 # ------------------------------------------------------------ files / traversal
 FIXTURES.append(fixture(
     "EVAL-FILE-002",
-    "Files / uploads / path traversal",
+    "Files / Uploads / Parsers",
     "Decide whether a caller-supplied name can escape the storage directory.",
     language="python",
     filename="attachment_store.py",
@@ -622,7 +622,7 @@ def save(name, data):
 # --------------------------------------------------------- business / payments
 FIXTURES.append(fixture(
     "EVAL-MONEY-002",
-    "Business logic / payment invariants",
+    "Business Logic / Payments",
     "Decide whether a refund flow can return more value than was captured.",
     language="python",
     filename="refunds.py",
@@ -689,7 +689,7 @@ class RefundService:
 # ------------------------------------------------------- race / idempotency
 FIXTURES.append(fixture(
     "EVAL-RACE-002",
-    "Race / idempotency / replay",
+    "Race / Idempotency / Replay",
     "Decide whether concurrent redemptions of a single-use code can both succeed.",
     language="python",
     filename="voucher.py",
@@ -754,7 +754,7 @@ class VoucherService:
 # ------------------------------------------------------ secrets / supply chain
 FIXTURES.append(fixture(
     "EVAL-SUPPLY-002",
-    "Secrets / supply chain integrity",
+    "Secrets / Supply Chain",
     "Decide whether a build step can execute unverified remote content.",
     language="python",
     filename="plugin_installer.py",
@@ -816,7 +816,7 @@ def install(plugin, http_client, log):
 # ------------------------------------------------------------------ AI / MCP
 FIXTURES.append(fixture(
     "EVAL-AI-002",
-    "AI / Agent / MCP tool authority",
+    "AI / Agent / MCP",
     "Decide whether untrusted retrieved content can drive a privileged tool call.",
     language="python",
     filename="agent_loop.py",

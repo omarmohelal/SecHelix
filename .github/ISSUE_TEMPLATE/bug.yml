@@ -5,12 +5,32 @@ labels: ["bug"]
 body:
   - type: markdown
     attributes:
-      value: "Do not include secrets, private customer data, or live exploit credentials."
+      value: |
+        Do not include secrets, private customer data, or live exploit credentials.
+
+        Reporting a **false positive** or a **missed vulnerability class**? Use the
+        [false positive template](https://github.com/omarmohelal/SecHelix/issues/new?template=false-positive.yml)
+        instead — that is a different and more useful report.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Skill / methodology (SKILL.md)
+        - Catalog or applicability
+        - Adapters (scanner/tool evidence)
+        - Reports or release gate
+        - Validation / check scripts
+        - Knowledge graph, lesson cards, or Gold Check Packs
+        - Packaging / install (skills CLI, plugin, adapters)
+        - Documentation
+    validations:
+      required: true
   - type: input
     id: version
     attributes:
       label: SecHelix version / commit
-      placeholder: v2.x or commit SHA
+      placeholder: 3.0.0-alpha.5 or a commit SHA
     validations:
       required: true
   - type: dropdown
@@ -20,10 +40,31 @@ body:
       options:
         - Claude Code
         - OpenAI Codex
-        - Z.AI / GLM via coding host
+        - GitHub Copilot / VS Code
         - Cursor
-        - GitHub Copilot
-        - Other
+        - Z.AI / GLM via a coding host
+        - Gemini CLI
+        - OpenCode
+        - Not applicable (running scripts directly)
+        - Other (say which below)
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS and Python version
+      description: CI runs Python 3.12. Most tooling bugs turn out to be environment-specific.
+      placeholder: "Ubuntu 24.04, Python 3.12.3"
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact command or instruction
+      description: The shell command you ran, or the instruction you gave the agent.
+      render: shell
+    validations:
+      required: true
   - type: textarea
     id: problem
     attributes:
@@ -31,11 +72,19 @@ body:
     validations:
       required: true
   - type: textarea
+    id: output
+    attributes:
+      label: Error output / traceback
+      description: Paste the full output. Redact any paths or values you do not want public.
+      render: shell
+  - type: textarea
     id: expected
     attributes:
       label: Expected behavior
+    validations:
+      required: true
   - type: textarea
     id: repro
     attributes:
       label: Safe reproduction
-      description: Use a local/staging fixture when possible.
+      description: Use a local or staging fixture when possible.

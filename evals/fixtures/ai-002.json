@@ -1,7 +1,7 @@
 {
   "id": "EVAL-AI-002",
   "schema_version": "1.1",
-  "family": "AI / Agent / MCP tool authority",
+  "family": "AI / Agent / MCP",
   "task": "Decide whether untrusted retrieved content can drive a privileged tool call.",
   "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
   "difficulty": "hard",

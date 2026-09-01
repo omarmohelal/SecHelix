@@ -1,6 +1,6 @@
 {
   "id": "EVAL-BIZ-001",
-  "family": "Business Logic",
+  "family": "Business Logic / Payments",
   "task": "Review whether a single-use discount can be applied more than once without relying on UI state.",
   "provenance": "Synthetic SecHelix fixture; monetary values are isolated examples.",
   "variants": {

@@ -5,17 +5,28 @@ labels: ["trophy-case"]
 body:
   - type: markdown
     attributes:
-      value: "Only public evidence. Do not submit secrets, private reports, customer data, or weaponized exploit material."
+      value: |
+        Only public evidence. Do not submit secrets, private reports, customer data,
+        or weaponized exploit material.
+
+        **Do not submit before the fix is public.** If the issue is still embargoed or
+        unpatched, wait. A trophy entry is never worth exposing an unfixed system.
+
+        Entries require public attribution — the trophy case exists so a reader can
+        check the claim themselves. If the target cannot be named publicly, it cannot
+        be listed here.
   - type: input
     id: project
     attributes:
       label: Public project
+      description: The public repository or product the finding was in.
     validations:
       required: true
   - type: input
     id: reference
     attributes:
       label: Public advisory / issue / PR / fix URL
+      description: A link a reader can open to verify the finding and the fix.
     validations:
       required: true
   - type: input
@@ -24,16 +35,42 @@ body:
       label: SecHelix version / commit
     validations:
       required: true
+  - type: input
+    id: severity
+    attributes:
+      label: Severity and CWE (if assigned)
+      placeholder: "MEDIUM — CWE-639"
+  - type: input
+    id: fix_date
+    attributes:
+      label: Date the fix became public
+      placeholder: "2026-09-01"
+    validations:
+      required: true
   - type: textarea
     id: summary
     attributes:
       label: What did SecHelix help find?
     validations:
       required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: SecHelix evidence
+      description: >
+        Which hypothesis was raised, what verification established it, and what
+        regression proof was added. Redact anything not already public. This is the
+        field that separates a trophy from an unverifiable claim.
+    validations:
+      required: true
   - type: checkboxes
     id: permission
     attributes:
-      label: Attribution
+      label: Confirmations
       options:
-        - label: This result may be publicly referenced in the SecHelix trophy case.
+        - label: The fix is public and any embargo has ended.
+          required: true
+        - label: This result may be publicly referenced and attributed in the SecHelix trophy case.
+          required: true
+        - label: I have permission from the project owner, or I am the project owner.
           required: true

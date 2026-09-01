@@ -1,7 +1,7 @@
 {
   "id": "EVAL-FILE-002",
   "schema_version": "1.1",
-  "family": "Files / uploads / path traversal",
+  "family": "Files / Uploads / Parsers",
   "task": "Decide whether a caller-supplied name can escape the storage directory.",
   "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
   "difficulty": "hard",

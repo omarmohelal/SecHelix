@@ -16,7 +16,7 @@
     "It performs no verification, so verified precision is not meaningful for this run.",
     "Its purpose is to validate the scoring harness and to evidence fixture difficulty."
   ],
-  "measured_at": "2026-09-01T14:30:49.824287Z",
+  "measured_at": "2026-09-01T15:25:01.412586Z",
   "measurement_status": "MEASURED",
   "metrics": {
     "applicability_accuracy": "NOT_MEASURED",
@@ -32,30 +32,14 @@
   },
   "per_family": {
     "AI / Agent / MCP": {
-      "detection_recall": 0.0,
+      "detection_recall": 0.5,
       "false_positive_rate": 1.0,
       "fn": 1,
-      "fp": 1,
-      "tn": 0,
-      "tp": 0
-    },
-    "AI / Agent / MCP tool authority": {
-      "detection_recall": 1.0,
-      "false_positive_rate": 1.0,
-      "fn": 0,
-      "fp": 1,
+      "fp": 2,
       "tn": 0,
       "tp": 1
     },
-    "Authentication / session lifecycle": {
-      "detection_recall": 1.0,
-      "false_positive_rate": 1.0,
-      "fn": 0,
-      "fp": 1,
-      "tn": 0,
-      "tp": 1
-    },
-    "Authorization / BFLA / privileged function": {
+    "Authentication / Sessions": {
       "detection_recall": 1.0,
       "false_positive_rate": 1.0,
       "fn": 0,
@@ -64,122 +48,66 @@
       "tp": 1
     },
     "Authorization / BOLA / BFLA": {
-      "detection_recall": 0.0,
-      "false_positive_rate": 1.0,
-      "fn": 1,
-      "fp": 1,
-      "tn": 0,
-      "tp": 0
-    },
-    "Authorization / BOLA / tenant isolation": {
-      "detection_recall": 0.0,
-      "false_positive_rate": 0.0,
-      "fn": 1,
-      "fp": 0,
+      "detection_recall": 0.333333,
+      "false_positive_rate": 0.666667,
+      "fn": 2,
+      "fp": 2,
       "tn": 1,
-      "tp": 0
-    },
-    "Business Logic": {
-      "detection_recall": 0.0,
-      "false_positive_rate": 0.0,
-      "fn": 1,
-      "fp": 0,
-      "tn": 1,
-      "tp": 0
-    },
-    "Business logic / payment invariants": {
-      "detection_recall": 0.0,
-      "false_positive_rate": 0.0,
-      "fn": 1,
-      "fp": 0,
-      "tn": 1,
-      "tp": 0
-    },
-    "File / Parser": {
-      "detection_recall": 0.0,
-      "false_positive_rate": 0.0,
-      "fn": 1,
-      "fp": 0,
-      "tn": 1,
-      "tp": 0
-    },
-    "Files / uploads / path traversal": {
-      "detection_recall": 1.0,
-      "false_positive_rate": 1.0,
-      "fn": 0,
-      "fp": 1,
-      "tn": 0,
       "tp": 1
     },
-    "Race / Idempotency": {
-      "detection_recall": 0.0,
+    "Browser / XSS": {
+      "detection_recall": 1.0,
       "false_positive_rate": 0.0,
-      "fn": 1,
+      "fn": 0,
       "fp": 0,
       "tn": 1,
-      "tp": 0
-    },
-    "Race / idempotency / replay": {
-      "detection_recall": 1.0,
-      "false_positive_rate": 1.0,
-      "fn": 0,
-      "fp": 1,
-      "tn": 0,
       "tp": 1
     },
-    "SQL / ORM injection through a dataflow": {
-      "detection_recall": 1.0,
-      "false_positive_rate": 1.0,
-      "fn": 0,
+    "Business Logic / Payments": {
+      "detection_recall": 0.0,
+      "false_positive_rate": 0.0,
+      "fn": 2,
+      "fp": 0,
+      "tn": 2,
+      "tp": 0
+    },
+    "Files / Uploads / Parsers": {
+      "detection_recall": 0.5,
+      "false_positive_rate": 0.5,
+      "fn": 1,
       "fp": 1,
-      "tn": 0,
+      "tn": 1,
+      "tp": 1
+    },
+    "Injection / Dataflow": {
+      "detection_recall": 0.5,
+      "false_positive_rate": 0.5,
+      "fn": 1,
+      "fp": 1,
+      "tn": 1,
+      "tp": 1
+    },
+    "Race / Idempotency / Replay": {
+      "detection_recall": 0.5,
+      "false_positive_rate": 0.5,
+      "fn": 1,
+      "fp": 1,
+      "tn": 1,
       "tp": 1
     },
     "SSRF / URL Fetching": {
       "detection_recall": 1.0,
-      "false_positive_rate": 0.0,
-      "fn": 0,
-      "fp": 0,
-      "tn": 1,
-      "tp": 1
-    },
-    "SSRF / URL fetching with redirect handling": {
-      "detection_recall": 1.0,
-      "false_positive_rate": 1.0,
+      "false_positive_rate": 0.5,
       "fn": 0,
       "fp": 1,
-      "tn": 0,
-      "tp": 1
-    },
-    "Second-order Injection": {
-      "detection_recall": 0.0,
-      "false_positive_rate": 0.0,
-      "fn": 1,
-      "fp": 0,
       "tn": 1,
-      "tp": 0
+      "tp": 2
     },
-    "Secrets / supply chain integrity": {
-      "detection_recall": 1.0,
-      "false_positive_rate": 1.0,
-      "fn": 0,
+    "Secrets / Supply Chain": {
+      "detection_recall": 0.5,
+      "false_positive_rate": 0.5,
+      "fn": 1,
       "fp": 1,
-      "tn": 0,
-      "tp": 1
-    },
-    "Supply Chain": {
-      "detection_recall": 0.0,
-      "false_positive_rate": 0.0,
-      "fn": 1,
-      "fp": 0,
-      "tn": 1,
-      "tp": 0
-    },
-    "XSS / browser trust boundary": {
-      "detection_recall": 1.0,
-      "false_positive_rate": 0.0,
-      "fn": 0,
-      "fp": 0,
       "tn": 1,
       "tp": 1
     }
@@ -207,7 +135,7 @@
     "keyword-baseline": 20
   },
   "interpretation": [
-    "Precision 0.5 and detection recall 0.53 on a balanced 19/19 split is chance-level.",
+    "Precision 0.5 and detection recall 0.526316 on a balanced 19/19 split is chance-level.",
     "A keyword matcher therefore carries no signal on this suite, which is the intended fixture-difficulty property.",
     "No conclusion about SecHelix, any model, or any scanner may be drawn from this run."
   ]

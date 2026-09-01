@@ -1,6 +1,6 @@
 {
   "id": "EVAL-SUPPLY-001",
-  "family": "Supply Chain",
+  "family": "Secrets / Supply Chain",
   "task": "Review whether an installer authenticates the fetched artifact before execution.",
   "provenance": "Synthetic SecHelix fixture; URLs and digests are placeholders and are never fetched.",
   "variants": {

@@ -64,7 +64,8 @@ One directory per pack, containing a single `pack.json` that satisfies
 2. Cite only source IDs that exist in
    [`knowledge/source-registry.json`](../knowledge/source-registry.json), only
    hypothesis IDs that exist in [`catalog/checks.json`](../catalog/checks.json),
-   and only fixture IDs that exist in [`evals/fixtures`](../evals/fixtures).
+   and only fixture IDs that exist in the repository's `evals/fixtures`
+   directory (not shipped in the portable skill bundle).
 3. Keep `calibration` at `NOT_MEASURED` / `0` unless a reproducible benchmark run
    backs the numbers.
 4. Write refutation tests a competent reviewer would actually run, and regression

@@ -1,6 +1,6 @@
 {
   "id": "EVAL-RACE-001",
-  "family": "Race / Idempotency",
+  "family": "Race / Idempotency / Replay",
   "task": "Determine whether retry or concurrency can duplicate the external side effect.",
   "provenance": "Synthetic SecHelix fixture using a local provider abstraction.",
   "variants": {

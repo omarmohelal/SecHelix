@@ -1,7 +1,7 @@
 {
   "id": "EVAL-MONEY-002",
   "schema_version": "1.1",
-  "family": "Business logic / payment invariants",
+  "family": "Business Logic / Payments",
   "task": "Decide whether a refund flow can return more value than was captured.",
   "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
   "difficulty": "hard",

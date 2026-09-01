@@ -43,6 +43,31 @@
     "fixture_count": 19,
     "case_count": 38,
     "families": 10,
-    "note": "Counts describe the available suite; they are not a measurement."
+    "family_ids": [
+      "AI",
+      "AUTH",
+      "AUTHZ",
+      "BIZ",
+      "FILE",
+      "INJ",
+      "MONEY",
+      "RACE",
+      "SSRF",
+      "SUPPLY",
+      "WEB"
+    ],
+    "note": "Counts describe the available suite; they are not a measurement. `families` counts distinct catalog family segments in the fixture IDs (EVAL-<FAMILY>-<n>), not the free-text `family` label on each fixture.",
+    "family_names": [
+      "Authorization / BOLA / BFLA",
+      "Authentication / Sessions",
+      "Injection / Dataflow",
+      "Browser / XSS",
+      "SSRF / URL Fetching",
+      "Files / Uploads / Parsers",
+      "Business Logic / Payments",
+      "Race / Idempotency / Replay",
+      "Secrets / Supply Chain",
+      "AI / Agent / MCP"
+    ]
   }
 }

@@ -1,7 +1,7 @@
 {
   "id": "EVAL-AUTH-002",
   "schema_version": "1.1",
-  "family": "Authentication / session lifecycle",
+  "family": "Authentication / Sessions",
   "task": "Decide whether the session lifecycle allows a pre-authentication identifier to survive privilege change.",
   "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
   "difficulty": "medium",

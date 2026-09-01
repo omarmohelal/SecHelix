@@ -1,54 +1,60 @@
-# Support SecHelix
+# Getting help with SecHelix
 
-SecHelix is open source. If the project becomes useful to you or your team, there are several sustainable ways to support it.
+Start here. Pick the row that matches what you need.
 
-## 1. Star, share, and cite
+| I want to… | Go here |
+|---|---|
+| Install it and run a first audit | [Quickstart](docs/QUICKSTART.md) |
+| Find the right prompt for a task | [Command cookbook](docs/COMMANDS.md) |
+| Know whether my agent/host is supported | [COMPATIBILITY.md](COMPATIBILITY.md) |
+| See what a real run looks like | [Case study](docs/case-studies/gamingops-store-2026-09-01.md) |
+| Understand why there is no benchmark | [Evaluation protocol](docs/EVALUATION.md) · [`not-measured.json`](evals/results/not-measured.json) |
+| Report a bug in the skill, adapters, docs, or scripts | [Bug report](https://github.com/omarmohelal/SecHelix/issues/new?template=bug.yml) |
+| Report a **false positive** or a missed class | [False positive report](https://github.com/omarmohelal/SecHelix/issues/new?template=false-positive.yml) |
+| Propose a new security check | [Hypothesis proposal](https://github.com/omarmohelal/SecHelix/issues/new?template=check-proposal.yml) |
+| Propose an adapter, pack, reporter, or integration | [Extension proposal](https://github.com/omarmohelal/SecHelix/issues/new?template=extension.yml) |
+| Share a public verified result | [Trophy-case submission](https://github.com/omarmohelal/SecHelix/issues/new?template=trophy-case.yml) |
+| Report a **vulnerability in SecHelix itself** | [SECURITY.md](SECURITY.md) — private reporting, not a public issue |
+| Contribute code or knowledge | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Talk about commercial use or services | [COMMERCIAL.md](COMMERCIAL.md) |
 
-The highest-value early support is adoption evidence:
+## Response expectations
 
-- star the repository;
-- report false positives and missed classes;
-- contribute eval fixtures;
-- share verified case studies;
-- reference SecHelix in internal security engineering writeups.
+SecHelix is maintained by one person. Issues are read, but there is no support
+SLA and no guaranteed response time. Security reports are prioritized over
+everything else — see [SECURITY.md](SECURITY.md) for the targets that do apply.
 
-## 2. Crypto support
+A well-formed issue gets answered faster than a vague one. For anything
+behavioral, include the SecHelix version or commit, the agent host, your OS and
+Python version, the exact instruction you gave the agent, and what it did
+instead.
 
-The public support configuration contains maintainer-provided **public receive
-addresses only**, with explicit asset/network labels. Public receive addresses
-are not secrets, but supporters must verify the exact asset and network against
-the repository before sending.
+## Before you file
 
-Two recommended approaches:
+- **Search existing issues first.**
+- **Do not paste secrets, credentials, customer data, or live exploit material**
+  into an issue. Redact before posting.
+- **A finding SecHelix produced about someone else's system is not a SecHelix
+  issue.** Report it to that system's owner.
+- If you are unsure whether something is a false positive or a bug, file it as a
+  false positive — that is the more useful signal for this project either way.
 
-### Direct public addresses
+## Supporting the project
 
-The current configuration spans a small audited set of assets/networks. Any
-change must preserve the network warning, copy controls, and repository-source
-verification path. Never silently replace an address.
+Financial and non-financial support are documented separately:
 
-### Donation provider widget/link
+- **Non-financial** — the highest-value early contribution is evidence: false
+  positives, missed classes, eval fixtures, and reproducible case studies. See
+  [CONTRIBUTING.md](CONTRIBUTING.md).
+- **Financial** — see the support page on the official domain,
+  **[sechelix.com/support](https://sechelix.com/support)**, and the maintainer
+  notes in [docs/funding.md](docs/funding.md).
 
-A donation provider can give supporters a multi-asset flow and optional fiat-to-crypto payment experience. The site is prepared to expose a donation link/widget after the maintainer configures it.
+> [!WARNING]
+> Donation details are published **only** on `sechelix.com` and in this
+> repository. Verify the asset and network before sending anything, and treat a
+> donation address advertised on any other domain as untrusted.
 
-Never commit private keys, seed phrases, exchange credentials, webhook secrets, or withdrawal credentials.
-
-## 3. Commercial roadmap
-
-Potential future revenue should sit **around** the open skill rather than making verified security findings paywalled:
-
-- hosted multi-model orchestration;
-- organization policy packs;
-- managed SecHelix rollout and tuning;
-- private company-specific checks and trust-boundary packs;
-- signed evidence/report bundles;
-- compliance/export integrations;
-- team dashboards and historical trend reporting;
-- enterprise support and onboarding;
-- security review services using SecHelix methodology.
-
-See `COMMERCIAL.md`.
-
-## Funding transparency
-
-If project donations become material, publish what they fund: hosting, domains, test infrastructure, security research, model/API evaluation, and maintainer time.
+If donations ever become material, what they fund — hosting, domains, test
+infrastructure, security research, model and API evaluation, maintainer time —
+will be published.
