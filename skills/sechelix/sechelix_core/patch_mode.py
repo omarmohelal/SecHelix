@@ -318,10 +318,20 @@ def write_patch_set(patch_set: PatchSet, output_dir: str, *, writer=None) -> lis
     """
     import pathlib
 
+    prefix = output_dir.rstrip("/") + "/"
+    for proposal in patch_set.proposals:
+        for path in (proposal.patch_path, proposal.rationale_path):
+            if not path.startswith(prefix):
+                # propose() bakes the directory into each path, so a different
+                # output_dir here would create one directory and write to another.
+                raise PatchModeError(
+                    f"{path!r} is not inside {output_dir!r}; pass the same output_dir "
+                    "to propose() and write_patch_set()"
+                )
+
     written: list[str] = []
     if writer is None:
-        root = pathlib.Path(output_dir)
-        root.mkdir(parents=True, exist_ok=True)
+        pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
 
         def writer(path: str, content: str) -> None:  # noqa: E306
             pathlib.Path(path).write_text(content, encoding="utf-8")

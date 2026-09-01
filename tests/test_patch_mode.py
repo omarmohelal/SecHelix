@@ -162,6 +162,20 @@ class SafetyTests(unittest.TestCase):
         for path in written:
             self.assertTrue(path.startswith("work/out/"), path)
 
+    def test_a_mismatched_output_dir_is_refused_rather_than_silently_split(self):
+        """propose() bakes the directory in; a different one here writes elsewhere."""
+        patch_set = propose([finding()], diffs={"SHX-F-1": DIFF}, output_dir="work/a")
+        with self.assertRaises(PatchModeError):
+            write_patch_set(patch_set, "work/b", writer=lambda p, c: None)
+
+    def test_nothing_is_written_when_the_directory_check_fails(self):
+        written: dict[str, str] = {}
+        patch_set = propose([finding()], diffs={"SHX-F-1": DIFF}, output_dir="work/a")
+        with self.assertRaises(PatchModeError):
+            write_patch_set(patch_set, "work/b",
+                            writer=lambda p, c: written.__setitem__(p, c))
+        self.assertEqual(written, {}, "the check must run before any write")
+
     def test_a_refused_finding_writes_nothing(self):
         written: dict[str, str] = {}
         patch_set = propose([finding(status="HYPOTHESIS")])
