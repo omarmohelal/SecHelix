@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the source-free GitHub Pages handoff to the private VNext site."""
+"""Build the source-free GitHub Pages handoff to the private SecHelix site."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
-DEFAULT_ORIGIN = "https://sechelix-vnext.magnoumx.chatgpt.site"
+DEFAULT_ORIGIN = "https://sechelix.magnoumx.chatgpt.site"
 ROUTES = ("", "docs", "contribute", "support")
 
 
@@ -42,7 +42,7 @@ def redirect_document(origin: str, route: str) -> str:
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
   <meta http-equiv="refresh" content="0;url={safe_target}">
   <link rel="canonical" href="{safe_target}">
-  <title>SecHelix — moving to VNext</title>
+  <title>SecHelix — opening the official site</title>
   <style>
     :root {{ color-scheme: dark; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }}
     body {{ display:grid; min-height:100vh; margin:0; place-items:center; background:#050a0d; color:#9fb3bf; }}
@@ -67,7 +67,7 @@ def not_found_document(origin: str) -> str:
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
-  <title>SecHelix — moving to VNext</title>
+  <title>SecHelix — opening the official site</title>
   <style>
     :root {{ color-scheme: dark; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }}
     body {{ display:grid; min-height:100vh; margin:0; place-items:center; background:#050a0d; color:#9fb3bf; }}
