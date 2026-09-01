@@ -1,0 +1,30 @@
+{
+  "id": "EVAL-SESS-001",
+  "schema_version": "1.1",
+  "family": "Authentication / Sessions",
+  "task": "Decide whether a bearer token verifier can be made to accept a token the issuer never signed.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-347",
+      "CWE-345"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "token_verifier.py",
+      "source": "\"\"\"Bearer token verification.\"\"\"\n\nimport base64\nimport hashlib\nimport hmac\nimport json\nimport time\n\n\ndef _b64url_decode(segment):\n    padding = \"=\" * (-len(segment) % 4)\n    return base64.urlsafe_b64decode(segment + padding)\n\n\nclass TokenVerifier:\n    def __init__(self, keys, rsa_verify):\n        # kid -> key material. HMAC secrets and PEM public keys share this map\n        # so that rotation between the two schemes is a configuration change.\n        self._keys = keys\n        self._rsa_verify = rsa_verify\n\n    def _check_signature(self, algorithm, key, signing_input, signature):\n        if algorithm == \"HS256\":\n            expected = hmac.new(key, signing_input, hashlib.sha256).digest()\n            return hmac.compare_digest(expected, signature)\n        if algorithm == \"RS256\":\n            return self._rsa_verify(key, signing_input, signature)\n        raise ValueError(\"unsupported algorithm\")\n\n    def verify(self, token):\n        header_b64, payload_b64, signature_b64 = token.split(\".\")\n        header = json.loads(_b64url_decode(header_b64))\n        key = self._keys[header[\"kid\"]]\n        signing_input = f\"{header_b64}.{payload_b64}\".encode(\"ascii\")\n        # Honour the algorithm the issuer selected for this token.\n        if not self._check_signature(\n            header[\"alg\"], key, signing_input, _b64url_decode(signature_b64)\n        ):\n            raise PermissionError(\"bad signature\")\n\n        claims = json.loads(_b64url_decode(payload_b64))\n        if claims.get(\"exp\") and claims[\"exp\"] < time.time():\n            raise PermissionError(\"expired\")\n        return claims\n",
+      "rationale": "The algorithm is read from the token header and the key is selected by kid from a map that holds both HMAC secrets and published RSA public keys, so a caller can re-sign a token as HS256 using the public key material as the MAC secret. Expiry is also optional: a token with no exp claim skips the freshness check entirely."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "token_verifier.py",
+      "source": "\"\"\"Bearer token verification.\"\"\"\n\nimport base64\nimport json\nimport time\n\nALGORITHM = \"RS256\"\nLEEWAY_SECONDS = 30\nREQUIRED_CLAIMS = (\"sub\", \"iss\", \"aud\", \"iat\", \"exp\")\n\n\ndef _b64url_decode(segment):\n    padding = \"=\" * (-len(segment) % 4)\n    return base64.urlsafe_b64decode(segment + padding)\n\n\nclass TokenVerifier:\n    def __init__(self, public_keys, issuer, audience, rsa_verify):\n        # Only asymmetric verification keys live here, so there is no symmetric\n        # secret an attacker could reach by naming a different algorithm.\n        self._public_keys = public_keys\n        self._issuer = issuer\n        self._audience = audience\n        self._rsa_verify = rsa_verify\n\n    def verify(self, token):\n        parts = token.split(\".\")\n        if len(parts) != 3:\n            raise PermissionError(\"malformed token\")\n        header_b64, payload_b64, signature_b64 = parts\n        header = json.loads(_b64url_decode(header_b64))\n        # The verifier chooses the algorithm; the token cannot.\n        if header.get(\"alg\") != ALGORITHM:\n            raise PermissionError(\"unexpected algorithm\")\n        key = self._public_keys.get(header.get(\"kid\"))\n        if key is None:\n            raise PermissionError(\"unknown key id\")\n\n        signing_input = f\"{header_b64}.{payload_b64}\".encode(\"ascii\")\n        if not self._rsa_verify(key, signing_input, _b64url_decode(signature_b64)):\n            raise PermissionError(\"bad signature\")\n\n        claims = json.loads(_b64url_decode(payload_b64))\n        for name in REQUIRED_CLAIMS:\n            if name not in claims:\n                raise PermissionError(f\"missing claim {name}\")\n        now = time.time()\n        if claims[\"exp\"] < now - LEEWAY_SECONDS:\n            raise PermissionError(\"expired\")\n        if claims[\"iss\"] != self._issuer or claims[\"aud\"] != self._audience:\n            raise PermissionError(\"wrong issuer or audience\")\n        return claims\n",
+      "rationale": "The algorithm is pinned by the verifier and a token header that names anything else is rejected, the keyring holds only asymmetric public keys so no MAC secret exists to confuse it with, and exp, iat, iss, aud, and sub are required rather than optional."
+    }
+  }
+}

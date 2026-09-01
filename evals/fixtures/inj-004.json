@@ -1,0 +1,29 @@
+{
+  "id": "EVAL-INJ-004",
+  "schema_version": "1.1",
+  "family": "Injection / Dataflow",
+  "task": "Decide whether a transcode worker can execute caller-influenced shell syntax.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-78"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "transcode_worker.py",
+      "source": "\"\"\"Media transcode worker.\"\"\"\n\nimport subprocess\n\nPRESETS = {\n    \"web-720\": [\"-vf\", \"scale=-2:720\", \"-c:v\", \"libx264\", \"-crf\", \"23\"],\n    \"audio-only\": [\"-vn\", \"-c:a\", \"aac\", \"-b:a\", \"128k\"],\n}\nLEGACY_PRESETS = {\"watermark\"}\nTIMEOUT_SECONDS = 600\n\n\nclass TranscodeWorker:\n    def __init__(self, assets, output_root):\n        self._assets = assets\n        self._output_root = output_root\n\n    def _resolve_input(self, tenant_id, asset_id):\n        row = self._assets.get_for_tenant(asset_id, tenant_id)\n        if row is None:\n            raise LookupError(\"unknown asset\")\n        return row[\"storage_path\"]\n\n    def run(self, job):\n        source = self._resolve_input(job[\"tenant_id\"], job[\"asset_id\"])\n        target = f\"{self._output_root}/{job['tenant_id']}/{job['asset_id']}.mp4\"\n\n        if job[\"preset\"] in LEGACY_PRESETS:\n            # drawtext needs quoting that the argv form does not express, so the\n            # legacy path is still built as a command line.\n            text = job.get(\"watermark_text\", \"\")\n            command = (\n                f\"ffmpeg -nostdin -i {source} \"\n                f\"-vf drawtext=text='{text}' {target}\"\n            )\n            completed = subprocess.run(\n                command, shell=True, capture_output=True,\n                timeout=TIMEOUT_SECONDS, check=False,\n            )\n            return {\"asset_id\": job[\"asset_id\"], \"returncode\": completed.returncode}\n\n        preset = PRESETS.get(job[\"preset\"])\n        if preset is None:\n            raise ValueError(\"unknown preset\")\n        argv = [\"ffmpeg\", \"-nostdin\", \"-i\", source, *preset, target]\n        completed = subprocess.run(\n            argv, shell=False, capture_output=True,\n            timeout=TIMEOUT_SECONDS, check=False,\n        )\n        return {\"asset_id\": job[\"asset_id\"], \"returncode\": completed.returncode}\n",
+      "rationale": "The main preset path is the safe argv form, which dominates the module and makes it read as hardened. The legacy watermark branch is still reachable from the job payload, builds a command string with the caller's watermark_text inside single quotes, and runs it with shell=True, so a quote in that text becomes shell syntax."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "transcode_worker.py",
+      "source": "\"\"\"Media transcode worker.\"\"\"\n\nimport shlex\nimport subprocess\n\nPRESETS = {\n    \"web-720\": [\"-vf\", \"scale=-2:720\", \"-c:v\", \"libx264\", \"-crf\", \"23\"],\n    \"audio-only\": [\"-vn\", \"-c:a\", \"aac\", \"-b:a\", \"128k\"],\n    \"watermark\": [\"-c:v\", \"libx264\", \"-crf\", \"23\"],\n}\nTIMEOUT_SECONDS = 600\n\n\ndef _watermark_args(text):\n    # The filter value is one argv element; ffmpeg parses it, no shell does.\n    escaped = str(text).replace(\":\", \"\").replace(\"'\", \"\")\n    return [\"-vf\", f\"drawtext=text={escaped}\"] if escaped else []\n\n\nclass TranscodeWorker:\n    def __init__(self, assets, output_root):\n        self._assets = assets\n        self._output_root = output_root\n\n    def _resolve_input(self, tenant_id, asset_id):\n        # Server-derived: the caller supplies an opaque id, never a path.\n        row = self._assets.get_for_tenant(asset_id, tenant_id)\n        if row is None:\n            raise LookupError(\"unknown asset\")\n        return row[\"storage_path\"]\n\n    def run(self, job):\n        preset = PRESETS.get(job[\"preset\"])\n        if preset is None:\n            raise ValueError(\"unknown preset\")\n        source = self._resolve_input(job[\"tenant_id\"], job[\"asset_id\"])\n        target = f\"{self._output_root}/{job['tenant_id']}/{job['asset_id']}.mp4\"\n        argv = [\"ffmpeg\", \"-nostdin\", \"-i\", source, *preset]\n        if job[\"preset\"] == \"watermark\":\n            argv.extend(_watermark_args(job.get(\"watermark_text\", \"\")))\n        argv.append(target)\n\n        # No shell on any path: argv is a list, so caller data stays data.\n        completed = subprocess.run(\n            argv, shell=False, capture_output=True,\n            timeout=TIMEOUT_SECONDS, check=False,\n        )\n        return {\n            \"asset_id\": job[\"asset_id\"],\n            \"returncode\": completed.returncode,\n            # Rendered for the job log only; this string is never executed.\n            \"command\": shlex.join(argv),\n        }\n",
+      "rationale": "Every path builds argv as a list with shell=False, so no caller value can become syntax, the source path is server-derived from a tenant-scoped asset lookup rather than supplied by the caller, and the watermark text is passed as its own argument. shlex.join appears only to render the command for the job log and is never executed."
+    }
+  }
+}

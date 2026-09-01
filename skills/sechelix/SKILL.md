@@ -1,6 +1,7 @@
 ---
 name: sechelix
-description: Evidence-first application-security audit workflow for authorized repositories and environments. Use when reviewing a codebase, pull request, API, web app, agent/MCP integration, cloud configuration, business logic, payments, authorization, race conditions, supply chain, or release readiness for security weaknesses. Maps trust boundaries, selects applicable checks, runs parallel specialist review, independently verifies findings, fixes root causes, and requires regression proof before reporting High/Critical issues.
+description: Evidence-first application-security audit workflow for authorized repositories and environments. Use when reviewing a codebase, pull request, API, web application, AI-generated code, agent or MCP integration, cloud configuration, authorization (BOLA, IDOR, BFLA), business logic, payments, race conditions, secrets, supply chain, or release readiness for security weaknesses. Maps trust boundaries, selects applicable checks, runs parallel specialist review, independently verifies every material finding and refutes false positives, fixes root causes, and requires regression proof before reporting High or Critical issues.
+license: Apache-2.0
 ---
 
 # SecHelix

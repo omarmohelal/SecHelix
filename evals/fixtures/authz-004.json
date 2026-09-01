@@ -1,0 +1,30 @@
+{
+  "id": "EVAL-AUTHZ-004",
+  "schema_version": "1.1",
+  "family": "Authorization / BOLA / BFLA",
+  "task": "Decide whether a generic graph entry point reaches objects the typed query would refuse.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-639",
+      "CWE-863"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "graphql_resolvers.py",
+      "source": "\"\"\"GraphQL resolvers for the orders schema.\"\"\"\n\nimport base64\n\n\ndef decode_global_id(global_id):\n    decoded = base64.urlsafe_b64decode(global_id.encode(\"ascii\")).decode(\"utf-8\")\n    kind, _, raw = decoded.partition(\":\")\n    return kind, raw\n\n\nclass Resolvers:\n    def __init__(self, orders, customers, payments):\n        self._orders = orders\n        self._customers = customers\n        self._payments = payments\n\n    def query_order(self, info, order_id):\n        viewer = info.context[\"viewer\"]\n        order = self._orders.get(order_id)\n        if order is None or order[\"customer_id\"] != viewer[\"customer_id\"]:\n            raise PermissionError(\"forbidden\")\n        return order\n\n    def query_node(self, info, global_id):\n        # Relay-style generic lookup used by the client cache to refetch objects\n        # it has already seen.\n        kind, raw = decode_global_id(global_id)\n        if kind == \"Order\":\n            return self._orders.get(raw)\n        if kind == \"Customer\":\n            return self._customers.get(raw)\n        raise ValueError(\"unknown node type\")\n\n    def order_customer(self, info, order):\n        # Reached from query_order, which has already authorised the order.\n        return self._customers.get(order[\"customer_id\"])\n\n    def customer_payment_methods(self, info, customer):\n        return self._payments.list_for_customer(customer[\"id\"])\n",
+      "rationale": "query_order enforces ownership, and the field resolvers inherit that assumption. query_node decodes a global id and loads the same objects with no viewer predicate, so selecting node(id) { ... on Customer { paymentMethods } } reaches another customer's records through resolvers that were only ever authorised by their expected parent."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "graphql_resolvers.py",
+      "source": "\"\"\"GraphQL resolvers for the orders schema.\"\"\"\n\nimport base64\n\n\ndef decode_global_id(global_id):\n    decoded = base64.urlsafe_b64decode(global_id.encode(\"ascii\")).decode(\"utf-8\")\n    kind, _, raw = decoded.partition(\":\")\n    return kind, raw\n\n\nclass ViewerLoaders:\n    \"\"\"The single authorisation boundary for this schema.\"\"\"\n\n    def __init__(self, orders, customers, payments):\n        self._orders = orders\n        self._customers = customers\n        self._payments = payments\n\n    def order(self, viewer, order_id):\n        row = self._orders.get_for_customer(order_id, viewer[\"customer_id\"])\n        if row is None:\n            raise PermissionError(\"forbidden\")\n        return row\n\n    def customer(self, viewer, customer_id):\n        if customer_id != viewer[\"customer_id\"]:\n            raise PermissionError(\"forbidden\")\n        return self._customers.get(customer_id)\n\n    def payment_methods(self, viewer, customer_id):\n        self.customer(viewer, customer_id)\n        return self._payments.list_for_customer(customer_id)\n\n\nclass Resolvers:\n    def __init__(self, loaders):\n        self._loaders = loaders\n\n    def query_order(self, info, order_id):\n        return self._loaders.order(info.context[\"viewer\"], order_id)\n\n    def query_node(self, info, global_id):\n        kind, raw = decode_global_id(global_id)\n        loader = {\n            \"Order\": self._loaders.order,\n            \"Customer\": self._loaders.customer,\n        }.get(kind)\n        if loader is None:\n            raise ValueError(\"unknown node type\")\n        # The generic entry point uses exactly the loaders the typed query uses.\n        return loader(info.context[\"viewer\"], raw)\n\n    def order_customer(self, info, order):\n        return self._loaders.customer(info.context[\"viewer\"], order[\"customer_id\"])\n\n    def customer_payment_methods(self, info, customer):\n        # Field resolvers re-establish the boundary instead of inheriting it.\n        return self._loaders.payment_methods(info.context[\"viewer\"], customer[\"id\"])\n",
+      "rationale": "Every resolver, typed or generic, reaches data through the same viewer-scoped loaders, so the generic node entry point cannot be a weaker path than the typed query, and each field resolver re-establishes the boundary rather than inheriting it from whichever parent happened to call it."
+    }
+  }
+}

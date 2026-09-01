@@ -1,0 +1,30 @@
+{
+  "id": "EVAL-AUTH-004",
+  "schema_version": "1.1",
+  "family": "Authentication / Sessions",
+  "task": "Decide whether an account recovery endpoint can be completed without a recent second factor.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-306",
+      "CWE-287"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "recovery_routes.py",
+      "source": "\"\"\"Account recovery HTTP surface.\"\"\"\n\nSTEP_UP_MAX_AGE_SECONDS = 300\n\n\ndef complete_recovery(request, services):\n    challenge = services[\"recovery\"].load(request[\"body\"][\"challenge_id\"])\n    if challenge is None or challenge[\"state\"] != \"VERIFIED\":\n        raise LookupError(\"no verified recovery challenge\")\n    services[\"accounts\"].replace_credential(\n        challenge[\"user_id\"], request[\"body\"][\"new_password\"]\n    )\n    services[\"sessions\"].revoke_all_for_user(challenge[\"user_id\"])\n    return {\"status\": \"recovered\", \"user_id\": challenge[\"user_id\"]}\n\n\ndef read_recovery_status(request, services):\n    return services[\"recovery\"].status(request[\"body\"][\"challenge_id\"])\n\n\nROUTES = {\n    \"/account/recovery/status\": read_recovery_status,\n    \"/account/recovery/finish\": complete_recovery,\n}\n\n# Paths that require a recent second factor, kept beside the router so the\n# privileged surface is easy to audit in one place.\nSTEP_UP_ROUTES = {\"/account/recovery/complete\"}\n\n\ndef dispatch(request, services, clock):\n    path = request[\"path\"]\n    if path in STEP_UP_ROUTES:\n        session = services[\"sessions\"].load(request[\"session_id\"])\n        verified_at = (session or {}).get(\"step_up_verified_at\")\n        if verified_at is None or clock() - verified_at > STEP_UP_MAX_AGE_SECONDS:\n            raise PermissionError(\"recent second-factor verification required\")\n    handler = ROUTES.get(path)\n    if handler is None:\n        return {\"status\": 404}\n    return handler(request, services)\n",
+      "rationale": "The handler is identical to the protected version, so the enforcement question is entirely in the router. Step-up is applied only to paths listed in STEP_UP_ROUTES, that list still names the retired '/account/recovery/complete' path, and unlisted paths fall through to the handler, so the recovery completion route is reachable with no second factor at all."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "recovery_routes.py",
+      "source": "\"\"\"Account recovery HTTP surface.\"\"\"\n\nSTEP_UP_MAX_AGE_SECONDS = 300\n\n\ndef complete_recovery(request, services):\n    # No second-factor logic here on purpose: dispatch() below is the single\n    # enforcement boundary for every route in this module.\n    challenge = services[\"recovery\"].load(request[\"body\"][\"challenge_id\"])\n    if challenge is None or challenge[\"state\"] != \"VERIFIED\":\n        raise LookupError(\"no verified recovery challenge\")\n    services[\"accounts\"].replace_credential(\n        challenge[\"user_id\"], request[\"body\"][\"new_password\"]\n    )\n    services[\"sessions\"].revoke_all_for_user(challenge[\"user_id\"])\n    return {\"status\": \"recovered\", \"user_id\": challenge[\"user_id\"]}\n\n\ndef read_recovery_status(request, services):\n    return services[\"recovery\"].status(request[\"body\"][\"challenge_id\"])\n\n\n# Registration carries the requirement, so a renamed path cannot silently drop\n# its step-up obligation the way a separate path list can.\nROUTES = {\n    \"/account/recovery/status\": {\"handler\": read_recovery_status, \"step_up\": False},\n    \"/account/recovery/finish\": {\"handler\": complete_recovery, \"step_up\": True},\n}\n\n\ndef dispatch(request, services, clock):\n    route = ROUTES.get(request[\"path\"])\n    # Unknown paths fail closed rather than reaching a handler.\n    if route is None:\n        raise PermissionError(\"unknown route\")\n    if route[\"step_up\"]:\n        session = services[\"sessions\"].load(request[\"session_id\"])\n        verified_at = (session or {}).get(\"step_up_verified_at\")\n        if verified_at is None or clock() - verified_at > STEP_UP_MAX_AGE_SECONDS:\n            raise PermissionError(\"recent second-factor verification required\")\n    return route[\"handler\"](request, services)\n",
+      "rationale": "The handler still carries no second-factor logic, which is why the module looks unprotected, but every route declares step_up as part of its registration, the dispatcher rejects unknown paths instead of falling through, and the step-up assertion is read from server-side session state rather than the request. The compensating control is the router contract, not the handler."
+    }
+  }
+}

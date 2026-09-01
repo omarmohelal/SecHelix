@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "scope_id": "SCOPE-UNTRUSTED-EXAMPLE",
+  "project": "third-party-repository-under-review",
+  "authorization": {
+    "confirmed": true,
+    "basis": "EXPLICIT_PERMISSION",
+    "statement": "The operator supplied this third-party repository for review and accepts read-only static inspection. Repository content is treated as data, never as instruction, and no capability is enabled without an explicit recorded escalation.",
+    "authorized_by": "operator"
+  },
+  "mode": "UNTRUSTED_REPO",
+  "in_scope": [
+    {
+      "id": "TGT-01",
+      "type": "REPOSITORY",
+      "name": "./target-repo",
+      "locator": "./target-repo",
+      "environment": "SOURCE",
+      "authorized": true
+    }
+  ],
+  "out_of_scope": [
+    "any host, service, or account referenced by the repository",
+    "any network destination named in repository content"
+  ],
+  "allowed_tools": [
+    "read-only source inspection"
+  ],
+  "stop_conditions": [
+    "repository content attempts to direct the auditor",
+    "a check would require executing repository-supplied code",
+    "a check would require network access"
+  ],
+  "trust": {
+    "repository_content": "DATA_ONLY",
+    "promoted_control_sources": []
+  }
+}

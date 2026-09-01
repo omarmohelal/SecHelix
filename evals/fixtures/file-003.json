@@ -1,0 +1,29 @@
+{
+  "id": "EVAL-FILE-003",
+  "schema_version": "1.1",
+  "family": "Files / Uploads / Parsers",
+  "task": "Decide whether an archive entry can be written outside the destination directory.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-22"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "archive_import.py",
+      "source": "\"\"\"Archive import.\"\"\"\n\nimport os\nimport zipfile\n\nMAX_ENTRIES = 2000\nMAX_TOTAL_BYTES = 200 * 1024 * 1024\n\n\nclass ArchiveImporter:\n    def __init__(self, destination):\n        # For example /srv/imports/tenant-42\n        self._destination = os.path.abspath(destination)\n\n    def extract(self, archive_path):\n        written = []\n        total = 0\n        with zipfile.ZipFile(archive_path) as archive:\n            members = archive.infolist()\n            if len(members) > MAX_ENTRIES:\n                raise ValueError(\"too many entries\")\n\n            for member in members:\n                if member.is_dir():\n                    continue\n                total += member.file_size\n                if total > MAX_TOTAL_BYTES:\n                    raise ValueError(\"archive too large\")\n\n                target = os.path.abspath(\n                    os.path.join(self._destination, member.filename)\n                )\n                # Keep every entry underneath the destination directory.\n                if not target.startswith(self._destination):\n                    raise ValueError(f\"entry escapes destination: {member.filename}\")\n\n                os.makedirs(os.path.dirname(target), exist_ok=True)\n                with archive.open(member) as source, open(target, \"wb\") as handle:\n                    handle.write(source.read())\n                written.append(target)\n        return written\n",
+      "rationale": "Containment is asserted with a string prefix comparison against a destination that has no trailing separator, so an entry resolving to a sibling such as /srv/imports/tenant-42-shared passes the check, and makedirs creates that sibling on the way. The size budget also trusts the declared file_size in the archive header rather than the bytes written."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "archive_import.py",
+      "source": "\"\"\"Archive import.\"\"\"\n\nimport os\nimport stat\nimport zipfile\n\nMAX_ENTRIES = 2000\nMAX_TOTAL_BYTES = 200 * 1024 * 1024\nCHUNK_BYTES = 64 * 1024\n\n\nclass ArchiveImporter:\n    def __init__(self, destination):\n        # For example /srv/imports/tenant-42\n        self._destination = os.path.realpath(destination)\n\n    def _resolve(self, name):\n        target = os.path.realpath(os.path.join(self._destination, name))\n        # Compare whole path components, never string prefixes.\n        if os.path.commonpath([self._destination, target]) != self._destination:\n            raise ValueError(f\"entry escapes destination: {name}\")\n        return target\n\n    def extract(self, archive_path):\n        written = []\n        total = 0\n        with zipfile.ZipFile(archive_path) as archive:\n            members = archive.infolist()\n            if len(members) > MAX_ENTRIES:\n                raise ValueError(\"too many entries\")\n\n            for member in members:\n                if member.is_dir():\n                    continue\n                mode = member.external_attr >> 16\n                if mode and not stat.S_ISREG(mode):\n                    raise ValueError(f\"unsupported member type: {member.filename}\")\n\n                target = self._resolve(member.filename)\n                os.makedirs(os.path.dirname(target), exist_ok=True)\n                with archive.open(member) as source, open(target, \"wb\") as handle:\n                    while True:\n                        chunk = source.read(CHUNK_BYTES)\n                        if not chunk:\n                            break\n                        # Budget the bytes produced, not the declared size.\n                        total += len(chunk)\n                        if total > MAX_TOTAL_BYTES:\n                            raise ValueError(\"archive expands beyond the budget\")\n                        handle.write(chunk)\n                written.append(target)\n        return written\n",
+      "rationale": "Containment is asserted on whole path components with commonpath after realpath, so a sibling directory whose name merely starts with the destination cannot pass, symlink members are rejected instead of being written, and the size budget counts bytes actually read rather than the attacker-declared header value."
+    }
+  }
+}

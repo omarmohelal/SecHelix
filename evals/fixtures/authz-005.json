@@ -1,0 +1,30 @@
+{
+  "id": "EVAL-AUTHZ-005",
+  "schema_version": "1.1",
+  "family": "Authorization / BOLA / BFLA",
+  "task": "Decide whether copying a request body onto an update object can set a privileged field.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-915",
+      "CWE-269"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "profile_update.py",
+      "source": "\"\"\"Profile update endpoint.\"\"\"\n\n\nclass ProfileUpdate:\n    \"\"\"Writable projection of an account.\"\"\"\n\n    FIELDS = (\"display_name\", \"bio\", \"timezone\")\n\n    def __init__(self):\n        for field in self.FIELDS:\n            setattr(self, field, None)\n\n    def assigned(self):\n        return {name: value for name, value in vars(self).items() if value is not None}\n\n\nclass ProfileService:\n    def __init__(self, accounts, audit):\n        self._accounts = accounts\n        self._audit = audit\n\n    def update(self, caller, payload):\n        update = ProfileUpdate()\n        for key, value in payload.items():\n            setattr(update, key, value)\n\n        changes = update.assigned()\n        if not changes:\n            raise ValueError(\"no writable fields supplied\")\n        self._accounts.apply(caller[\"id\"], changes)\n        self._audit.record(caller[\"id\"], \"profile.update\", sorted(changes))\n        return {\"user_id\": caller[\"id\"], \"updated\": sorted(changes)}\n",
+      "rationale": "FIELDS reads as an allowlist but is only used to initialise the attributes; the loop assigns every key in the body onto the instance and assigned() reports vars(self), so any extra key — role, tenant_id, email_verified — is carried into accounts.apply and written. The object model never constrained anything."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "profile_update.py",
+      "source": "\"\"\"Profile update endpoint.\"\"\"\n\n\nclass ProfileUpdate:\n    \"\"\"Writable projection of an account.\n\n    __slots__ is the control. The class has no __dict__, so assigning any field\n    that is not declared here raises AttributeError, and copying an entire\n    request body onto an instance cannot introduce a privileged attribute.\n    \"\"\"\n\n    __slots__ = (\"display_name\", \"bio\", \"timezone\")\n\n    def __init__(self):\n        for field in self.__slots__:\n            setattr(self, field, None)\n\n    def assigned(self):\n        # Enumerates the declared slots, not whatever was assigned.\n        return {\n            name: getattr(self, name)\n            for name in self.__slots__\n            if getattr(self, name) is not None\n        }\n\n\nclass ProfileService:\n    def __init__(self, accounts, audit):\n        self._accounts = accounts\n        self._audit = audit\n\n    def update(self, caller, payload):\n        update = ProfileUpdate()\n        rejected = []\n        for key, value in payload.items():\n            try:\n                setattr(update, key, value)\n            except AttributeError:\n                # The object model refused the field; record it and move on.\n                rejected.append(key)\n\n        changes = update.assigned()\n        if not changes:\n            raise ValueError(\"no writable fields supplied\")\n        self._accounts.apply(caller[\"id\"], changes)\n        self._audit.record(caller[\"id\"], \"profile.update\", sorted(changes), rejected)\n        return {\"user_id\": caller[\"id\"], \"updated\": sorted(changes)}\n",
+      "rationale": "Copying the whole request body onto an object is the alarming surface, and __slots__ is the compensating control: the class defines no __dict__, so assigning any undeclared attribute raises AttributeError and the caller's extra keys are dropped. assigned() enumerates the declared slots rather than whatever happens to have been set."
+    }
+  }
+}

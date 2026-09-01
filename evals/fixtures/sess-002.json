@@ -1,0 +1,30 @@
+{
+  "id": "EVAL-SESS-002",
+  "schema_version": "1.1",
+  "family": "Authentication / Sessions",
+  "task": "Decide whether a revoked session can still authenticate a request.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-613",
+      "CWE-672"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "session_gateway.py",
+      "source": "\"\"\"Request gateway that resolves the caller from an opaque session token.\"\"\"\n\nimport hashlib\nimport time\n\nIDLE_TIMEOUT_SECONDS = 1800\n\n\ndef _fingerprint(raw_token):\n    return hashlib.sha256(raw_token.encode(\"utf-8\")).hexdigest()\n\n\nclass SessionGateway:\n    def __init__(self, store, clock=time.time):\n        self._store = store\n        self._clock = clock\n        # Session reads dominate the request path, so resolved principals are\n        # kept in process to avoid a round trip on every call.\n        self._cache = {}\n\n    def resolve_principal(self, raw_token):\n        if not raw_token:\n            return None\n        fingerprint = _fingerprint(raw_token)\n        principal = self._cache.get(fingerprint)\n        if principal is not None:\n            return principal\n\n        row = self._store.get_session(fingerprint)\n        if row is None:\n            return None\n        now = self._clock()\n        if now - row[\"last_seen_at\"] > IDLE_TIMEOUT_SECONDS:\n            self._store.delete_session(fingerprint)\n            return None\n        self._store.touch_session(fingerprint, now)\n        principal = {\n            \"user_id\": row[\"user_id\"],\n            \"roles\": row[\"roles\"],\n            \"tenant_id\": row[\"tenant_id\"],\n        }\n        self._cache[fingerprint] = principal\n        return principal\n\n    def revoke(self, raw_token):\n        fingerprint = _fingerprint(raw_token)\n        self._store.delete_session(fingerprint)\n        self._cache.pop(fingerprint, None)\n\n    def revoke_all_for_user(self, user_id):\n        # Password changes and administrative lockouts land here.\n        self._store.delete_sessions_for_user(user_id)\n",
+      "rationale": "The in-process cache is populated on first use and is only invalidated by the single-token revoke path. revoke_all_for_user — the path used by password changes and administrative lockouts — deletes the rows but leaves every worker's cached principal in place, and the idle-timeout check runs only on a cache miss, so a revoked session keeps resolving, with the roles it held when it was cached."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "session_gateway.py",
+      "source": "\"\"\"Request gateway that resolves the caller from an opaque session token.\"\"\"\n\nimport hashlib\nimport time\n\nIDLE_TIMEOUT_SECONDS = 1800\n\n\ndef _fingerprint(raw_token):\n    return hashlib.sha256(raw_token.encode(\"utf-8\")).hexdigest()\n\n\nclass SessionGateway:\n    \"\"\"Resolves a principal for every request.\n\n    There is no \"is this session revoked?\" branch on purpose. The stored row is\n    the authority, revocation deletes it, and every request re-reads it, so the\n    missing row is the denial. Nothing here caches the decision, which is what\n    keeps a revocation from another process effective immediately.\n    \"\"\"\n\n    def __init__(self, store, clock=time.time):\n        self._store = store\n        self._clock = clock\n\n    def resolve_principal(self, raw_token):\n        if not raw_token:\n            return None\n        fingerprint = _fingerprint(raw_token)\n        row = self._store.get_session(fingerprint)\n        if row is None:\n            return None\n        now = self._clock()\n        if now - row[\"last_seen_at\"] > IDLE_TIMEOUT_SECONDS:\n            self._store.delete_session(fingerprint)\n            return None\n        self._store.touch_session(fingerprint, now)\n        return {\n            \"user_id\": row[\"user_id\"],\n            \"roles\": row[\"roles\"],\n            \"tenant_id\": row[\"tenant_id\"],\n        }\n\n    def revoke(self, raw_token):\n        self._store.delete_session(_fingerprint(raw_token))\n\n    def revoke_all_for_user(self, user_id):\n        # Password changes and administrative lockouts land here. Because the\n        # gateway holds no derived state, deleting the rows is sufficient.\n        self._store.delete_sessions_for_user(user_id)\n",
+      "rationale": "There is deliberately no explicit revocation branch, which is what makes the module look unprotected: the session row is the authority, every request re-reads it, and revocation is implemented as deletion, so the absence of the row is the denial. Nothing caches the decision, so a revocation from any process takes effect on the next request."
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "id": "EVAL-WEB-003",
+  "schema_version": "1.1",
+  "family": "Browser / XSS",
+  "task": "Decide whether a cross-document message handler trusts an origin it should not.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-346",
+      "CWE-345"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "javascript",
+      "filename": "embed-bridge.js",
+      "source": "// Bridge between the host page and the embedded checkout frame.\nconst TRUSTED_ORIGIN = \"https://app.example.com\";\n\nconst COMMANDS = {\n  resize: (payload, ctx) =>\n    ctx.frame.style.setProperty(\"height\", `${Number(payload.height)}px`),\n  setAuthToken: (payload, ctx) => ctx.session.adopt(payload.token),\n  navigate: (payload, ctx) => ctx.router.push(payload.path),\n};\n\nexport function installBridge(ctx) {\n  const handler = (event) => {\n    // Only messages coming from our own application are accepted.\n    if (event.origin.indexOf(TRUSTED_ORIGIN) !== 0) return;\n\n    const message =\n      typeof event.data === \"string\" ? JSON.parse(event.data) : event.data;\n    const command = message && COMMANDS[message.type];\n    if (!command) return;\n    command(message.payload || {}, ctx);\n\n    // Acknowledge so the frame can continue its handshake.\n    if (event.source) {\n      event.source.postMessage(\n        { type: \"ack\", id: message.id, session: ctx.session.snapshot() },\n        \"*\"\n      );\n    }\n  };\n\n  window.addEventListener(\"message\", handler);\n  return () => window.removeEventListener(\"message\", handler);\n}\n",
+      "rationale": "The origin test is a prefix comparison, so https://app.example.com.attacker.test satisfies it and reaches a command table that includes setAuthToken and navigate. The acknowledgement is then posted back with a '*' target origin carrying a session snapshot, so the same handler leaks state to whichever document sent the message."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "javascript",
+      "filename": "embed-bridge.js",
+      "source": "// Bridge between the host page and the embedded checkout frame.\nconst TRUSTED_ORIGIN = \"https://app.example.com\";\n\n// Presentation only: privileged operations are performed over the authenticated\n// API, not over a channel whose peer is a document.\nconst COMMANDS = {\n  resize: (payload, ctx) =>\n    ctx.frame.style.setProperty(\"height\", `${Number(payload.height)}px`),\n  requestClose: (_payload, ctx) => ctx.onClose(),\n};\n\nfunction safeParse(text) {\n  try {\n    return JSON.parse(text);\n  } catch {\n    return null;\n  }\n}\n\nexport function installBridge(ctx) {\n  const handler = (event) => {\n    // Exact origin, and the sender must be the frame we created ourselves.\n    if (event.origin !== TRUSTED_ORIGIN) return;\n    if (event.source !== ctx.frame.contentWindow) return;\n\n    const message =\n      typeof event.data === \"string\" ? safeParse(event.data) : event.data;\n    if (!message || typeof message.type !== \"string\") return;\n    if (!Object.prototype.hasOwnProperty.call(COMMANDS, message.type)) return;\n\n    COMMANDS[message.type](message.payload || {}, ctx);\n\n    // Addressed to one origin, and it carries no session material.\n    event.source.postMessage({ type: \"ack\", id: message.id }, TRUSTED_ORIGIN);\n  };\n\n  window.addEventListener(\"message\", handler);\n  return () => window.removeEventListener(\"message\", handler);\n}\n",
+      "rationale": "The origin must match exactly and the sender must be the frame this module created, the command table is limited to presentation commands and is looked up with hasOwnProperty so prototype keys cannot resolve, and the reply is addressed to the exact origin and carries no session state."
+    }
+  }
+}

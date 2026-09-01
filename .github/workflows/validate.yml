@@ -5,15 +5,23 @@ on:
     branches: [main]
   pull_request:
 
-permissions:
-  contents: read
+# Deny by default at the workflow level; every job re-grants only what it needs.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: '3.12'
       - name: Validate structured catalog
@@ -82,3 +90,17 @@ jobs:
         run: python scripts/check_install_snippets.py
       - name: Run report, gate, eval, and QA tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Run adapter and agent-profile tests
+        run: python -m unittest discover -s adapters/tests -p 'test_*.py' -t . -v
+      - name: Generate SBOM (smoke test)
+        run: python scripts/generate_sbom.py --output "${RUNNER_TEMP}/sbom.cdx.json" --quiet
+      - name: Portable skill bundle drift check
+        run: |
+          python scripts/sync_portable_skill.py
+          if [ -n "$(git status --porcelain skills/)" ]; then
+            echo "::error::skills/ portable bundle is stale. Run 'python scripts/sync_portable_skill.py' and commit the result."
+            git status --porcelain skills/
+            git --no-pager diff -- skills/
+            exit 1
+          fi
+          echo "OK: portable skill bundle is in sync with canonical sources"

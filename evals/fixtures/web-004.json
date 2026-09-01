@@ -1,0 +1,30 @@
+{
+  "id": "EVAL-WEB-004",
+  "schema_version": "1.1",
+  "family": "Browser / XSS",
+  "task": "Decide whether rendering unsanitised markup in a frame is contained.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-79",
+      "CWE-1021"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "javascript",
+      "filename": "untrusted-preview.js",
+      "source": "// Renders author-submitted rich text that the pipeline cannot fully sanitise.\nconst SAFE_SCHEMES = new Set([\"http:\", \"https:\", \"mailto:\"]);\n\nfunction safeHref(value) {\n  try {\n    return SAFE_SCHEMES.has(new URL(value).protocol) ? value : null;\n  } catch {\n    return null;\n  }\n}\n\nexport function renderPreview(container, document_) {\n  const wrapper = document.createElement(\"section\");\n  wrapper.className = \"preview\";\n\n  const caption = document.createElement(\"p\");\n  caption.className = \"preview-caption\";\n  caption.textContent = document_.caption;\n  wrapper.append(caption);\n\n  const source = safeHref(document_.sourceUrl);\n  if (source) {\n    const link = document.createElement(\"a\");\n    link.setAttribute(\"href\", source);\n    link.setAttribute(\"rel\", \"noopener noreferrer\");\n    link.textContent = \"original document\";\n    wrapper.append(link);\n  }\n\n  const frame = document.createElement(\"iframe\");\n  frame.className = \"preview-frame\";\n  frame.setAttribute(\"referrerpolicy\", \"no-referrer\");\n  frame.srcdoc = document_.html;\n  wrapper.append(frame);\n  container.replaceChildren(wrapper);\n\n  // The preview needs its own scripts for the lightbox and table sorting, and\n  // same-origin so those scripts can read the parent stylesheet.\n  frame.setAttribute(\"sandbox\", \"allow-scripts allow-same-origin\");\n  return frame;\n}\n",
+      "rationale": "The sandbox attribute grants allow-scripts together with allow-same-origin, which lets the framed document run script in the embedder's origin and remove its own sandbox attribute, so the isolation is nominal. The attribute is also applied after srcdoc is assigned and after the frame is in the document, so the load can begin before the restriction exists."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "javascript",
+      "filename": "untrusted-preview.js",
+      "source": "// Renders author-submitted rich text that the pipeline cannot fully sanitise.\nconst SAFE_SCHEMES = new Set([\"http:\", \"https:\", \"mailto:\"]);\n\nfunction safeHref(value) {\n  try {\n    return SAFE_SCHEMES.has(new URL(value).protocol) ? value : null;\n  } catch {\n    return null;\n  }\n}\n\nexport function renderPreview(container, document_) {\n  const wrapper = document.createElement(\"section\");\n  wrapper.className = \"preview\";\n\n  const caption = document.createElement(\"p\");\n  caption.className = \"preview-caption\";\n  caption.textContent = document_.caption;\n  wrapper.append(caption);\n\n  const source = safeHref(document_.sourceUrl);\n  if (source) {\n    const link = document.createElement(\"a\");\n    link.setAttribute(\"href\", source);\n    link.setAttribute(\"rel\", \"noopener noreferrer\");\n    link.textContent = \"original document\";\n    wrapper.append(link);\n  }\n\n  const frame = document.createElement(\"iframe\");\n  frame.className = \"preview-frame\";\n  // The sandbox is the control, and it is set before any content exists and\n  // before the element joins the document: an empty value means no scripts, no\n  // forms, no top-level navigation, and a unique opaque origin, so the markup\n  // below cannot reach this document, its cookies, or its storage.\n  frame.setAttribute(\"sandbox\", \"\");\n  frame.setAttribute(\"referrerpolicy\", \"no-referrer\");\n  frame.setAttribute(\"loading\", \"lazy\");\n  frame.srcdoc = document_.html;\n\n  wrapper.append(frame);\n  container.replaceChildren(wrapper);\n  return frame;\n}\n",
+      "rationale": "Assigning unsanitised markup to srcdoc is the alarming surface, and the sandbox is the control that makes it defensible: the frame is created with an empty sandbox attribute before srcdoc is assigned and before it is inserted, so the document loads with scripts disabled in a unique opaque origin with no form submission and no top-level navigation."
+    }
+  }
+}

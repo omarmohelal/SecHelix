@@ -1,0 +1,31 @@
+version: 2
+
+# SecHelix ships no npm, pip, or other package manifest: every module imports
+# only the Python standard library. The only dependency surface that exists is
+# the set of GitHub Actions pinned by commit SHA in .github/workflows/, so that
+# is the only ecosystem configured here. Adding a package ecosystem for a
+# manifest that does not exist would produce a permanently silent updater.
+#
+# Dependabot rewrites SHA pins and refreshes the trailing "# vX.Y.Z" comment,
+# which keeps the pins current without giving up immutable references.
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'ci(deps)'
+    labels:
+      - dependencies
+      - github-actions
+    groups:
+      # One PR per week for routine action bumps; security updates still open
+      # individually and immediately.
+      actions-minor-and-patch:
+        update-types:
+          - minor
+          - patch

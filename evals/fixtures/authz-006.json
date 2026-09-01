@@ -1,0 +1,30 @@
+{
+  "id": "EVAL-AUTHZ-006",
+  "schema_version": "1.1",
+  "family": "Authorization / BOLA / BFLA",
+  "task": "Decide whether a reporting query escapes the tenant isolation the primary path relies on.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-863",
+      "CWE-89"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "tenant_reporting_db.py",
+      "source": "\"\"\"Tenant-scoped database access.\"\"\"\n\nfrom contextlib import contextmanager\n\n\nclass TenantDatabase:\n    \"\"\"Row level security policies compare app.tenant_id against each row.\"\"\"\n\n    def __init__(self, app_pool, analytics_pool):\n        self._app_pool = app_pool\n        # Reporting queries are slow, so they run on a separate pool that\n        # connects with the reporting role.\n        self._analytics_pool = analytics_pool\n\n    @contextmanager\n    def tenant_connection(self, tenant_id):\n        conn = self._app_pool.acquire()\n        try:\n            conn.execute(f\"SET app.tenant_id = '{tenant_id}'\")\n            yield conn\n        finally:\n            self._app_pool.release(conn)\n\n    def list_documents(self, tenant_id):\n        with self.tenant_connection(tenant_id) as conn:\n            return conn.execute(\n                \"SELECT id, title, owner_id FROM documents ORDER BY created_at DESC\"\n            ).fetchall()\n\n    def monthly_summary(self, tenant_id, month):\n        # Row level security keeps document reads scoped, so the summary does\n        # not need to repeat the predicate.\n        conn = self._analytics_pool.acquire()\n        try:\n            return conn.execute(\n                \"SELECT status, count(*) AS total FROM documents \"\n                \"WHERE date_trunc('month', created_at) = %s GROUP BY status\",\n                [month],\n            ).fetchall()\n        finally:\n            self._analytics_pool.release(conn)\n",
+      "rationale": "monthly_summary borrows from the analytics pool, which connects with the reporting role that bypasses row level security, never sets the tenant setting, and carries no tenant predicate, so it aggregates every tenant's rows. The primary path is also fragile: the setting is interpolated into the statement and is session-scoped, so it survives on the pooled connection after the request that set it."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "tenant_reporting_db.py",
+      "source": "\"\"\"Tenant-scoped database access.\"\"\"\n\nfrom contextlib import contextmanager\n\n\nclass TenantDatabase:\n    \"\"\"Row level security policies compare app.tenant_id against each row.\"\"\"\n\n    def __init__(self, app_pool):\n        # One pool, one role, one enforcement story. Reporting does not get a\n        # privileged side door.\n        self._app_pool = app_pool\n\n    @contextmanager\n    def tenant_transaction(self, tenant_id):\n        conn = self._app_pool.acquire()\n        try:\n            conn.execute(\"BEGIN\")\n            # Bound as a parameter, and local to this transaction so it cannot\n            # survive on the pooled connection.\n            conn.execute(\"SELECT set_config('app.tenant_id', %s, true)\", [str(tenant_id)])\n            yield conn\n            conn.execute(\"COMMIT\")\n        except BaseException:\n            conn.execute(\"ROLLBACK\")\n            raise\n        finally:\n            self._app_pool.release(conn)\n\n    def list_documents(self, tenant_id):\n        with self.tenant_transaction(tenant_id) as conn:\n            return conn.execute(\n                \"SELECT id, title, owner_id FROM documents \"\n                \"WHERE tenant_id = %s ORDER BY created_at DESC\",\n                [tenant_id],\n            ).fetchall()\n\n    def monthly_summary(self, tenant_id, month):\n        # Same role, same binding, and the predicate is repeated explicitly.\n        with self.tenant_transaction(tenant_id) as conn:\n            return conn.execute(\n                \"SELECT status, count(*) AS total FROM documents \"\n                \"WHERE tenant_id = %s AND date_trunc('month', created_at) = %s \"\n                \"GROUP BY status\",\n                [tenant_id, month],\n            ).fetchall()\n",
+      "rationale": "Both paths use the same RLS-enforcing role, the tenant is bound as a parameter with set_config scoped to the transaction so nothing leaks to the next borrower of a pooled connection, and every statement repeats the tenant predicate as defence in depth rather than delegating isolation entirely to the policy."
+    }
+  }
+}

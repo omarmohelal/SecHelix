@@ -16,123 +16,413 @@
     "stop_conditions"
   ],
   "properties": {
-    "schema_version": {"const": "1.0"},
-    "scope_id": {"type": "string", "pattern": "^SCOPE-[A-Z0-9][A-Z0-9._-]{2,63}$"},
-    "project": {"type": "string", "minLength": 1, "maxLength": 200},
-    "owner": {"type": "string", "minLength": 1, "maxLength": 200},
-    "authorization": {"$ref": "#/$defs/authorization"},
-    "mode": {"enum": ["STATIC", "LOCAL", "STAGING", "PRODUCTION_SAFE"]},
+    "schema_version": {
+      "const": "1.0"
+    },
+    "scope_id": {
+      "type": "string",
+      "pattern": "^SCOPE-[A-Z0-9][A-Z0-9._-]{2,63}$"
+    },
+    "project": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "authorization": {
+      "$ref": "#/$defs/authorization"
+    },
+    "mode": {
+      "enum": [
+        "STATIC",
+        "LOCAL",
+        "STAGING",
+        "PRODUCTION_SAFE",
+        "UNTRUSTED_REPO"
+      ]
+    },
     "in_scope": {
       "type": "array",
       "minItems": 1,
-      "items": {"$ref": "#/$defs/target"}
+      "items": {
+        "$ref": "#/$defs/target"
+      }
     },
     "out_of_scope": {
       "type": "array",
-      "items": {"type": "string", "minLength": 1},
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
       "uniqueItems": true
     },
     "test_identities": {
       "type": "array",
-      "items": {"$ref": "#/$defs/identity"}
+      "items": {
+        "$ref": "#/$defs/identity"
+      }
     },
     "external_providers": {
       "type": "array",
-      "items": {"$ref": "#/$defs/provider"}
+      "items": {
+        "$ref": "#/$defs/provider"
+      }
     },
     "sensitive_assets": {
       "type": "array",
-      "items": {"type": "string", "minLength": 1},
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
       "uniqueItems": true
     },
     "side_effects": {
       "type": "array",
-      "items": {"$ref": "#/$defs/side_effect"}
+      "items": {
+        "$ref": "#/$defs/side_effect"
+      }
     },
     "production_restrictions": {
       "type": "array",
-      "items": {"type": "string", "minLength": 1},
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
       "uniqueItems": true
     },
     "allowed_tools": {
       "type": "array",
-      "items": {"type": "string", "minLength": 1},
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
       "uniqueItems": true
     },
     "allowed_actions": {
       "type": "array",
-      "items": {"type": "string", "minLength": 1},
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
       "uniqueItems": true
     },
     "stop_conditions": {
       "type": "array",
       "minItems": 1,
-      "items": {"type": "string", "minLength": 1},
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
       "uniqueItems": true
     },
-    "created_at": {"type": "string", "format": "date-time"},
-    "notes": {"type": "array", "items": {"type": "string", "minLength": 1}}
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "trust": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository_content",
+        "promoted_control_sources"
+      ],
+      "description": "Declares whether content inside the target may influence auditor behaviour. In UNTRUSTED_REPO mode repository content is data, never control.",
+      "properties": {
+        "repository_content": {
+          "enum": [
+            "DATA_ONLY",
+            "TRUSTED_CONTROL"
+          ],
+          "description": "DATA_ONLY means no file in the target may alter scope, policy, tooling, or stop conditions."
+        },
+        "promoted_control_sources": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "promoted_by",
+              "promoted_at",
+              "reason"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "promoted_by": {
+                "type": "string",
+                "minLength": 1
+              },
+              "promoted_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "description": "Explicit operator promotions. Empty means nothing in the target is trusted as control."
+        },
+        "capability_escalations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "capability",
+              "approved_by",
+              "approved_at",
+              "justification"
+            ],
+            "properties": {
+              "capability": {
+                "enum": [
+                  "FILESYSTEM_WRITE",
+                  "REPO_SCRIPTS",
+                  "PACKAGE_INSTALL",
+                  "NETWORK",
+                  "HOOKS",
+                  "EXTERNAL_MCP",
+                  "DYNAMIC_TARGET_REQUESTS"
+                ]
+              },
+              "approved_by": {
+                "type": "string",
+                "minLength": 1
+              },
+              "approved_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "justification": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    }
   },
   "$defs": {
     "authorization": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["confirmed", "basis", "statement", "authorized_by"],
+      "required": [
+        "confirmed",
+        "basis",
+        "statement",
+        "authorized_by"
+      ],
       "properties": {
-        "confirmed": {"type": "boolean"},
-        "basis": {"enum": ["OWNER", "EXPLICIT_PERMISSION", "CONTROLLED_FIXTURE", "UNCONFIRMED"]},
-        "statement": {"type": "string", "minLength": 1, "maxLength": 1000},
-        "authorized_by": {"type": "string", "minLength": 1, "maxLength": 200},
-        "confirmed_at": {"type": "string", "format": "date-time"},
-        "expires_at": {"type": "string", "format": "date-time"},
-        "evidence_reference": {"type": "string", "minLength": 1, "maxLength": 500}
+        "confirmed": {
+          "type": "boolean"
+        },
+        "basis": {
+          "enum": [
+            "OWNER",
+            "EXPLICIT_PERMISSION",
+            "CONTROLLED_FIXTURE",
+            "UNCONFIRMED"
+          ]
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "authorized_by": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "confirmed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidence_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
       }
     },
     "target": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "type", "name", "locator", "environment", "authorized"],
+      "required": [
+        "id",
+        "type",
+        "name",
+        "locator",
+        "environment",
+        "authorized"
+      ],
       "properties": {
-        "id": {"type": "string", "pattern": "^TGT-[A-Z0-9][A-Z0-9._-]{1,63}$"},
-        "type": {"enum": ["REPOSITORY", "SERVICE", "HOST", "API", "DATABASE", "CLOUD_ACCOUNT", "CI_PROJECT", "LOCAL_FIXTURE", "OTHER"]},
-        "name": {"type": "string", "minLength": 1, "maxLength": 200},
-        "locator": {"type": "string", "minLength": 1, "maxLength": 1000},
-        "environment": {"enum": ["SOURCE", "LOCAL", "TEST", "STAGING", "PRODUCTION", "OTHER"]},
-        "authorized": {"type": "boolean"},
-        "allowed_actions": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
-        "restrictions": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+        "id": {
+          "type": "string",
+          "pattern": "^TGT-[A-Z0-9][A-Z0-9._-]{1,63}$"
+        },
+        "type": {
+          "enum": [
+            "REPOSITORY",
+            "SERVICE",
+            "HOST",
+            "API",
+            "DATABASE",
+            "CLOUD_ACCOUNT",
+            "CI_PROJECT",
+            "LOCAL_FIXTURE",
+            "OTHER"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "locator": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "environment": {
+          "enum": [
+            "SOURCE",
+            "LOCAL",
+            "TEST",
+            "STAGING",
+            "PRODUCTION",
+            "OTHER"
+          ]
+        },
+        "authorized": {
+          "type": "boolean"
+        },
+        "allowed_actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "restrictions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
       }
     },
     "identity": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "role", "fixture_only"],
+      "required": [
+        "id",
+        "role",
+        "fixture_only"
+      ],
       "properties": {
-        "id": {"type": "string", "pattern": "^IDN-[A-Z0-9][A-Z0-9._-]{1,63}$"},
-        "role": {"type": "string", "minLength": 1, "maxLength": 100},
-        "fixture_only": {"type": "boolean"},
-        "restrictions": {"type": "array", "items": {"type": "string", "minLength": 1}}
+        "id": {
+          "type": "string",
+          "pattern": "^IDN-[A-Z0-9][A-Z0-9._-]{1,63}$"
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "fixture_only": {
+          "type": "boolean"
+        },
+        "restrictions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
       }
     },
     "provider": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "real_side_effects_allowed"],
+      "required": [
+        "name",
+        "real_side_effects_allowed"
+      ],
       "properties": {
-        "name": {"type": "string", "minLength": 1},
-        "real_side_effects_allowed": {"type": "boolean"},
-        "mock_or_fixture": {"type": "string", "minLength": 1},
-        "restrictions": {"type": "array", "items": {"type": "string", "minLength": 1}}
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "real_side_effects_allowed": {
+          "type": "boolean"
+        },
+        "mock_or_fixture": {
+          "type": "string",
+          "minLength": 1
+        },
+        "restrictions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
       }
     },
     "side_effect": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["category", "allowed", "restriction"],
+      "required": [
+        "category",
+        "allowed",
+        "restriction"
+      ],
       "properties": {
-        "category": {"enum": ["MONEY", "IDENTITY", "INVENTORY", "AUTHORIZATION", "CUSTOMER_DATA", "EXTERNAL_PROVIDER", "OTHER"]},
-        "allowed": {"type": "boolean"},
-        "restriction": {"type": "string", "minLength": 1}
+        "category": {
+          "enum": [
+            "MONEY",
+            "IDENTITY",
+            "INVENTORY",
+            "AUTHORIZATION",
+            "CUSTOMER_DATA",
+            "EXTERNAL_PROVIDER",
+            "OTHER"
+          ]
+        },
+        "allowed": {
+          "type": "boolean"
+        },
+        "restriction": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     }
   }
