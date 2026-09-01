@@ -217,7 +217,7 @@ evidence supports it.
 On "meaningful uplift" over base model capability, since that is a stated rejection criterion: the
 uplift claimed is structural, not stylistic. The repo ships a validated catalog of 546 security
 hypotheses (exactly 21 families x 26 verification lenses), 17 model-neutral specialist role profiles
-including an independent verifier, 15 JSON Schema Draft 2020-12 contracts that reports must validate
+including an independent verifier, 16 JSON Schema Draft 2020-12 contracts that reports must validate
 against, 18 Gold Check Packs, 38 eval fixtures (76 cases), and a provenance-backed knowledge graph of
 76 nodes and 100 edges. Applicability resolves to APPLICABLE / NOT_APPLICABLE / UNKNOWN / BLOCKED, so
 missing evidence is never silently treated as absence, and the release gate is fail-closed, returning
@@ -317,7 +317,7 @@ Canonical source: https://github.com/omarmohelal/SecHelix (Apache-2.0)
 ### Content accuracy
 
 - [ ] **C-5.** Every number in the submission matches the tagged tree: 546 hypotheses, 21 families,
-      26 lenses, 17 roles, 15 JSON contracts, 11 adapters, 18 Gold Check Packs, 38 fixtures / 76 cases,
+      26 lenses, 17 roles, 16 JSON contracts, 11 adapters, 18 Gold Check Packs, 38 fixtures / 76 cases,
       knowledge graph 76 nodes / 100 edges. Re-run `python scripts/validate_catalog.py` at the tag.
 - [ ] **C-6.** The `UNTRUSTED_REPO` mode and differential security review are present and documented
       at the tagged ref (`docs/reference/untrusted-repo-mode.md` exists on the current branch).

@@ -50,7 +50,7 @@ A trusted finding should establish attacker control, reachability, a failed secu
 |---|---|
 | Coverage | **546 stable security hypothesis IDs** across 21 families × 26 lenses |
 | Specialist mesh | **17 model-neutral role profiles**, including an independent verifier |
-| Contracts | **15 JSON Schema Draft 2020-12 contracts** for scope, applicability, evidence, findings, reports, extensions, knowledge, and Gold Check Packs |
+| Contracts | **16 JSON Schema Draft 2020-12 contracts** for scope, applicability, evidence, findings, reports, extensions, knowledge, and Gold Check Packs |
 | Gold Check Packs | **18 deep reference packs** — 12 bug-class (IDOR, SSRF, injection, race/idempotency, money invariants, AI/MCP tool authority, and more) plus 6 framework packs (Next.js, Express/Node, Django, Supabase/PostgREST, Spring Boot, Laravel) |
 | Eval fixtures | **38 paired fixtures — 76 cases across 10 families**, each with a vulnerable and a clean variant |
 | Knowledge graph | **76 nodes, 100 edges**, provenance-backed, plus **11 lesson cards** |

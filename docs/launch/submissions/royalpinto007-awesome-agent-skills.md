@@ -194,7 +194,7 @@ proof, and the release gate is fail-closed — `PASS` / `PASS_WITH_KNOWN_RISK` /
 `INCOMPLETE`.
 
 Structure behind that: 546 structured hypotheses (21 families x 26 verification lenses), 17
-model-neutral specialist role profiles, 15 JSON Schema Draft 2020-12 contracts, 18 Gold Check Packs,
+model-neutral specialist role profiles, 16 JSON Schema Draft 2020-12 contracts, 18 Gold Check Packs,
 11 evidence adapters (Semgrep, Trivy, OSV, Gitleaks, ZAP, Nuclei, Playwright, package audit, SARIF),
 38 eval fixtures / 76 cases, and a provenance-backed knowledge graph of 76 nodes and 100 edges.
 Coverage emphasis is on business logic, payments, race conditions and idempotency, authorization, and
@@ -262,7 +262,7 @@ Claude marketplace: `/plugin marketplace add omarmohelal/sechelix-marketplace` t
       Confirm the valid category list has not changed since 2026-09-01.
 - [ ] **R-10.** `url` resolves over HTTPS and the repo is public.
 - [ ] **R-11.** Every number in the PR body matches the tree at the time of submission: 546
-      hypotheses, 21 families, 26 lenses, 17 roles, 15 contracts, 11 adapters, 18 Gold Check Packs,
+      hypotheses, 21 families, 26 lenses, 17 roles, 16 contracts, 11 adapters, 18 Gold Check Packs,
       38 fixtures / 76 cases, 76 nodes / 100 edges. Re-run `python scripts/validate_catalog.py`.
 - [ ] **R-12.** `NOT_MEASURED` appears in the PR body and is not softened.
 - [ ] **R-13.** Authorship self-disclosed in the PR body.
