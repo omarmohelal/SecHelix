@@ -1,7 +1,8 @@
 # SecHelix report renderer
 
 `report_renderer.py` derives Markdown, redacted JSON, SARIF 2.1.0, and a
-standalone escaped HTML report from one canonical JSON input.
+standalone escaped HTML report from one canonical `report-v1` JSON input
+(`schemas/report-v1.schema.json`).
 
 ```bash
 python -m reports.report_renderer examples/report.example.json --format markdown
@@ -16,6 +17,12 @@ Secret-bearing keys and common credential patterns are replaced with
 `[REDACTED]` in every format. HTML and Markdown render user-controlled text as
 text rather than active markup.
 
-The renderer validates the minimum envelope itself so malformed or empty input
-cannot be presented as a credible security report. CI may additionally validate
-the input against the canonical repository schemas when those are available.
+The renderer validates the minimum `report-v1` envelope itself so malformed,
+empty, or legacy-shaped input cannot be presented as a credible security report.
+CI may additionally validate the input against the canonical repository schemas
+when those are available.
+
+The committed derived outputs under `examples/reports/` are regenerated from
+`examples/report.example.json` with those four commands, writing
+`report.example.md`, `report.example.redacted.json`, `report.example.sarif`, and
+`report.example.html`.

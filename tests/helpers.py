@@ -156,6 +156,7 @@ def report() -> dict[str, Any]:
             "UNKNOWN": 544,
             "BLOCKED": 1,
             "TOTAL": 546,
+            "integrity_critical_unknown": 0,
         },
         "tools": [{"name": "unittest", "version": "stdlib", "purpose": "contract validation"}],
         "evidence": [evidence("EV-OBS"), evidence("EV-VERIFY")],

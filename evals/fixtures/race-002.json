@@ -1,0 +1,29 @@
+{
+  "id": "EVAL-RACE-002",
+  "schema_version": "1.1",
+  "family": "Race / idempotency / replay",
+  "task": "Decide whether concurrent redemptions of a single-use code can both succeed.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-367"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "voucher.py",
+      "source": "\"\"\"Voucher redemption.\"\"\"\n\n\nclass VoucherService:\n    def __init__(self, db, wallet):\n        self._db = db\n        self._wallet = wallet\n\n    def redeem(self, code, user_id):\n        voucher = self._db.query_one(\n            \"SELECT code, value, redeemed_by FROM vouchers WHERE code = ?\", [code]\n        )\n        if voucher is None:\n            raise LookupError(\"unknown voucher\")\n        if voucher[\"redeemed_by\"] is not None:\n            raise ValueError(\"already redeemed\")\n\n        self._wallet.credit(user_id, voucher[\"value\"])\n        self._db.execute(\n            \"UPDATE vouchers SET redeemed_by = ? WHERE code = ?\", [user_id, code]\n        )\n        return {\"code\": code, \"value\": voucher[\"value\"]}\n",
+      "rationale": "The redeemed check and the write are separate statements with no lock or conditional update, so two concurrent callers can both observe an unused voucher and both redeem it (check-then-act)."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "voucher.py",
+      "source": "\"\"\"Voucher redemption.\"\"\"\n\n\nclass VoucherService:\n    def __init__(self, db, wallet):\n        self._db = db\n        self._wallet = wallet\n\n    def redeem(self, code, user_id):\n        # Claim atomically: the WHERE clause carries the unused precondition.\n        claimed = self._db.execute(\n            \"UPDATE vouchers SET redeemed_by = ? WHERE code = ? AND redeemed_by IS NULL\",\n            [user_id, code],\n        )\n        if claimed.rowcount != 1:\n            raise ValueError(\"already redeemed or unknown voucher\")\n        voucher = self._db.query_one(\"SELECT code, value FROM vouchers WHERE code = ?\", [code])\n        self._wallet.credit(user_id, voucher[\"value\"])\n        return {\"code\": code, \"value\": voucher[\"value\"]}\n",
+      "rationale": "Redemption is a single conditional update whose affected-row count decides the outcome, so only one concurrent caller can claim the voucher."
+    }
+  }
+}

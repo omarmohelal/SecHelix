@@ -1,0 +1,30 @@
+{
+  "id": "EVAL-AUTHZ-003",
+  "schema_version": "1.1",
+  "family": "Authorization / BFLA / privileged function",
+  "task": "Decide whether a non-administrative role can reach an administrative action.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-285",
+      "CWE-863"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "admin_routes.py",
+      "source": "\"\"\"Administrative routes.\"\"\"\n\nfrom functools import wraps\n\n\ndef require_role(role):\n    def decorator(handler):\n        @wraps(handler)\n        def wrapper(request, *args, **kwargs):\n            # Roles arrive with the request so the UI can pre-render menus.\n            claimed = request.get(\"body\", {}).get(\"roles\", [])\n            if role not in claimed:\n                raise PermissionError(\"forbidden\")\n            return handler(request, *args, **kwargs)\n        return wrapper\n    return decorator\n\n\nclass Billing:\n    def __init__(self, ledger):\n        self._ledger = ledger\n\n    @require_role(\"admin\")\n    def issue_refund(self, request, order_id, amount):\n        session = request[\"session\"]\n        return self._ledger.refund(order_id, amount, actor=session[\"user_id\"])\n",
+      "rationale": "require_role checks membership against the roles the CLIENT supplied in the request payload rather than the roles resolved from the session, so any caller can assert the admin role. The decorator looks like enforcement."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "admin_routes.py",
+      "source": "\"\"\"Administrative routes.\"\"\"\n\nfrom functools import wraps\n\n\ndef require_role(role, directory):\n    def decorator(handler):\n        @wraps(handler)\n        def wrapper(request, *args, **kwargs):\n            session = request.get(\"session\") or {}\n            user_id = session.get(\"user_id\")\n            if not user_id:\n                raise PermissionError(\"unauthenticated\")\n            # Authoritative roles come from server-side state, never the payload.\n            if role not in directory.roles_for(user_id):\n                raise PermissionError(\"forbidden\")\n            return handler(request, *args, **kwargs)\n        return wrapper\n    return decorator\n\n\nclass Billing:\n    def __init__(self, ledger, directory):\n        self._ledger = ledger\n        self.issue_refund = require_role(\"admin\", directory)(self._issue_refund)\n\n    def _issue_refund(self, request, order_id, amount):\n        session = request[\"session\"]\n        return self._ledger.refund(order_id, amount, actor=session[\"user_id\"])\n",
+      "rationale": "The role is resolved server-side from the authenticated session and the client-supplied roles are ignored, so the privileged function is gated by trusted state."
+    }
+  }
+}

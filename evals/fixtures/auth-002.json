@@ -1,0 +1,29 @@
+{
+  "id": "EVAL-AUTH-002",
+  "schema_version": "1.1",
+  "family": "Authentication / session lifecycle",
+  "task": "Decide whether the session lifecycle allows a pre-authentication identifier to survive privilege change.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "medium",
+  "mappings": {
+    "cwe": [
+      "CWE-384"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "sessions.py",
+      "source": "\"\"\"Session handling.\"\"\"\n\nimport secrets\n\n\nclass SessionStore:\n    def __init__(self):\n        self._sessions = {}\n\n    def create_anonymous(self):\n        sid = secrets.token_urlsafe(32)\n        self._sessions[sid] = {\"user_id\": None, \"roles\": []}\n        return sid\n\n    def get(self, sid):\n        return self._sessions.get(sid)\n\n    def login(self, sid, user):\n        session = self._sessions.get(sid)\n        if session is None:\n            raise LookupError(\"no session\")\n        # Promote the visitor's existing session to an authenticated one.\n        session[\"user_id\"] = user[\"id\"]\n        session[\"roles\"] = user[\"roles\"]\n        return sid\n\n    def logout(self, sid):\n        self._sessions.pop(sid, None)\n",
+      "rationale": "login mutates the existing session in place and keeps the identifier that was issued before authentication, so an attacker who plants a known session id can ride it into the authenticated session (session fixation)."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "sessions.py",
+      "source": "\"\"\"Session handling.\"\"\"\n\nimport secrets\n\n\nclass SessionStore:\n    def __init__(self):\n        self._sessions = {}\n\n    def create_anonymous(self):\n        sid = secrets.token_urlsafe(32)\n        self._sessions[sid] = {\"user_id\": None, \"roles\": []}\n        return sid\n\n    def get(self, sid):\n        return self._sessions.get(sid)\n\n    def login(self, sid, user):\n        if sid not in self._sessions:\n            raise LookupError(\"no session\")\n        # Rotate on privilege change: the old identifier never becomes authenticated.\n        self._sessions.pop(sid, None)\n        new_sid = secrets.token_urlsafe(32)\n        self._sessions[new_sid] = {\"user_id\": user[\"id\"], \"roles\": user[\"roles\"]}\n        return new_sid\n\n    def logout(self, sid):\n        self._sessions.pop(sid, None)\n",
+      "rationale": "login issues a brand-new identifier and destroys the pre-authentication session, so a fixed identifier cannot survive the privilege transition."
+    }
+  }
+}

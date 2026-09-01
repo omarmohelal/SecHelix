@@ -7,52 +7,47 @@
       },
       "results": [
         {
-          "level": "error",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "demo/routes/listings.py"
-                },
-                "region": {
-                  "startLine": 24
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Missing seller identity previously widened a listing query — status VERIFIED"
-          },
-          "properties": {
-            "independentVerification": {
-              "evidence": [
-                "local two-seller fixture reproduced the boundary failure"
-              ],
-              "status": "VERIFIED",
-              "verified_at": "2026-08-31T00:00:00Z",
-              "verifier_id": "independent-verifier-demo"
-            },
-            "resolution": "FIXED",
-            "status": "VERIFIED",
-            "surface": "GET /seller/listings"
-          },
-          "ruleId": "SHX-AUTHZ-L02-DEMO"
-        },
-        {
           "level": "warning",
           "message": {
-            "text": "Verbose local diagnostics retain request identifiers — status VERIFIED"
+            "text": "Storefront declares no response security headers and can be framed by any origin — status VERIFIED"
           },
           "properties": {
-            "independentVerification": {
-              "evidence": [],
-              "status": "NOT_REQUIRED"
-            },
-            "resolution": "OPEN",
+            "catalogHypothesisIds": [
+              "SHX-WEB-L08"
+            ],
+            "evidenceIds": [
+              "EV-GOS-HEADERS-BASELINE",
+              "EV-GOS-FRAME-REPRO",
+              "EV-GOS-ROOTCAUSE",
+              "EV-GOS-REMEDIATION",
+              "EV-GOS-REGRESSION",
+              "EV-GOS-RETEST"
+            ],
+            "independentVerification": "VERIFIED (independent) by sechelix-independent-verifier; evidence: EV-GOS-FRAME-REPRO, EV-GOS-RETEST; refutation attempt: Attempted to refute by looking for a compensating framing control at the edge or in middleware. The application ships no middleware and no proxy configuration, and the production build emitted no framing header, so no compensating control exists in the reviewed deployment path.",
+            "resolution": "FIXED",
             "status": "VERIFIED",
-            "surface": "local diagnostic log"
+            "surface": "All storefront routes served by the Next.js application"
           },
-          "ruleId": "SHX-LOG-L20-DEMO"
+          "ruleId": "SHX-F-GOS-HEADERS-001"
+        },
+        {
+          "level": "note",
+          "message": {
+            "text": "Remote store configuration reaches href and src sinks without scheme validation — status FALSE_POSITIVE"
+          },
+          "properties": {
+            "catalogHypothesisIds": [
+              "SHX-WEB-L18"
+            ],
+            "evidenceIds": [
+              "EV-GOS-URLSCHEME-REFUTATION"
+            ],
+            "independentVerification": "FALSE_POSITIVE (independent) by sechelix-independent-verifier; evidence: EV-GOS-URLSCHEME-REFUTATION; refutation attempt: Reconstructed the suspected cross-site scripting claim from scratch by serving a hostile javascript: URL from a controlled configuration endpoint and observing the rendered document. The payload never reached the DOM, so the claim was rejected rather than promoted.",
+            "resolution": "FALSE_POSITIVE",
+            "status": "FALSE_POSITIVE",
+            "surface": "hero call to action rendered from remote store-config; footer links rendered from remote store-config; social links rendered from remote store-config; listing artwork src rendered from marketplace listings"
+          },
+          "ruleId": "SHX-F-GOS-URLSCHEME-001"
         }
       ],
       "tool": {
@@ -61,25 +56,32 @@
           "name": "SecHelix",
           "rules": [
             {
-              "id": "SHX-AUTHZ-L02-DEMO",
-              "name": "Missing-seller-identity-previously-widened-a-listing-query",
+              "id": "SHX-F-GOS-HEADERS-001",
+              "name": "Storefront-declares-no-response-security-headers-and-can-be-framed-by-any-origin",
               "properties": {
                 "confidence": "HIGH",
-                "security-severity": "HIGH"
+                "security-severity": "MEDIUM",
+                "tags": [
+                  "CWE-1021",
+                  "OWASP-ASVS:V14"
+                ]
               },
               "shortDescription": {
-                "text": "Missing seller identity previously widened a listing query"
+                "text": "Storefront declares no response security headers and can be framed by any origin"
               }
             },
             {
-              "id": "SHX-LOG-L20-DEMO",
-              "name": "Verbose-local-diagnostics-retain-request-identifiers",
+              "id": "SHX-F-GOS-URLSCHEME-001",
+              "name": "Remote-store-configuration-reaches-href-and-src-sinks-without-scheme-validation",
               "properties": {
-                "confidence": "MEDIUM",
-                "security-severity": "MEDIUM"
+                "confidence": "HIGH",
+                "security-severity": "INFO",
+                "tags": [
+                  "CWE-79"
+                ]
               },
               "shortDescription": {
-                "text": "Verbose local diagnostics retain request identifiers"
+                "text": "Remote store configuration reaches href and src sinks without scheme validation"
               }
             }
           ]

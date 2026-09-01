@@ -1,0 +1,29 @@
+{
+  "id": "EVAL-MONEY-002",
+  "schema_version": "1.1",
+  "family": "Business logic / payment invariants",
+  "task": "Decide whether a refund flow can return more value than was captured.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-840"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "refunds.py",
+      "source": "\"\"\"Refund processing.\"\"\"\n\n\nclass RefundService:\n    def __init__(self, orders, ledger):\n        self._orders = orders\n        self._ledger = ledger\n\n    def refund(self, order_id, amount, actor):\n        order = self._orders.get(order_id)\n        if order is None:\n            raise LookupError(\"unknown order\")\n        if amount <= 0:\n            raise ValueError(\"amount must be positive\")\n        # A refund may never exceed what the customer paid.\n        if amount > order[\"total\"]:\n            raise ValueError(\"refund exceeds order total\")\n        self._ledger.credit(order[\"customer_id\"], amount)\n        self._orders.append_refund(order_id, amount, actor)\n        return {\"order_id\": order_id, \"refunded\": amount}\n",
+      "rationale": "Each refund is checked against the order total instead of the remaining refundable balance, so repeated partial refunds can cumulatively exceed the captured amount."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "refunds.py",
+      "source": "\"\"\"Refund processing.\"\"\"\n\n\nclass RefundService:\n    def __init__(self, orders, ledger):\n        self._orders = orders\n        self._ledger = ledger\n\n    def refund(self, order_id, amount, actor):\n        if amount <= 0:\n            raise ValueError(\"amount must be positive\")\n        with self._orders.transaction() as tx:\n            order = tx.lock_order(order_id)\n            if order is None:\n                raise LookupError(\"unknown order\")\n            already = sum(r[\"amount\"] for r in tx.refunds_for(order_id))\n            remaining = order[\"total\"] - already\n            # The invariant is cumulative, not per-request.\n            if amount > remaining:\n                raise ValueError(\"refund exceeds remaining refundable balance\")\n            self._ledger.credit(order[\"customer_id\"], amount)\n            tx.append_refund(order_id, amount, actor)\n        return {\"order_id\": order_id, \"refunded\": amount}\n",
+      "rationale": "The refundable balance is recomputed from prior refunds inside the same transaction, so the cumulative invariant holds across repeated calls."
+    }
+  }
+}

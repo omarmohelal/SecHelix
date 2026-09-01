@@ -1,0 +1,8 @@
+ ✓ tests/work-api.test.ts (5 tests) 15ms
+ ✓ tests/security.test.ts (10 tests) 20ms
+
+ Test Files  2 passed (2)
+      Tests  15 passed (15)
+   Start at  17:21:34
+   Duration  2.09s (transform 567ms, setup 0ms, collect 522ms, tests 35ms, environment 1ms, prepare 1.08s)
+

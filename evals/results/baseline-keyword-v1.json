@@ -1,0 +1,214 @@
+{
+  "schema_version": "1.0.0",
+  "result_kind": "HARNESS_BASELINE",
+  "subject": "keyword-baseline-v1 (deterministic regex matcher)",
+  "is_sechelix_result": false,
+  "headline": "This is NOT a SecHelix performance result. It is a naive keyword matcher run against the fixture suite to validate the scoring harness and to evidence that the fixtures cannot be solved by pattern matching.",
+  "counts": {
+    "false_negative": 9,
+    "false_positive": 10,
+    "rejected_false_candidates": 9,
+    "true_negative": 9,
+    "true_positive": 10
+  },
+  "limitations": [
+    "This baseline is a naive pattern matcher, not a security review and not SecHelix.",
+    "It performs no verification, so verified precision is not meaningful for this run.",
+    "Its purpose is to validate the scoring harness and to evidence fixture difficulty."
+  ],
+  "measured_at": "2026-09-01T14:30:49.824287Z",
+  "measurement_status": "MEASURED",
+  "metrics": {
+    "applicability_accuracy": "NOT_MEASURED",
+    "detection_recall": 0.526316,
+    "duplicate_root_cause_rate": 0.0,
+    "false_positive_rate": 0.526316,
+    "false_positive_rejection_rate": 0.473684,
+    "precision": 0.5,
+    "recall": 0.526316,
+    "regression_proof_rate": "NOT_MEASURED",
+    "release_gate_accuracy": "NOT_MEASURED",
+    "verified_precision": 0.0
+  },
+  "per_family": {
+    "AI / Agent / MCP": {
+      "detection_recall": 0.0,
+      "false_positive_rate": 1.0,
+      "fn": 1,
+      "fp": 1,
+      "tn": 0,
+      "tp": 0
+    },
+    "AI / Agent / MCP tool authority": {
+      "detection_recall": 1.0,
+      "false_positive_rate": 1.0,
+      "fn": 0,
+      "fp": 1,
+      "tn": 0,
+      "tp": 1
+    },
+    "Authentication / session lifecycle": {
+      "detection_recall": 1.0,
+      "false_positive_rate": 1.0,
+      "fn": 0,
+      "fp": 1,
+      "tn": 0,
+      "tp": 1
+    },
+    "Authorization / BFLA / privileged function": {
+      "detection_recall": 1.0,
+      "false_positive_rate": 1.0,
+      "fn": 0,
+      "fp": 1,
+      "tn": 0,
+      "tp": 1
+    },
+    "Authorization / BOLA / BFLA": {
+      "detection_recall": 0.0,
+      "false_positive_rate": 1.0,
+      "fn": 1,
+      "fp": 1,
+      "tn": 0,
+      "tp": 0
+    },
+    "Authorization / BOLA / tenant isolation": {
+      "detection_recall": 0.0,
+      "false_positive_rate": 0.0,
+      "fn": 1,
+      "fp": 0,
+      "tn": 1,
+      "tp": 0
+    },
+    "Business Logic": {
+      "detection_recall": 0.0,
+      "false_positive_rate": 0.0,
+      "fn": 1,
+      "fp": 0,
+      "tn": 1,
+      "tp": 0
+    },
+    "Business logic / payment invariants": {
+      "detection_recall": 0.0,
+      "false_positive_rate": 0.0,
+      "fn": 1,
+      "fp": 0,
+      "tn": 1,
+      "tp": 0
+    },
+    "File / Parser": {
+      "detection_recall": 0.0,
+      "false_positive_rate": 0.0,
+      "fn": 1,
+      "fp": 0,
+      "tn": 1,
+      "tp": 0
+    },
+    "Files / uploads / path traversal": {
+      "detection_recall": 1.0,
+      "false_positive_rate": 1.0,
+      "fn": 0,
+      "fp": 1,
+      "tn": 0,
+      "tp": 1
+    },
+    "Race / Idempotency": {
+      "detection_recall": 0.0,
+      "false_positive_rate": 0.0,
+      "fn": 1,
+      "fp": 0,
+      "tn": 1,
+      "tp": 0
+    },
+    "Race / idempotency / replay": {
+      "detection_recall": 1.0,
+      "false_positive_rate": 1.0,
+      "fn": 0,
+      "fp": 1,
+      "tn": 0,
+      "tp": 1
+    },
+    "SQL / ORM injection through a dataflow": {
+      "detection_recall": 1.0,
+      "false_positive_rate": 1.0,
+      "fn": 0,
+      "fp": 1,
+      "tn": 0,
+      "tp": 1
+    },
+    "SSRF / URL Fetching": {
+      "detection_recall": 1.0,
+      "false_positive_rate": 0.0,
+      "fn": 0,
+      "fp": 0,
+      "tn": 1,
+      "tp": 1
+    },
+    "SSRF / URL fetching with redirect handling": {
+      "detection_recall": 1.0,
+      "false_positive_rate": 1.0,
+      "fn": 0,
+      "fp": 1,
+      "tn": 0,
+      "tp": 1
+    },
+    "Second-order Injection": {
+      "detection_recall": 0.0,
+      "false_positive_rate": 0.0,
+      "fn": 1,
+      "fp": 0,
+      "tn": 1,
+      "tp": 0
+    },
+    "Secrets / supply chain integrity": {
+      "detection_recall": 1.0,
+      "false_positive_rate": 1.0,
+      "fn": 0,
+      "fp": 1,
+      "tn": 0,
+      "tp": 1
+    },
+    "Supply Chain": {
+      "detection_recall": 0.0,
+      "false_positive_rate": 0.0,
+      "fn": 1,
+      "fp": 0,
+      "tn": 1,
+      "tp": 0
+    },
+    "XSS / browser trust boundary": {
+      "detection_recall": 1.0,
+      "false_positive_rate": 0.0,
+      "fn": 0,
+      "fp": 0,
+      "tn": 1,
+      "tp": 1
+    }
+  },
+  "run": {
+    "agent_host": "none",
+    "case_count": 38,
+    "cost": 0,
+    "execution_mode": "STATIC",
+    "fixture_count": 19,
+    "fixture_suite_version": "NOT_MEASURED",
+    "input_tokens": 0,
+    "model": "keyword-baseline-v1 (no model)",
+    "output_tokens": 0,
+    "prompt_reference": "not applicable; this baseline uses no prompt",
+    "provider": "none (deterministic regex)",
+    "runner": "evals/baselines/keyword_baseline.py",
+    "sechelix_commit": "NOT_MEASURED",
+    "time_seconds": 0,
+    "tools": [
+      "python-re"
+    ]
+  },
+  "scanner_contribution": {
+    "keyword-baseline": 20
+  },
+  "interpretation": [
+    "Precision 0.5 and detection recall 0.53 on a balanced 19/19 split is chance-level.",
+    "A keyword matcher therefore carries no signal on this suite, which is the intended fixture-difficulty property.",
+    "No conclusion about SecHelix, any model, or any scanner may be drawn from this run."
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "id": "EVAL-INJ-002",
+  "schema_version": "1.1",
+  "family": "SQL / ORM injection through a dataflow",
+  "task": "Decide whether caller-controlled input reaches a query without parameterization.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-89"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "search_repository.py",
+      "source": "\"\"\"Product search repository.\"\"\"\n\nALLOWED_FILTERS = {\"category\", \"vendor\"}\n\n\ndef _clean(value):\n    return str(value).strip()\n\n\nclass SearchRepository:\n    def __init__(self, connection):\n        self._conn = connection\n\n    def search(self, filters, sort_by, direction, limit=50):\n        where = []\n        params = []\n        for key, value in filters.items():\n            if key not in ALLOWED_FILTERS:\n                continue\n            where.append(f\"{key} = ?\")\n            params.append(value)\n\n        clause = \" AND \".join(where) or \"1=1\"\n        # Column identifiers cannot be bound, so they are interpolated.\n        order = f\"{_clean(sort_by)} {_clean(direction)}\"\n        sql = f\"SELECT id, name, price FROM products WHERE {clause} ORDER BY {order} LIMIT ?\"\n        params.append(int(limit))\n        return self._conn.execute(sql, params).fetchall()\n",
+      "rationale": "Values are parameterized, but the sort column and direction are concatenated into the ORDER BY clause after passing through a helper that only strips whitespace, so caller input still reaches SQL text."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "search_repository.py",
+      "source": "\"\"\"Product search repository.\"\"\"\n\nALLOWED_FILTERS = {\"category\", \"vendor\"}\nSORT_COLUMNS = {\"name\": \"name\", \"price\": \"price\", \"created\": \"created_at\"}\nSORT_DIRECTIONS = {\"asc\": \"ASC\", \"desc\": \"DESC\"}\n\n\nclass SearchRepository:\n    def __init__(self, connection):\n        self._conn = connection\n\n    def search(self, filters, sort_by, direction, limit=50):\n        where = []\n        params = []\n        for key, value in filters.items():\n            if key not in ALLOWED_FILTERS:\n                continue\n            where.append(f\"{key} = ?\")\n            params.append(value)\n\n        clause = \" AND \".join(where) or \"1=1\"\n        # Identifiers resolve to fixed literals; unknown input is rejected.\n        column = SORT_COLUMNS.get(str(sort_by).lower())\n        order_dir = SORT_DIRECTIONS.get(str(direction).lower())\n        if column is None or order_dir is None:\n            raise ValueError(\"unsupported sort\")\n        sql = f\"SELECT id, name, price FROM products WHERE {clause} ORDER BY {column} {order_dir} LIMIT ?\"\n        params.append(int(limit))\n        return self._conn.execute(sql, params).fetchall()\n",
+      "rationale": "The sort column and direction are mapped through explicit allowlists to fixed literals, so no caller-controlled text reaches the SQL string."
+    }
+  }
+}

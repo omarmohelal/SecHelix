@@ -1,0 +1,29 @@
+{
+  "id": "EVAL-SSRF-002",
+  "schema_version": "1.1",
+  "family": "SSRF / URL fetching with redirect handling",
+  "task": "Decide whether a validated URL can still reach an internal destination.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-918"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "link_preview.py",
+      "source": "\"\"\"Link preview fetcher.\"\"\"\n\nimport ipaddress\nimport socket\nfrom urllib.parse import urlparse\n\nBLOCKED_NETS = [\n    ipaddress.ip_network(\"127.0.0.0/8\"),\n    ipaddress.ip_network(\"10.0.0.0/8\"),\n    ipaddress.ip_network(\"169.254.0.0/16\"),\n]\n\n\ndef _is_public(host):\n    addr = ipaddress.ip_address(socket.gethostbyname(host))\n    return not any(addr in net for net in BLOCKED_NETS)\n\n\ndef fetch_preview(url, http_client):\n    parsed = urlparse(url)\n    if parsed.scheme != \"https\":\n        raise ValueError(\"https required\")\n    if not _is_public(parsed.hostname):\n        raise ValueError(\"private destination\")\n    # Validated, so let the client resolve redirects for us.\n    response = http_client.get(url, allow_redirects=True, timeout=3)\n    return {\"status\": response.status_code, \"body\": response.text[:4096]}\n",
+      "rationale": "The destination is validated once before the request, but redirects are followed automatically and the redirect target is never re-validated, so a permitted host can redirect the fetch to a private address (TOCTOU)."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "link_preview.py",
+      "source": "\"\"\"Link preview fetcher.\"\"\"\n\nimport ipaddress\nimport socket\nfrom urllib.parse import urljoin, urlparse\n\nBLOCKED_NETS = [\n    ipaddress.ip_network(\"127.0.0.0/8\"),\n    ipaddress.ip_network(\"10.0.0.0/8\"),\n    ipaddress.ip_network(\"169.254.0.0/16\"),\n]\nMAX_HOPS = 3\n\n\ndef _assert_allowed(url):\n    parsed = urlparse(url)\n    if parsed.scheme != \"https\" or not parsed.hostname:\n        raise ValueError(\"https required\")\n    addr = ipaddress.ip_address(socket.gethostbyname(parsed.hostname))\n    if any(addr in net for net in BLOCKED_NETS):\n        raise ValueError(\"private destination\")\n    return parsed\n\n\ndef fetch_preview(url, http_client):\n    current = url\n    for _ in range(MAX_HOPS):\n        _assert_allowed(current)\n        # Never delegate redirect handling; each hop is revalidated above.\n        response = http_client.get(current, allow_redirects=False, timeout=3)\n        if response.status_code in (301, 302, 303, 307, 308):\n            current = urljoin(current, response.headers[\"location\"])\n            continue\n        return {\"status\": response.status_code, \"body\": response.text[:4096]}\n    raise ValueError(\"too many redirects\")\n",
+      "rationale": "Redirects are disabled and each hop is revalidated in a bounded loop, so the destination is checked immediately before every request."
+    }
+  }
+}

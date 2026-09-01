@@ -1,0 +1,30 @@
+{
+  "id": "EVAL-AUTHZ-002",
+  "schema_version": "1.1",
+  "family": "Authorization / BOLA / tenant isolation",
+  "task": "Decide whether a caller can read or export objects owned by another tenant.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "medium",
+  "mappings": {
+    "cwe": [
+      "CWE-639",
+      "CWE-862"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "python",
+      "filename": "reports_service.py",
+      "source": "\"\"\"Tenant reporting service.\"\"\"\n\n\nclass ReportRepository:\n    def __init__(self, rows):\n        self._rows = rows\n\n    def list_for_tenant(self, tenant_id):\n        return [r for r in self._rows if r[\"tenant_id\"] == tenant_id]\n\n    def get(self, report_id):\n        for row in self._rows:\n            if row[\"id\"] == report_id:\n                return row\n        return None\n\n\nclass ReportService:\n    def __init__(self, repo, audit):\n        self._repo = repo\n        self._audit = audit\n\n    def list_reports(self, caller):\n        # Correctly scoped: the tenant predicate is applied in the query.\n        return self._repo.list_for_tenant(caller[\"tenant_id\"])\n\n    def export_report(self, caller, report_id):\n        # The caller is authenticated, and the list view already filtered by\n        # tenant, so the export path fetches straight by identifier.\n        report = self._repo.get(report_id)\n        if report is None:\n            raise LookupError(\"report not found\")\n        self._audit.record(caller[\"id\"], \"export\", report_id)\n        return {\"id\": report[\"id\"], \"rows\": report[\"rows\"]}\n",
+      "rationale": "list_reports scopes by tenant, but export_report re-fetches by primary key through a second repository call that carries no tenant predicate. The ownership check on the list path creates a false impression of safety."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "python",
+      "filename": "reports_service.py",
+      "source": "\"\"\"Tenant reporting service.\"\"\"\n\n\nclass ReportRepository:\n    def __init__(self, rows):\n        self._rows = rows\n\n    def list_for_tenant(self, tenant_id):\n        return [r for r in self._rows if r[\"tenant_id\"] == tenant_id]\n\n    def get_for_tenant(self, report_id, tenant_id):\n        for row in self._rows:\n            if row[\"id\"] == report_id and row[\"tenant_id\"] == tenant_id:\n                return row\n        return None\n\n\nclass ReportService:\n    def __init__(self, repo, audit):\n        self._repo = repo\n        self._audit = audit\n\n    def list_reports(self, caller):\n        return self._repo.list_for_tenant(caller[\"tenant_id\"])\n\n    def export_report(self, caller, report_id):\n        # Every protected read carries the effective tenant into the query.\n        report = self._repo.get_for_tenant(report_id, caller[\"tenant_id\"])\n        if report is None:\n            raise LookupError(\"report not found\")\n        self._audit.record(caller[\"id\"], \"export\", report_id)\n        return {\"id\": report[\"id\"], \"rows\": report[\"rows\"]}\n",
+      "rationale": "Both the list and export paths resolve objects through a repository call that requires the effective tenant, so the ownership invariant holds on every path instead of only the listing path."
+    }
+  }
+}
