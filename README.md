@@ -133,7 +133,9 @@ cp -R skills/sechelix .claude/skills/sechelix
 npx skills@latest add omarmohelal/SecHelix --skill sechelix
 ```
 
-The repository ships both `.agents/skills/sechelix/` and `.codex/skills/sechelix/` adapters for repo-local discovery patterns.
+The repository ships `.agents/skills/sechelix/`, which is the repository skill directory Codex
+documents. There is deliberately no `.codex/skills/` mirror: that path is not a documented Codex
+discovery location, and shipping it would invite reliance on something that may never load.
 
 </details>
 
@@ -146,7 +148,10 @@ The repository includes:
 .github/skills/sechelix/SKILL.md
 ```
 
-You can also install the portable source with the Agent Skills CLI.
+GitHub documents `.github/skills/` as a repository skill directory for Copilot, so this adapter is
+present for discovery. It has **not** been observed loading in a Copilot session — the compatibility
+status is `DOCUMENTED`, not `VERIFIED`. You can also install the portable source with the Agent
+Skills CLI.
 
 </details>
 

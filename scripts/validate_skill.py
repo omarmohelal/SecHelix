@@ -8,10 +8,14 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+#: Every discovery path a host is documented to read. Listing them here means a
+#: deleted adapter fails the build instead of quietly becoming a README claim
+#: about a directory that is no longer there.
 ADAPTERS = (
     "skills/sechelix/SKILL.md",
     ".claude/skills/sechelix/SKILL.md",
     ".agents/skills/sechelix/SKILL.md",
+    ".github/skills/sechelix/SKILL.md",
 )
 
 PORTABLE_REQUIRED = (

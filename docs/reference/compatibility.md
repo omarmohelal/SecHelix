@@ -16,6 +16,7 @@ Every row below uses exactly one of these four values. Nothing is upgraded witho
 | `DOCUMENTED` | The host vendor documents the discovery mechanism, but SecHelix was not loaded in that host here. |
 | `MODEL_COMPATIBLE` | The portable bundle is usable as files, but the host's skill loader was not verified. |
 | `UNVERIFIED` | No test and no vendor documentation backing this specific path. |
+| `NOT_SHIPPED` | The path is listed so it is not mistaken for an oversight; SecHelix deliberately does not provide it. |
 
 ## Support matrix
 
@@ -26,7 +27,7 @@ Every row below uses exactly one of these four values. Nothing is upgraded witho
 | Claude Code — plugin | `.claude-plugin/plugin.json` | `VERIFIED` | `claude plugin validate .` passes; `claude --plugin-dir .` loads 1 skill and 17 specialist agents at the declared version. |
 | Claude Code — project skill | `.claude/skills/sechelix/SKILL.md` | `DOCUMENTED` | Claude Code documents project-local `.claude/skills/`. The adapter file and the installer symlink were checked here; a Claude Code session loading it was not observed. |
 | OpenAI Codex | `.agents/skills/sechelix/` (+ portable bundle) | `DOCUMENTED` | `openai/codex` documents that Codex scans `.agents/skills` from the working directory up to the repository root. Placement there is `VERIFIED`; Codex loading it is not tested here. |
-| Codex convenience mirror | `.codex/skills/sechelix/` | `UNVERIFIED` | Retained as a mirror only. Repository-local `.codex/skills/` is **not** a documented Codex discovery path — Codex documents `.agents/skills/` for repositories and `~/.codex/skills/` for global skills. Do not rely on this directory. |
+| Codex convenience mirror | `.codex/skills/sechelix/` | `NOT_SHIPPED` | Deliberately absent. Repository-local `.codex/skills/` is **not** a documented Codex discovery path — Codex documents `.agents/skills/` for repositories and `~/.codex/skills/` for global skills. Shipping the directory would invite reliance on a path that may never load. |
 | GitHub Copilot / VS Code agents | `.github/skills/sechelix/` | `DOCUMENTED` | GitHub documents `.github/skills`, `.claude/skills`, and `.agents/skills` as repository skill directories for Copilot. Not loaded in Copilot here. |
 | Generic Agent Skills clients | `.agents/skills/sechelix/` or `skills/sechelix/` | `MODEL_COMPATIBLE` | Uses only open-format frontmatter fields. Confirm your client's loader before claiming native support. |
 | Z.AI / GLM via Claude Code | install as a Claude skill | `DOCUMENTED` | Z.AI documents the GLM Coding Plan running inside Claude Code, so Claude's loader remains the host. |
