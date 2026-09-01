@@ -56,29 +56,15 @@ A finding becomes trusted only when the evidence supports attacker control, reac
 | Release truth | `PASS`, `PASS_WITH_KNOWN_RISK`, `BLOCKED`, or fail-closed `INCOMPLETE` |
 | Evals | Eight vulnerable/clean fixture families; public aggregate results are **NOT_MEASURED** |
 
-### V2 product preview
+### Product preview
 
-The product site authoring source is private; these selected, source-free
-screenshots are published intentionally so the public framework has an honest
-visual preview. [Open the current SecHelix site →](https://sechelix.com)
+The product site authoring source is private. The canonical live product is
+[**sechelix.com**](https://sechelix.com), while this repository intentionally
+contains the open framework rather than the private website source.
 
 <p align="center">
-  <img src="assets/vnext-preview/home-1440x900.jpg" alt="SecHelix V2 overview and interactive evidence console" width="100%" />
+  <a href="https://sechelix.com"><img src="https://sechelix.com/sechelix-og.png" alt="SecHelix — Security findings are claims. SecHelix proves them." width="100%" /></a>
 </p>
-
-Additional responsive captures: [1920×1080 desktop](assets/vnext-preview/home-1920x1080.jpg) · [390×844 mobile](assets/vnext-preview/home-390x844.jpg)
-
-| Evidence Workbench | Attack Surface |
-|---|---|
-| <img src="assets/vnext-preview/workbench-1440x900.jpg" alt="SecHelix Evidence Workbench" width="100%" /> | <img src="assets/vnext-preview/attack-surface-1440x900.jpg" alt="SecHelix Attack Surface digital twin" width="100%" /> |
-
-| Authorization Matrix | Variant Analysis |
-|---|---|
-| <img src="assets/vnext-preview/authorization-matrix-1440x900.jpg" alt="SecHelix Authorization Matrix" width="100%" /> | <img src="assets/vnext-preview/variant-analysis-1440x900.jpg" alt="SecHelix Variant Analysis" width="100%" /> |
-
-| Benchmark Lab | Contribution workflow |
-|---|---|
-| <img src="assets/vnext-preview/benchmark-lab-1440x900.jpg" alt="SecHelix Benchmark Lab with honest NOT_MEASURED state" width="100%" /> | <img src="assets/vnext-preview/contribute-1440x900.jpg" alt="SecHelix governed contribution workflow" width="100%" /> |
 
 [Open the Workbench](https://sechelix.com/workbench) ·
 [Attack Surface](https://sechelix.com/attack-surface) ·
