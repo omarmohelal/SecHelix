@@ -356,11 +356,6 @@ class Observation:
     def signal_map(self) -> dict[str, Any]:
         return {name: value for name, value in self.signals}
 
-    @property
-    def comparable(self) -> bool:
-        """False when the surface was redacted, which makes matching meaningless."""
-        return bool(self.surface) and not self.surface_redacted
-
     def as_dict(self) -> dict[str, Any]:
         record: dict[str, Any] = {
             "observation_id": self.observation_id,
