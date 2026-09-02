@@ -98,9 +98,10 @@ Recorded because "we chose not to" and "we could not" are different sentences.
 | r/netsec, r/AppSec | The current rules could not be read: the new UI serves anonymous visitors a JS challenge, and `old.reddit.com` now requires an account. Posting without reading the rules is exactly what the plan forbids, so nothing was posted. |
 | X | `x.com` shows the signed-out landing page. Nothing posted; `final/x-thread.md` stays as saved copy. |
 
-LinkedIn **is** authenticated as the owner. The post in [`final/linkedin.md`](final/linkedin.md) is
-ready to go and was not published, because social publishing has not been explicitly authorised for
-this session.
+LinkedIn is the exception: authenticated, and **posted once on 2026-09-02 after the owner explicitly
+authorised it** — <https://www.linkedin.com/feed/update/urn:li:activity:7500865884689850370/>. The
+body is [`final/linkedin.md`](final/linkedin.md) verbatim; the file's hard line wraps were reflowed
+into paragraphs and nothing else was changed.
 
 ### aigearbase.com — NEEDS ASSESSMENT
 
