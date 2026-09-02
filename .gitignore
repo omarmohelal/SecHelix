@@ -17,3 +17,6 @@ __pycache__/
 # so ignoring them would break CI as well as distribution.
 #
 # The warning is therefore acknowledged and rejected on purpose, not overlooked.
+
+# V4 runner: local run workspaces are working data, never repository content.
+.sechelix/
