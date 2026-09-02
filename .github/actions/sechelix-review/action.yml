@@ -1,0 +1,113 @@
+name: "SecHelix security review"
+description: >-
+  Run a SecHelix STATIC audit over a pull request and upload SARIF. Orchestration
+  only by default: no reasoning provider, no network, no credentials.
+author: "SecHelix"
+
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  path:
+    description: "Directory to audit."
+    required: false
+    default: "."
+  depth:
+    description: "quick | standard | thorough"
+    required: false
+    default: "standard"
+  executor:
+    description: >-
+      Reasoning executor. 'none' orchestrates without analysing code and needs
+      no credentials. Anything else requires a provider you have configured
+      yourself.
+    required: false
+    default: "none"
+  fail-on-incomplete:
+    description: >-
+      Fail the job when mandatory nodes did not deliver. Default false: a run
+      that could not analyse anything is not evidence of a problem in the PR.
+    required: false
+    default: "false"
+  max-cost-usd:
+    description: "Hard spend ceiling. Ignored when executor is 'none'."
+    required: false
+    default: ""
+
+outputs:
+  run-id:
+    description: "The recorded run id."
+    value: ${{ steps.audit.outputs.run-id }}
+  incomplete:
+    description: "true when mandatory nodes did not deliver."
+    value: ${{ steps.audit.outputs.incomplete }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+      with:
+        python-version: "3.12"
+
+    - name: Install the SecHelix runner
+      shell: bash
+      run: |
+        # Installed from the checked-out source so the action pins exactly what
+        # the repository contains rather than resolving a floating release.
+        python -m pip install --quiet "${{ github.action_path }}/../../.."
+
+    - name: Audit
+      id: audit
+      shell: bash
+      run: |
+        set -uo pipefail
+        args=(audit "${{ inputs.path }}" --depth "${{ inputs.depth }}" --json
+              --executor "${{ inputs.executor }}")
+        if [ -n "${{ inputs.max-cost-usd }}" ]; then
+          args+=(--max-cost "${{ inputs.max-cost-usd }}")
+        fi
+        sechelix "${args[@]}" > sechelix-run.json
+        code=$?
+        run_id=$(python -c "import json;print(json.load(open('sechelix-run.json'))['run_id'])")
+        unsat=$(python -c "import json;print(len(json.load(open('sechelix-run.json'))['unsatisfied_mandatory']))")
+        echo "run-id=$run_id" >> "$GITHUB_OUTPUT"
+        echo "incomplete=$([ "$unsat" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+        echo "exit=$code" >> "$GITHUB_OUTPUT"
+
+    - name: Convert to SARIF
+      shell: bash
+      run: |
+        sechelix report "${{ steps.audit.outputs.run-id }}" \
+          --path "${{ inputs.path }}" --format sarif > sechelix.sarif
+
+    - name: Upload SARIF
+      uses: github/codeql-action/upload-sarif@4e94bd11f71e507f7f87df81788dff88d1dacbfb # v3.29.0
+      with:
+        sarif_file: sechelix.sarif
+        category: sechelix
+
+    - name: Summary
+      shell: bash
+      run: |
+        {
+          echo "### SecHelix security review"
+          echo
+          if [ "${{ steps.audit.outputs.incomplete }}" = "true" ]; then
+            echo "**INCOMPLETE.** Mandatory nodes did not deliver, so no security"
+            echo "claim can be made from this run. This is not a statement that the"
+            echo "pull request is unsafe."
+          else
+            echo "All mandatory nodes delivered."
+          fi
+          echo
+          echo "Run \`${{ steps.audit.outputs.run-id }}\`"
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Enforce policy
+      if: inputs.fail-on-incomplete == 'true' && steps.audit.outputs.incomplete == 'true'
+      shell: bash
+      run: |
+        echo "::error::SecHelix reported INCOMPLETE and fail-on-incomplete is set."
+        exit 1

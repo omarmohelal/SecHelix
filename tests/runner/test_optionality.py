@@ -56,7 +56,7 @@ class RunnerStaysOptionalTests(unittest.TestCase):
             "argparse", "os", "sys", "re", "itertools", "contextlib", "shutil",
             "subprocess", "tempfile", "textwrap", "math", "copy", "abc", "functools",
             "ipaddress", "socket", "urllib", "base64", "secrets", "string",
-            "http", "threading", "http.server",
+            "http", "threading", "http.server", "html",
         )
         for path in sorted((ROOT / "sechelix_runner").glob("*.py")):
             with self.subTest(module=path.name):
