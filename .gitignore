@@ -20,3 +20,8 @@ __pycache__/
 
 # V4 runner: local run workspaces are working data, never repository content.
 .sechelix/
+
+# Python packaging artifacts
+/dist/
+/build/
+*.egg-info/
