@@ -21,6 +21,9 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
+          # Full history: the commit-hygiene check walks back to a baseline ref,
+          # and a shallow clone would make it silently pass with nothing to check.
+          fetch-depth: 0
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: '3.12'
@@ -88,6 +91,8 @@ jobs:
         run: python scripts/check_local_links.py
       - name: Check documented counts against the tree
         run: python scripts/check_doc_consistency.py
+      - name: Check public commit hygiene
+        run: python scripts/check_commit_hygiene.py
       - name: Check installation snippets
         run: python scripts/check_install_snippets.py
       - name: Run report, gate, eval, and QA tests
