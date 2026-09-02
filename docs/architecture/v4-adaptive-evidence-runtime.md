@@ -33,11 +33,12 @@ written from cloned source at pinned commits.
 | Coverage ledger, 7 states | **BUILT** | `coverage.py` |
 | Adaptive orchestration (shipped disabled) | **BUILT** | `adaptive.py` |
 | Compliance evidence mapping | **BUILT** | `compliance.py` — reads catalog mappings |
-| Sandbox + network authority model | `SPECIFIED` | — |
-| Active proof builder | `SPECIFIED` | — |
+| Sandbox policy + network authority | **BUILT** | `sandbox.py` — deny-default, no permissive constructor |
+| Active proof builder (plans, not execution) | **BUILT** | `proof.py` |
+| Security self-audit of the runner | **BUILT** | `tests/runner/test_self_audit.py` |
 | Deep protocol packs | `SPECIFIED` | — |
 | Native / memory-safety lane | `SPECIFIED` | — |
-| Local API | `SPECIFIED` | — |
+| Local API (loopback-only, read-mostly) | **BUILT** | `api.py` |
 | Workbench V4 surfaces | `SPECIFIED` | — |
 | Arena benchmark | `OPEN` | design settled, not built — see §3 |
 
