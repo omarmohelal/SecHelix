@@ -36,6 +36,43 @@ class ContractTests(unittest.TestCase):
         with self.assertRaises(ContractValidationError):
             validate_contract("finding", artifact)
 
+    def _unproven_finding(self, *established: str) -> dict:
+        """A non-VERIFIED finding whose chain establishes only the named links."""
+        artifact = finding()
+        artifact["status"] = "LIKELY_BUT_UNPROVEN"
+        artifact["verification"]["outcome"] = "LIKELY_BUT_UNPROVEN"
+        for name, link in artifact["evidence_chain"].items():
+            if name not in established:
+                link["established"] = False
+                link["evidence_ids"] = []
+        return artifact
+
+    def test_impact_cannot_be_established_without_attacker_control(self) -> None:
+        artifact = self._unproven_finding("impact", "reachability")
+        with self.assertRaises(ContractValidationError):
+            validate_contract("finding", artifact)
+
+    def test_impact_cannot_be_established_without_reachability(self) -> None:
+        artifact = self._unproven_finding("impact", "attacker_control")
+        with self.assertRaises(ContractValidationError):
+            validate_contract("finding", artifact)
+
+    def test_reproduction_cannot_be_established_without_reachability(self) -> None:
+        artifact = self._unproven_finding("safe_reproduction")
+        with self.assertRaises(ContractValidationError):
+            validate_contract("finding", artifact)
+
+    def test_impact_is_accepted_once_its_prerequisites_hold(self) -> None:
+        artifact = self._unproven_finding("impact", "attacker_control", "reachability")
+        validate_contract("finding", artifact)
+
+    def test_chain_prerequisites_do_not_suppress_partial_findings(self) -> None:
+        """A static boundary failure stands alone; demanding reachability first would
+        suppress a true finding about a handler nobody has traced yet."""
+        for established in ((), ("attacker_control",), ("boundary_failure",), ("root_cause",)):
+            with self.subTest(established=established):
+                validate_contract("finding", self._unproven_finding(*established))
+
     def test_authorization_can_be_recorded_but_required_before_execution(self) -> None:
         artifact = scope(confirmed=False)
         validate_contract("scope", artifact)
