@@ -48,7 +48,10 @@ class RunnerStaysOptionalTests(unittest.TestCase):
 
     def test_runner_depends_only_on_the_standard_library(self) -> None:
         allowed_prefixes = (
-            "sechelix_runner", ".", "__future__", "dataclasses", "typing", "enum",
+            # runner -> core is the allowed direction; core -> runner is what
+            # the other tests in this class forbid.
+            "sechelix_runner", "sechelix_core", ".", "__future__", "dataclasses",
+            "typing", "enum",
             "json", "hashlib", "uuid", "time", "datetime", "pathlib", "collections",
             "argparse", "os", "sys", "re", "itertools", "contextlib", "shutil",
             "subprocess", "tempfile", "textwrap", "math", "copy", "abc", "functools",

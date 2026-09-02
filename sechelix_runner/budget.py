@@ -98,11 +98,15 @@ class BudgetDecision:
     reason: str = ""
 
     def to_dict(self) -> dict[str, Any]:
+        # An unset limit leaves `remaining` infinite, and infinity is not JSON.
+        # `None` is the same "unlimited" spelling `snapshot()` already uses, so
+        # a reader never has to learn two encodings for the same idea.
+        remaining = None if self.remaining == float("inf") else self.remaining
         return {
             "limit_name": self.limit_name,
             "node_id": self.node_id,
             "requested": self.requested,
-            "remaining": self.remaining,
+            "remaining": remaining,
             "admitted": self.admitted,
             "reason": self.reason,
         }
@@ -181,8 +185,19 @@ class BudgetGovernor:
         self._actual[name] += float(actual_amount)
 
     def spend(self, name: str, amount: float) -> None:
-        """Record consumption that was not reserved (already-incurred cost)."""
-        self._actual[name] += float(amount)
+        """Record consumption that was not reserved (already-incurred cost).
+
+        A non-numeric amount is a corrupt record -- a redacted field, a provider
+        returning a string -- and is refused loudly. Coercing it to zero would
+        make a budget report that silently understates spend, which is the one
+        failure mode this whole module exists to prevent.
+        """
+        try:
+            self._actual[name] += float(amount)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"{name}: refusing to record non-numeric usage {amount!r}"
+            ) from exc
 
     # -- reporting -----------------------------------------------------------
 
