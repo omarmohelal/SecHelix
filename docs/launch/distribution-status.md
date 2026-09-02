@@ -1,21 +1,58 @@
 # Distribution status
 
-Assessed **2026-09-02**. Every policy below was read from the target on that date. Nothing is
-submitted on the strength of this page without re-reading the policy first — several changed
-recently in response to a flood of AI-generated submissions.
+Assessed **2026-09-02**, on the day `v3.4.0-alpha.1` was released. Every policy below was read from
+the target on that date. Nothing is submitted on the strength of this page without re-reading the
+policy first — several changed recently in response to a flood of AI-generated submissions.
+
+Search visibility for everything on this page is measured separately in
+[`../research/discovery-v3.4-release.md`](../research/discovery-v3.4-release.md).
+
+## Live listings
+
+| Target | Listing | State |
+|---|---|---|
+| skills.sh | [`www.skills.sh/omarmohelal/sechelix`](https://www.skills.sh/omarmohelal/sechelix) | LIVE — 1 skill. The install figure it shows is **2**, and both are our own cold-install verification runs. |
+| AwesomeSkills | [`www.awesomeskills.dev/en/skill/sechelix-sechelix`](https://www.awesomeskills.dev/en/skill/sechelix-sechelix) | LIVE — name, description, install command, platforms and GitHub URL are all correct. **Auto-categorised as "Image"**, which is wrong; the listing page exposes no edit, report or contact control, so it is not self-service correctable. |
+
+Only the AwesomeSkills URL was added to the site's `Organization.sameAs`. skills.sh was already
+there. Nothing pending, and no open pull request, is listed as an identity for this entity.
 
 ## Open submissions
 
 | Target | Submitted | State |
 |---|---|---|
-| [github/awesome-copilot#2899](https://github.com/github/awesome-copilot/issues/2899) | 2026-09-01 | OPEN — automated reputation check labelled `needs-review:MEDIUM`; no maintainer comment |
-| [royalpinto007/awesome-agent-skills#4](https://github.com/royalpinto007/awesome-agent-skills/pull/4) | 2026-09-01 | OPEN — no review |
-| [Ezeafk/awesome-agent-skills#33](https://github.com/Ezeafk/awesome-agent-skills/pull/33) | 2026-09-01 | OPEN — no review |
+| [github/awesome-copilot#2899](https://github.com/github/awesome-copilot/issues/2899) | 2026-09-01 | OPEN — automated reputation check labelled `needs-review:MEDIUM`; still the only comment on the issue as of 2026-09-02 |
+| [royalpinto007/awesome-agent-skills#4](https://github.com/royalpinto007/awesome-agent-skills/pull/4) | 2026-09-01 | OPEN — no review, no comments |
+| [Ezeafk/awesome-agent-skills#33](https://github.com/Ezeafk/awesome-agent-skills/pull/33) | 2026-09-01 | OPEN — no review, no comments |
 
 **Monitored, not chased.** A maintainer who has not replied in a day has not ignored anything.
-Respond promptly and technically *when* there is something to respond to; do not bump.
+Respond promptly and technically *when* there is something to respond to; do not bump. Re-read on
+2026-09-02 confirmed nothing has been asked of us.
 
 ## Blocked on a human account
+
+### Anthropic community marketplace — BOTH FORMS GATED
+
+Third-party plugins do not land in `claude-plugins-official`. Per
+`code.claude.com/docs/en/plugins`, the official marketplace is curated by Anthropic at its
+discretion, *"there is no application process, and the submission form does not add plugins to the
+official marketplace."* Submissions go to `anthropics/claude-plugins-community` after review. **No
+"Anthropic Verified" status exists to claim, and none is claimed.**
+
+`claude plugin validate .` passes locally: *"Validation passed with warnings"*, one warning —
+`CLAUDE.md` at the plugin root is not loaded as project context. That warning is about a repository
+development file, not the shipped skill, and does not fail validation.
+
+Both documented submission routes are gated:
+
+| Form | Requirement | Observed |
+|---|---|---|
+| `claude.ai/admin-settings/directory/submissions/plugins/new` | Team or Enterprise organisation with directory management access | The owner's authenticated session returns *"You don't have access to organization settings."* |
+| `platform.claude.com/plugins/submit` | Claude Console sign-in | No Console session in this browser; the page is the Console sign-in wall |
+
+**Manual, one step.** Sign in to the Console as the owner, open the form, and submit the values in
+[`final/README.md`](final/README.md) and the plugin manifest. Nothing else about the submission is
+outstanding.
 
 ### SkillMD — ELIGIBLE, needs sign-in
 
@@ -40,10 +77,30 @@ Description to paste, verbatim:
 Confirm afterwards that the listing does not display an install or adoption figure as though it were
 a SecHelix claim.
 
-### claudemarketplaces.com — NEEDS A HUMAN READ
+### claudemarketplaces.com — NO PUBLIC SUBMISSION ROUTE
 
-Resolves (200), but no `/submit` path and no machine-readable contribution policy was found. Someone
-should read the site and find the actual submission route before anything is sent.
+Re-checked 2026-09-02. Its `/api/search` endpoint now answers HTTP 410 with
+`{"error":"Marketplace discovery is local-only. Run bun run discovery:weekly instead."}`, and
+`/api/plugins` is a 404. `/api/skills` and `/api/marketplaces` return whole indexes and ignore query
+parameters; neither contains `sechelix`.
+
+There is still no `/submit` path and no machine-readable contribution policy. The index appears to
+be crawler-populated rather than submission-driven, so **no submission workflow was invented and
+nothing was sent.** If SecHelix appears there later it will be because their crawler found it.
+
+### Hacker News, Reddit, X — NOT AUTHENTICATED
+
+Recorded because "we chose not to" and "we could not" are different sentences.
+
+| Target | Observed 2026-09-02 |
+|---|---|
+| Hacker News | `news.ycombinator.com/submit` returns *"You have to be logged in to submit."* Nothing posted. |
+| r/netsec, r/AppSec | The current rules could not be read: the new UI serves anonymous visitors a JS challenge, and `old.reddit.com` now requires an account. Posting without reading the rules is exactly what the plan forbids, so nothing was posted. |
+| X | `x.com` shows the signed-out landing page. Nothing posted; `final/x-thread.md` stays as saved copy. |
+
+LinkedIn **is** authenticated as the owner. The post in [`final/linkedin.md`](final/linkedin.md) is
+ready to go and was not published, because social publishing has not been explicitly authorised for
+this session.
 
 ### aigearbase.com — NEEDS ASSESSMENT
 
