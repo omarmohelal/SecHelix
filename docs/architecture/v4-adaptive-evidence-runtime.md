@@ -1,10 +1,10 @@
 # V4 — Adaptive Evidence Runtime (plan)
 
-**Status: PLANNED. Not built, not released, not measured.**
+**Status: PARTIALLY BUILT. Not released, not measured against any competitor.**
 
-This is a design record, not a description of shipped software. Every section below states which of
-three states it is in, and nothing here licenses a capability claim on any public surface until it
-moves to `BUILT` and carries a test.
+This is a working record, not a description of a finished product. Every
+capability states which of three states it is in, and nothing here licenses a
+claim on any public surface until it is `BUILT` and carries a test.
 
 - `BUILT` — code exists, tested, in `main`.
 - `SPECIFIED` — the contract and acceptance test are decided; no code.
@@ -12,19 +12,38 @@ moves to `BUILT` and carries a test.
 
 Grounding evidence for every gap is in
 [`../research/competitive-architecture-2026-09.md`](../research/competitive-architecture-2026-09.md),
-which was written from cloned source at pinned commits.
+written from cloned source at pinned commits.
 
-## 0. What is actually built today
+## 0. What is built today
 
-| Item | State | Evidence |
+| Capability | State | Where |
 |---|---|---|
-| Evidence-chain implication invariant | **BUILT** | `_CHAIN_PREREQUISITES` in `sechelix_core/contracts.py`; 5 tests in `tests/test_contracts.py`; suite 821 passed / 392 subtests |
+| Evidence-chain implication invariant | **BUILT** | `sechelix_core/contracts.py` |
 | Competitive architecture audit | **BUILT** | `docs/research/competitive-architecture-2026-09.md` |
-| Everything else in this document | `SPECIFIED` or `OPEN` | — |
+| Optional runner package | **BUILT** | `sechelix_runner/` — core never imports it (AST-asserted) |
+| Reasoner DAG: 18 roles, 7 statuses, cycle rejection | **BUILT** | `graph.py`, `roles.py` |
+| Per-node telemetry | **BUILT** | `telemetry.py` — cost/tokens `None` when unmeasured |
+| Executor abstraction (Mock, Replay, Null) | **BUILT** | `executor.py`, `cli.py` |
+| Budget governor, fail-closed | **BUILT** | `budget.py` — exhaustion cannot yield a clean gate |
+| Specialist context views | **BUILT** | `context.py` — missing required context blocks |
+| Run storage + tamper manifest | **BUILT** | `storage.py` |
+| Deterministic orchestration replay | **BUILT** | `replay.py` |
+| Offline world builder (zero network) | **BUILT** | `world.py` |
+| CLI: doctor, audit, runs, replay, report, coverage | **BUILT** | `cli.py` |
+| Coverage ledger, 7 states | **BUILT** | `coverage.py` |
+| Adaptive orchestration (shipped disabled) | **BUILT** | `adaptive.py` |
+| Compliance evidence mapping | **BUILT** | `compliance.py` — reads catalog mappings |
+| Sandbox + network authority model | `SPECIFIED` | — |
+| Active proof builder | `SPECIFIED` | — |
+| Deep protocol packs | `SPECIFIED` | — |
+| Native / memory-safety lane | `SPECIFIED` | — |
+| Local API | `SPECIFIED` | — |
+| Workbench V4 surfaces | `SPECIFIED` | — |
+| Arena benchmark | `OPEN` | design settled, not built — see §3 |
 
-One capability shipped in this pass. It is small, and it closed a hole that had been asserted in
-prose and never enforced: a finding could claim `impact` was established while `attacker_control`
-was not. That is worth more than a longer list of half-built subsystems.
+**There is no V4 release.** The current release line is `3.4.0-alpha.2` and it
+contains none of the above. Nothing in the built column has been measured against
+any competitor, and the capability table is a map of work, not a scoreboard.
 
 ## 1. The shape, and the one rule that constrains it
 
@@ -49,7 +68,7 @@ the guard. Any change that makes the runner load-bearing for the skill has broke
 Ordered by dependency, not by appeal. Each stage is independently shippable and independently
 useless to claim until measured.
 
-### Stage 1 — Runner skeleton + DAG telemetry `SPECIFIED`
+### Stage 1 — Runner skeleton + DAG telemetry — **BUILT**
 
 Node contract, per-node records, deterministic replay. No adaptivity, no sandbox, no network.
 
@@ -59,7 +78,7 @@ Persisted as evidence records under the existing lineage, not a parallel log.
 
 **Acceptance:** a recorded run replays to an identical finding set and identical telemetry.
 
-### Stage 2 — Budget governor `SPECIFIED`
+### Stage 2 — Budget governor — **BUILT**
 
 `max_cost_usd`, `max_duration_seconds`, `max_hunters`, `max_verifiers`, `max_runtime_requests`,
 `max_browser_actions`, `max_concurrency`. Estimate before, track during, degrade or stop at
@@ -71,7 +90,7 @@ threshold.
 **Acceptance:** a test that starves the budget mid-verification and asserts the gate returns
 `INCOMPLETE`. If that test does not exist, the budget governor does not ship.
 
-### Stage 3 — Context views `SPECIFIED`
+### Stage 3 — Context views — **BUILT**
 
 Each node declares the evidence ids it needs; the runner supplies exactly those, projected from
 `attack_surface.py`, `authz_graph.py`, `dependency_graph.py`, `mcp_graph.py`.
@@ -79,7 +98,7 @@ Each node declares the evidence ids it needs; the runner supplies exactly those,
 **Acceptance:** token delta per node published **with** any recall regression it causes. A context
 saving that loses findings is a loss and gets reported as one.
 
-### Stage 4 — Coverage ledger `SPECIFIED`
+### Stage 4 — Coverage ledger — **BUILT**
 
 Bind each audit to canonical repo + origin + commit + branch. Track routes, entrypoints, sinks,
 trust boundaries, state machines, hypotheses, files/symbols, runtime paths as
@@ -110,7 +129,7 @@ re-implement it.
 self-check still fails the build if network reach is introduced where it is forbidden; each proof
 class confirms its vulnerable fixture and declines its compensated one.
 
-### Stage 6 — Adaptive orchestration `OPEN`
+### Stage 6 — Adaptive orchestration — **BUILT, shipped disabled**
 
 Signals: finding density, refutation rate, critical architecture signal, coverage gap, budget state,
 unknown applicability, runtime contradiction, repeated root cause, dependency reachability, tool
@@ -126,7 +145,7 @@ highest-risk item in V4 and the worst candidate to build first.
 recall-per-dollar on the eval suite. If it does not, it does not become the default — and that
 result gets published either way.
 
-### Stage 7 — CLI, API, protocol packs, native pack, compliance mapping `SPECIFIED`
+### Stage 7 — CLI **BUILT**, compliance **BUILT**; API, protocol packs, native lane `SPECIFIED`
 
 Sequenced after the runner because each is a surface over it. Compliance states are
 `EVIDENCED / PARTIAL / NOT_EVIDENCED / NOT_APPLICABLE / UNKNOWN`; the word "compliant" is never
