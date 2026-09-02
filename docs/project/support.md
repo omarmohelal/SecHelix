@@ -8,7 +8,7 @@ Start here. Pick the row that matches what you need.
 | Find the right prompt for a task | [Command cookbook](../../docs/COMMANDS.md) |
 | Know whether my agent/host is supported | [COMPATIBILITY.md](../../docs/reference/compatibility.md) |
 | See what a real run looks like | [Case study](../../docs/case-studies/gamingops-store-2026-09-01.md) |
-| Understand why there is no benchmark | [Evaluation protocol](../../docs/EVALUATION.md) · [`not-measured.json`](../../evals/results/not-measured.json) |
+| Understand what is and is not measured | [Evaluation protocol](../../docs/EVALUATION.md) · [`not-measured.json`](../../evals/results/not-measured.json) |
 | Report a bug in the skill, adapters, docs, or scripts | [Bug report](https://github.com/omarmohelal/SecHelix/issues/new?template=bug.yml) |
 | Report a **false positive** or a missed class | [False positive report](https://github.com/omarmohelal/SecHelix/issues/new?template=false-positive.yml) |
 | Propose a new security check | [Hypothesis proposal](https://github.com/omarmohelal/SecHelix/issues/new?template=check-proposal.yml) |
