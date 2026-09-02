@@ -28,8 +28,8 @@ the part that costs something.
 
 - **No benchmark, accuracy, precision, recall or detection-rate claim.** The public benchmark is
   `NOT_MEASURED` and the blocker is documented. Say so plainly if asked.
-- **No adoption, install, star or ranking claim.** The skills.sh install count is currently 1 and
-  that 1 is our own verification run.
+- **No adoption, install, star or ranking claim.** The skills.sh install count is currently 2 and
+  both are our own cold-install verification runs.
 - **No comparison to another tool**, named or implied.
 - **No "first", "best", "#1", or "leading".**
 - Disclose authorship. The case study is an owner self-audit of a private app; say that.
