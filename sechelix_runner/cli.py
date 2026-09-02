@@ -302,6 +302,14 @@ def cmd_coverage(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_mcp(args: argparse.Namespace) -> int:
+    """Serve the MCP adapter over stdio for a compatible agent."""
+    from .mcp_server import serve_stdio
+
+    serve_stdio(Path(args.path).resolve())
+    return EXIT_OK
+
+
 def cmd_runs(args: argparse.Namespace) -> int:
     root = Path(args.path).resolve()
     runs = list_runs(root)
@@ -396,6 +404,11 @@ def build_parser() -> argparse.ArgumentParser:
     runs.add_argument("path", nargs="?", default=".")
     _common(runs)
     runs.set_defaults(func=cmd_runs)
+
+    mcp = sub.add_parser("mcp", help="serve the MCP adapter over stdio")
+    mcp.add_argument("path", nargs="?", default=".")
+    _common(mcp)
+    mcp.set_defaults(func=cmd_mcp)
 
     coverage = sub.add_parser("coverage", help="what previous runs did not examine")
     coverage.add_argument("path", nargs="?", default=".")
