@@ -114,6 +114,27 @@ class IntegrityTests(unittest.TestCase):
         del files["finding.json"]
         self.assertTrue(any("missing" in p for p in verify_bundle(files)))
 
+    def test_an_injected_file_is_detected(self):
+        """Walking the manifest proves listed files are intact and nothing more."""
+        bundle = build_bundle(a_report(verified_finding()), "SHX-F-B1")
+        files = dict(bundle["files"])
+        files["evil.json"] = '{"injected": true}'
+        problems = verify_bundle(files)
+        self.assertTrue(any("evil.json" in p for p in problems), problems)
+
+    def test_several_injected_files_are_all_named(self):
+        bundle = build_bundle(a_report(verified_finding()), "SHX-F-B1")
+        files = dict(bundle["files"])
+        files["a.txt"] = "x"
+        files["b.txt"] = "y"
+        problems = " ".join(verify_bundle(files))
+        self.assertIn("a.txt", problems)
+        self.assertIn("b.txt", problems)
+
+    def test_the_manifest_files_themselves_are_not_flagged_as_injected(self):
+        bundle = build_bundle(a_report(verified_finding()), "SHX-F-B1")
+        self.assertEqual(verify_bundle(bundle["files"]), [])
+
     def test_a_bundle_without_a_manifest_fails_immediately(self):
         self.assertEqual(verify_bundle({"finding.json": "{}"}), ["manifest.json is missing"])
 

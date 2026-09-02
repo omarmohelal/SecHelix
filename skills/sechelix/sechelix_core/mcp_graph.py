@@ -984,5 +984,8 @@ def analyze(graph: PermissionGraph) -> dict[str, Any]:
             "description can match and a hostile one can avoid every pattern.",
             "Declared controls are recorded, never treated as demonstrated. Closing a hypothesis "
             "requires the evidence named on it.",
+            "Path search is bounded. A graph dense enough to exceed the bound reports the paths it "
+            "found and not the ones it stopped looking for, so a long detection list is a reason "
+            "to re-run against a narrowed subgraph rather than to assume the list is complete.",
         ],
     }
