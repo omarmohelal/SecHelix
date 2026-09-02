@@ -38,7 +38,7 @@ from .graph import GraphNode, ReasonerGraph
 from .replay import ReplayError, replay_run
 from .roles import NodeRole, NodeStatus
 from .runner import Runner
-from .storage import RunWorkspace, list_runs, persist_run
+from .storage import InvalidRunId, RunWorkspace, list_runs, persist_run
 from .world import DEPTHS, build_world, describe_target
 
 EXIT_OK = 0
@@ -420,6 +420,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return int(args.func(args))
+    except InvalidRunId as exc:
+        # A rejected run id is bad input, not an internal failure. Surfacing it
+        # as a usage error keeps a traceback out of a CI log.
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+    except (json.JSONDecodeError, ValueError) as exc:
+        # Run artifacts are read back from disk and may be malformed or hostile.
+        # Failing closed with a message beats a stack trace that leaks paths.
+        print(f"error: unreadable run artifact: {exc}", file=sys.stderr)
+        return EXIT_ERROR
     except KeyboardInterrupt:
         print("interrupted", file=sys.stderr)
         return EXIT_ERROR

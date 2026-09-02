@@ -36,6 +36,21 @@ from typing import Any, Iterable
 from .digests import canonical_json, digest, digest_bytes
 
 WORKSPACE_DIRNAME = ".sechelix"
+
+#: A run id is an identifier, never a path fragment.
+#:
+#: Found by auditing this runner with SecHelix: ``run_id`` arrives from the
+#: command line (``sechelix replay <id>``, ``sechelix report <id>``) and was
+#: joined straight onto the runs directory, so ``../../outside.json`` resolved
+#: outside the workspace and ``cmd_report`` would read and print it. Validating
+#: the shape is the primary fix; :meth:`RunWorkspace._confined` re-checks the
+#: resolved path so a future caller cannot reintroduce the escape by widening
+#: this pattern.
+RUN_ID_PATTERN = re.compile(r"^RUN-[A-Z0-9][A-Z0-9_-]{0,62}$")
+
+
+class InvalidRunId(ValueError):
+    """The run id is not an identifier this workspace will accept."""
 _SUBDIRS = ("replay", "evidence", "findings", "reports", "patches", "runtime")
 
 #: Keys whose values never reach disk in the clear. Matched case-insensitively
@@ -99,9 +114,30 @@ class RunWorkspace:
     """One run directory, created on demand."""
 
     def __init__(self, root: Path | str, run_id: str) -> None:
+        if not RUN_ID_PATTERN.match(run_id or ""):
+            raise InvalidRunId(
+                f"{run_id!r} is not a valid run id; a run id is an identifier "
+                "matching RUN-[A-Z0-9_-], never a path"
+            )
         self.root = Path(root)
         self.run_id = run_id
-        self.path = self.root / WORKSPACE_DIRNAME / "runs" / run_id
+        self.path = self._confined(run_id)
+
+    def _confined(self, run_id: str) -> Path:
+        """Resolve the run directory and prove it stayed inside ``runs/``.
+
+        Belt and braces over :data:`RUN_ID_PATTERN`: the pattern is the real
+        control, and this catches the case where someone loosens it later.
+        """
+        base = (self.root / WORKSPACE_DIRNAME / "runs").resolve()
+        candidate = (base / run_id).resolve()
+        try:
+            candidate.relative_to(base)
+        except ValueError:
+            raise InvalidRunId(
+                f"run id {run_id!r} resolves outside the runs directory"
+            ) from None
+        return candidate
 
     # -- lifecycle -----------------------------------------------------------
 
