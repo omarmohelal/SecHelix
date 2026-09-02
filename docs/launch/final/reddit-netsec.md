@@ -65,10 +65,10 @@ fails closed, and a file attempting it is itself reported.
 
 Limits, stated because they are the first thing worth attacking:
 
-- Benchmark is NOT_MEASURED. 38 paired vulnerable/clean fixtures exist with a scoring harness,
-  but the fixtures were authored by assistant sessions working in the repository, so scoring one
-  of those sessions measures recall of authored answers. Recorded machine-readably as
-  CONTAMINATED_EVALUATOR, with a sealed blind packet for an uncontaminated evaluator.
+- One uncontaminated blind label run exists (2026-09-02): precision 0.950, detection recall
+  1.000, FP rate 0.053 on 38 authored pairs, balanced and mostly single-file. Label-only: it did
+  not run the verifier, adapters, remediation, regression proof or the release gate, so the
+  workflow itself is still NOT_MEASURED.
 - The committed keyword baseline is flagged is_sechelix_result: false — a regex matcher at
   chance, present to validate the harness and evidence fixture difficulty.
 - One case study, one small app, self-audited. Nothing general is claimed.

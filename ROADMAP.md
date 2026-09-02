@@ -4,8 +4,11 @@ SecHelix should earn trust through evals before adding complexity.
 
 > **Maturity: public alpha (`3.4.0-alpha.1`).**
 > Sections marked *complete* describe shipped repository capability, not measured
-> accuracy. The public benchmark is **`NOT_MEASURED`** and the blocker is
-> recorded in [`evals/results/not-measured.json`](evals/results/not-measured.json).
+> accuracy. The blind label suite is **`MEASURED`** — one uncontaminated run,
+> [`evals/results/claude-sonnet-5-blind-2026-09-02.json`](evals/results/claude-sonnet-5-blind-2026-09-02.json).
+> The **full SecHelix workflow benchmark is still `NOT_MEASURED`**, and the
+> remaining metrics are recorded in
+> [`evals/results/not-measured.json`](evals/results/not-measured.json).
 > SecHelix does not claim a winning model, provider, or scanner.
 > No dates are published for future milestones; a single maintainer sequences
 > this work, and inventing a schedule would be its own dishonest claim.
@@ -101,13 +104,14 @@ repository.
   Benchmark repositories;
 - **not started** — build reproducible importers that preserve origin,
   revision, license, and attribution;
-- **not started** — run an uncontaminated eval and publish the first
-  reproducible measurement;
+- **done** — an uncontaminated blind label run was published on 2026-09-02;
 - **not started** — eight cumulative exam levels with de-identified
   mistake-class memory.
 
-The one item that unblocks every benchmark row is the uncontaminated eval run.
-Until it exists, benchmark status stays `NOT_MEASURED`.
+The uncontaminated blind label run exists. What is still missing is an
+end-to-end run that exercises applicability, the independent verifier,
+remediation with regression proof, and the release gate — until that exists those
+rows stay `NOT_MEASURED`.
 
 ## v3.x — orchestration platform (optional)
 

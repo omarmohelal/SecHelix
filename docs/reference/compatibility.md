@@ -42,7 +42,7 @@ The following claims have direct project evidence:
 3. **Claude plugin validation/install.** The plugin manifest validates and the separate SecHelix marketplace has been cold-added and installed successfully.
 4. **No repo-local `.codex/skills/` claim.** The public package uses `.agents/skills/sechelix/` for the documented Codex repository path instead of presenting an unverified mirror as native support.
 
-These are packaging/host claims, not security-performance claims. The public security benchmark remains `NOT_MEASURED` until an uncontaminated evaluator runs the blind packet.
+These are packaging/host claims, not security-performance claims. The blind label suite has one uncontaminated run; full-workflow security performance remains `NOT_MEASURED`.
 
 ## Claude marketplace boundary
 

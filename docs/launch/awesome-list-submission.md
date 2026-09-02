@@ -72,7 +72,7 @@ Install: `npx skills@latest add omarmohelal/SecHelix --skill sechelix`
 ### Disclosure and honest status
 
 - I am the author of this project.
-- **Benchmarks are NOT_MEASURED.** The blocker is documented in the repository: the eval fixture
+- **The full-workflow benchmark is NOT_MEASURED.** One blind label-suite run is measured and is not a workflow benchmark. The remaining blocker is documented in the repository: the eval fixture
   suite was expanded on 2026-09-01 by the same assistant session that would have acted as the
   evaluated model, so it had prior knowledge of the fixtures it authored. Scoring that would measure
   recall of authored answers, not capability. Unblocking requires a run by a model/session that did

@@ -220,7 +220,7 @@ disagreement beats a general opinion, and a worked counter-example beats both.
 - Proposing a new security check — that is a testable hypothesis, and it has its
   own form:
   https://github.com/omarmohelal/SecHelix/issues/new?template=check-proposal.yml
-- Benchmark claims. There is no measured accuracy number, deliberately; the
+- Full-workflow benchmark claims. The blind label suite has one measured run; the
   blocker and the procedure to remove it are written down:
   https://github.com/omarmohelal/SecHelix/blob/main/docs/EVALUATION.md
 

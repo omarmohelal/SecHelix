@@ -121,18 +121,23 @@ get to be quiet about its own.
 
 ## What I am not claiming
 
-**There is no benchmark.** The repository contains 38 paired vulnerable/clean fixtures and a working
-scoring harness. It also contains a machine-readable blocker, `CONTAMINATED_EVALUATOR`, recording why
-no number is published: the fixtures were authored by assistant sessions working in the repository,
-so scoring one of those sessions measures recall of answers it wrote rather than security-review
-capability.
+**The benchmark was unpublished for months, on purpose.** The repository contains 38 paired
+vulnerable/clean fixtures and a working scoring harness. It also contained a machine-readable
+blocker, `CONTAMINATED_EVALUATOR`, recording why no number was published: the fixtures were authored
+by assistant sessions working in the repository, so scoring one of those sessions measures recall of
+answers it wrote rather than security-review capability.
 
-A sealed blind packet exists so an uncontaminated evaluator can produce the first real measurement,
-and an ablation design exists to measure how much of any result is the methodology rather than the
-model underneath it.
+A sealed blind packet exists so an uncontaminated evaluator can produce a real measurement. On
+2026-09-02 one finally ran: 76 cases, each judged by a separate process that had never seen the
+repository, the fixtures, the labels or the pairings. Precision 0.950, detection recall 1.000,
+false-positive rate 0.053.
 
-Publishing a number produced by the session that wrote the answers would have been easy and would
-have been worthless. The status stays `NOT_MEASURED`.
+**Read that result narrowly.** It measures a single-pass, label-only judgment — one question per
+file, one label back. There was no attack-surface pass, no independent refutation pass, no adapters,
+no evidence chain and no release gate. It is *not* a measurement of the workflow this article
+describes, and `applicability_accuracy`, `regression_proof_rate` and `release_gate_accuracy` are
+still the literal string `NOT_MEASURED`. One model, one run, on an authored and balanced suite. No
+comparison to any other tool is offered or implied.
 
 **The committed keyword baseline is not a score.** It is a regex matcher, flagged
 `is_sechelix_result: false`, that lands at chance on the fixture suite. It exists to prove the

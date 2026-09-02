@@ -33,7 +33,7 @@ These are non-negotiable and were applied throughout. Re-verify them before any 
 **Never claim:** adoption numbers, star counts, install counts, user counts, testimonials, "better
 than X" comparisons, or benchmark results of any kind (accuracy, precision, recall, detection rate).
 
-**Benchmarks are `NOT_MEASURED`,** and every draft says so explicitly. The blocker is documented in
+**The full-workflow benchmark is `NOT_MEASURED`,** and every draft says so explicitly. One blind label-suite run is measured; it is not a workflow benchmark. The remaining blocker is documented in
 the repository rather than hidden: the eval fixture suite was authored by the same assistant session
 that would have acted as the evaluated model, so scoring it would measure recall of authored answers
 rather than security-review capability. Unblocking requires a run by a model or session that did not
@@ -67,7 +67,8 @@ checklist includes this step, and `python scripts/validate_catalog.py` is the st
 | Install (skills) | `npx skills@latest add omarmohelal/SecHelix --skill sechelix` | `README.md` |
 | Install (marketplace) | `/plugin marketplace add omarmohelal/sechelix-marketplace` then `/plugin install sechelix@sechelix` | cold-install verified |
 | Case study | one verified MEDIUM finding, one REFUTED high-severity candidate | `docs/case-studies/` |
-| Benchmarks | **NOT_MEASURED** | documented blocker |
+| Blind label suite | **MEASURED** | one uncontaminated run, label-only |
+| Full-workflow benchmark | **NOT_MEASURED** | documented |
 
 ### Two inconsistencies to resolve before any submission
 

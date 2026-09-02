@@ -167,7 +167,8 @@ testimonials or benchmark runs.
 The skills.sh listing shows **2 installs. Both are ours** — the cold-install verifications recorded
 above. That number is a test artifact, not adoption, and is never to be cited as adoption.
 
-The public benchmark remains `NOT_MEASURED` with blocker `CONTAMINATED_EVALUATOR`. This session read
+The blind label suite is now `MEASURED` (see the evaluation report); the **full workflow benchmark
+remains `NOT_MEASURED`**. This session read
 fixtures and ground truth and is therefore disqualified as an evaluator.
 
 ## What is left, and who has to do it

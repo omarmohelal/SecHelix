@@ -138,4 +138,7 @@ Artifacts:
 Limitations:
 ```
 
-Until a run satisfies this protocol, public benchmark status remains `NOT_MEASURED`.
+The blind label suite has one run that satisfies this protocol
+(`evals/results/claude-sonnet-5-blind-2026-09-02.json`). Until a run exercises the
+full workflow, applicability accuracy, regression-proof rate and release-gate
+accuracy remain `NOT_MEASURED`.

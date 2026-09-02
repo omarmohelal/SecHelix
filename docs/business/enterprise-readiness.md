@@ -56,7 +56,7 @@ curriculum sources are `HUMAN_ONLY` and validators enforce that lesson cards can
 
 | Gap | Consequence for adoption |
 | --- | --- |
-| **Benchmarks `NOT_MEASURED`** | No detection-rate or false-positive-rate claim can be made. |
+| **Full-workflow benchmark `NOT_MEASURED`** | One blind label-suite run is published; no end-to-end workflow claim can be made from it. |
 | **One case study, private target** | No public, third-party-verifiable result exists. |
 | **Trophy case empty** | No independently confirmed disclosure to point at. |
 | **Pre-1.0 (`3.0.0-alpha.4`)** | Contracts may change; treat schema versions as moving. |
@@ -116,4 +116,4 @@ verification evidence.
 
 **"How do we know it works?"** Today: you do not, beyond one published case study and a fixture
 suite a keyword matcher cannot solve. That is the honest answer, and it is why the benchmark page
-says `NOT_MEASURED` instead of showing a number.
+says `NOT_MEASURED` instead of showing a number for anything the blind label run did not measure.

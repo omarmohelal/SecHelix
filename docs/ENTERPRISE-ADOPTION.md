@@ -101,7 +101,7 @@ Teams evaluating SecHelix should ask:
 2. Are unsupported scanner/model claims reported as confirmed vulnerabilities? They should not be.
 3. Can we retain private policy and evidence? Organization-specific policy can remain private.
 4. Can it coexist with existing scanners? Yes; adapters normalize evidence rather than requiring replacement.
-5. Does it claim measured accuracy? Only when a reproducible evaluation is published; otherwise status is `NOT_MEASURED`.
+5. Does it claim measured accuracy? One reproducible blind label-suite run is published; full-workflow accuracy is still `NOT_MEASURED`.
 6. Can it make fail-closed release decisions? The repository defines `PASS`, `PASS_WITH_KNOWN_RISK`, `BLOCKED`, and `INCOMPLETE`.
 7. Is third-party active testing automatically authorized? No. Scope and authorization are explicit prerequisites.
 
