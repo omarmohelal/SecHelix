@@ -44,14 +44,42 @@ EXCLUDED_PREFIXES = (
 )
 
 
+def _tracked(pattern: str) -> list[str]:
+    """Files git knows about, matching a pathspec.
+
+    Both halves of this check read the same source. Counting the working tree
+    while checking git-tracked prose meant writing a new schema turned the gate
+    red *before* it was committed, against a dozen documents the author may not
+    be touching — so a contributor scoped to one directory could not legally fix
+    the failure their own change caused.
+
+    Reading tracked files on both sides makes the question consistent: does the
+    committed state agree with itself?
+    """
+    result = subprocess.run(
+        ["git", "-C", str(ROOT), "ls-files", "-z", "--", pattern],
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        return []
+    return [p.decode("utf-8") for p in result.stdout.split(b"\0") if p]
+
+
 def ground_truth() -> dict[str, int]:
-    """Count what is actually in the tree."""
+    """Count what the repository contains, read from git."""
     facts: dict[str, int] = {}
 
-    facts["gold_packs"] = len(list(ROOT.glob("gold-packs/*/pack.json")))
-    facts["schemas"] = len(list(ROOT.glob("schemas/*.schema.json")))
-    facts["agents"] = len(list(ROOT.glob("agents/*.md")))
-    facts["lesson_cards"] = len(list(ROOT.glob("knowledge/lesson-cards/*.json")))
+    facts["gold_packs"] = len(_tracked("gold-packs/*/pack.json"))
+    facts["schemas"] = len(_tracked("schemas/*.schema.json"))
+    facts["agents"] = len(_tracked("agents/*.md"))
+    facts["lesson_cards"] = len(_tracked("knowledge/lesson-cards/*.json"))
+
+    # The declared release version. Four files stated three different versions at
+    # once during V3.4 — the same drift class as a stale count, and just as
+    # invisible without a gate.
+    manifest = ROOT / ".claude-plugin" / "plugin.json"
+    if manifest.exists():
+        facts["version"] = json.loads(manifest.read_text(encoding="utf-8"))["version"]
 
     registry = ROOT / "adapters" / "registry.py"
     if registry.exists():
@@ -115,6 +143,9 @@ RULES: tuple[tuple[str, str], ...] = (
     ("hypotheses",
      r"(?<![×x] )(?<!\d)(\d+)\s+(?:structured|catalog|explicit|stable)\s+(?:security\s+)?hypothes"),
     ("lesson_cards", r"(\d+)\s+lesson\s+cards"),
+    # Only a "Maturity:" line states the *current* version. Release notes and
+    # recorded terminal output are dated records and must not be rewritten.
+    ("version", r"Maturity:[^`]*`([0-9][^`]*)`"),
 )
 
 
@@ -151,8 +182,10 @@ def check_document(path: Path, facts: dict[str, int]) -> list[str]:
         if expected is None:
             continue
         for match in re.finditer(pattern, text):
-            claimed = int(match.group(1))
-            if claimed != expected:
+            # Facts are counts except `version`, which is a string. Comparing as
+            # text handles both without the rule table having to declare a type.
+            claimed = match.group(1)
+            if claimed.strip() != str(expected):
                 line = text.count("\n", 0, match.start()) + 1
                 findings.append(
                     f"{rel}:{line}: claims {claimed} for {fact}, tree has {expected} "
