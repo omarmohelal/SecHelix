@@ -11,7 +11,7 @@
   <a href="https://github.com/omarmohelal/SecHelix/actions"><img src="https://img.shields.io/github/actions/workflow/status/omarmohelal/SecHelix/validate.yml?branch=main&style=flat-square&label=validate" alt="validation"/></a>
   <a href="skills/sechelix/SKILL.md"><img src="https://img.shields.io/badge/security%20hypotheses-546-7dd3fc?style=flat-square" alt="546 hypotheses"/></a>
   <a href="#evaluation-and-proof-status"><img src="https://img.shields.io/badge/benchmark-NOT__MEASURED-f59e0b?style=flat-square" alt="benchmark NOT_MEASURED"/></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-3.2.0--alpha.1-9b8cff?style=flat-square" alt="3.2.0 alpha 1"/></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-3.4.0--alpha.1-9b8cff?style=flat-square" alt="3.4.0 alpha 1"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-a78bfa?style=flat-square" alt="Apache-2.0"/></a>
 </p>
 
@@ -296,7 +296,7 @@ Read this before adopting.
 - **No benchmark.** See above. Any accuracy claim about SecHelix today would be unsupported.
 - **One case study, `n = 1`.** A ~600 LOC app with no authentication and no server-side state, audited by its own owner. It demonstrates the workflow; it measures nothing about general performance.
 - **No public third-party results.** The [trophy case](docs/research/trophy-case.md) is empty on purpose.
-- **Alpha.** `3.2.0-alpha.1`. Contracts are versioned, but they can still change.
+- **Alpha.** `3.4.0-alpha.1`. Contracts are versioned, but they can still change.
 - **SecHelix is a methodology, not a scanner.** Output quality depends on the host agent, the model, and the tools you enable. It does not run itself.
 - **It cannot verify what it cannot reach.** Missing evidence yields `UNKNOWN` or `BLOCKED`, never `NOT_APPLICABLE`. That is the design, but it means an under-instrumented run returns honest non-answers rather than coverage.
 - **Authorized targets only.** See [SECURITY.md](SECURITY.md).
