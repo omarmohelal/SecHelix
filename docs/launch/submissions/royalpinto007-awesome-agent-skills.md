@@ -194,7 +194,7 @@ proof, and the release gate is fail-closed — `PASS` / `PASS_WITH_KNOWN_RISK` /
 `INCOMPLETE`.
 
 Structure behind that: 546 structured hypotheses (21 families x 26 verification lenses), 17
-model-neutral specialist role profiles, 18 JSON Schema Draft 2020-12 contracts, 18 Gold Check Packs,
+model-neutral specialist role profiles, 19 JSON Schema Draft 2020-12 contracts, 18 Gold Check Packs,
 11 evidence adapters (Semgrep, Trivy, OSV, Gitleaks, ZAP, Nuclei, Playwright, package audit, SARIF),
 38 eval fixtures / 76 cases, and a provenance-backed knowledge graph of 76 nodes and 100 edges.
 Coverage emphasis is on business logic, payments, race conditions and idempotency, authorization, and

@@ -95,7 +95,7 @@ silently converts a real fix into a false claim of remediation.
 10 regression assertions -> release decision PASS after remediation.
 
 Framework is Apache-2.0: https://github.com/omarmohelal/SecHelix (546 hypotheses = 21 families x 26
-lenses, 18 JSON Schema Draft 2020-12 contracts, four applicability outcomes
+lenses, 19 JSON Schema Draft 2020-12 contracts, four applicability outcomes
 `APPLICABLE`/`NOT_APPLICABLE`/`UNKNOWN`/`BLOCKED` where missing evidence is never treated as absence).
 
 ## What this does not do yet
@@ -243,7 +243,7 @@ retest environment provenance belongs in the evidence, not in someone's memory.
 Apache-2.0, https://github.com/omarmohelal/SecHelix, install with
 `npx skills@latest add omarmohelal/SecHelix --skill sechelix`. Structurally: 546 hypotheses = 21
 families x 26 lenses; 17 model-neutral specialist role profiles including an independent verifier;
-18 JSON Schema Draft 2020-12 contracts; 18 Gold Check Packs; 38 paired eval fixtures = 76 cases across
+19 JSON Schema Draft 2020-12 contracts; 18 Gold Check Packs; 38 paired eval fixtures = 76 cases across
 10 families; knowledge graph of 76 nodes, 100 edges, 11 lesson cards. Release gate returns `PASS`,
 `PASS_WITH_KNOWN_RISK`, `BLOCKED`, or fail-closed `INCOMPLETE`.
 
