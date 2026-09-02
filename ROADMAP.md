@@ -2,7 +2,7 @@
 
 SecHelix should earn trust through evals before adding complexity.
 
-> **Maturity: public alpha (`3.2.0-alpha.1`).**
+> **Maturity: public alpha (`3.4.0-alpha.1`).**
 > Sections marked *complete* describe shipped repository capability, not measured
 > accuracy. The public benchmark is **`NOT_MEASURED`** and the blocker is
 > recorded in [`evals/results/not-measured.json`](evals/results/not-measured.json).
