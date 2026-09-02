@@ -201,9 +201,33 @@ def _validate_attack_surface(data: dict[str, Any], errors: list[str], **_: Any) 
             errors.append(f"$.role_object_actions[{index}].condition: CONDITIONAL decision requires a condition")
 
 
+#: Links that cannot honestly stand on their own, and what each one presupposes.
+#:
+#: The evidence chain is a lattice, not a sequence: most links are independent and
+#: a finding is allowed to establish them in any order, or not at all. Three
+#: implications are not optional, because asserting the consequent while denying
+#: the antecedent describes something that cannot happen:
+#:
+#: ``impact`` asserts harm was demonstrated, which is only meaningful if an
+#: attacker can both influence the input and reach the code — otherwise what was
+#: demonstrated is a conditional, and a conditional belongs in ``statement`` with
+#: ``established`` false. ``safe_reproduction`` asserts the path was actually
+#: walked, which cannot be true of a path that was never shown to be reachable.
+#:
+#: Deliberately absent: ``boundary_failure`` does NOT presuppose ``reachability``.
+#: A missing authorization check is a real, statically-establishable fact about a
+#: handler nobody has yet shown is reachable, and demanding reachability first
+#: would suppress true findings. Nothing else is inferred.
+_CHAIN_PREREQUISITES: dict[str, tuple[str, ...]] = {
+    "impact": ("attacker_control", "reachability"),
+    "safe_reproduction": ("reachability",),
+}
+
+
 def _validate_finding(data: dict[str, Any], errors: list[str], **_: Any) -> None:
     evidence_ids = set(data["evidence_ids"])
-    for name, link in data["evidence_chain"].items():
+    chain = data["evidence_chain"]
+    for name, link in chain.items():
         unknown = sorted(set(link["evidence_ids"]) - evidence_ids)
         if unknown:
             errors.append(f"$.evidence_chain.{name}.evidence_ids: not declared on finding: {unknown}")
@@ -211,6 +235,15 @@ def _validate_finding(data: dict[str, Any], errors: list[str], **_: Any) -> None
             errors.append(f"$.evidence_chain.{name}.established: VERIFIED finding requires a complete evidence chain")
         if link["established"] and not link["evidence_ids"]:
             errors.append(f"$.evidence_chain.{name}.evidence_ids: an established link requires evidence")
+    for name, prerequisites in _CHAIN_PREREQUISITES.items():
+        if not chain[name]["established"]:
+            continue
+        missing = [required for required in prerequisites if not chain[required]["established"]]
+        if missing:
+            errors.append(
+                f"$.evidence_chain.{name}.established: cannot be established while "
+                f"{', '.join(missing)} is not — observation is not attacker capability"
+            )
     verification = data["verification"]
     verification_unknown = sorted(set(verification["evidence_ids"]) - evidence_ids)
     if verification_unknown:
