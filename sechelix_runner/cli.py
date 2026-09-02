@@ -1,0 +1,355 @@
+"""The ``sechelix`` command line.
+
+Every command works offline and none of them require an account. What they do
+*not* do is pretend to have analysed a repository when no reasoning executor is
+configured -- see :class:`NullExecutor` below, which is the most important thing
+in this module.
+
+Exit codes are stable and meant for CI:
+
+    0   the command succeeded and, for ``audit``, the gate reached a clean state
+    1   the command ran and the result is not clean (unsatisfied mandatory nodes)
+    2   usage error
+    3   the run could not be completed at all (integrity failure, missing run)
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any, Sequence
+
+from . import RUNNER_VERSION
+from .budget import BudgetGovernor, BudgetLimits
+from .executor import NodeOutcome
+from .graph import GraphNode, ReasonerGraph
+from .replay import ReplayError, replay_run
+from .roles import NodeRole, NodeStatus
+from .runner import Runner
+from .storage import RunWorkspace, list_runs, persist_run
+from .world import DEPTHS, build_world, describe_target
+
+EXIT_OK = 0
+EXIT_NOT_CLEAN = 1
+EXIT_USAGE = 2
+EXIT_ERROR = 3
+
+#: Roles that exist to reason about code. Without a configured provider these
+#: cannot be answered, and saying so is the only honest outcome.
+_REASONING_ROLES = frozenset(NodeRole) - {NodeRole.MAPPER, NodeRole.RELEASE_GATE}
+
+
+class NullExecutor:
+    """The default executor: it analyses nothing and says so.
+
+    This exists because the alternative is worse. If ``sechelix audit .`` ran
+    every specialist through a stub that returned "no findings", the report
+    would be indistinguishable from a genuine clean audit, and a fail-closed
+    release gate would hand out a PASS for a run in which nothing was examined.
+
+    So every reasoning node is ``BLOCKED`` with the reason stated. The gate then
+    has unsatisfied mandatory nodes and cannot report a clean result, which is
+    exactly right: no analysis happened.
+    """
+
+    name = "null"
+
+    def execute(self, node: GraphNode, view: dict[str, Any]) -> NodeOutcome:
+        if node.role in _REASONING_ROLES:
+            return NodeOutcome(
+                status=NodeStatus.BLOCKED,
+                blocker=(
+                    "no reasoning executor configured; this node analyses code and "
+                    "cannot be answered by the runner alone"
+                ),
+            )
+        return NodeOutcome(status=NodeStatus.SUCCEEDED, output={"role": node.role.value})
+
+
+def _default_graph(world: dict[str, Any]) -> ReasonerGraph:
+    """Applicability-selected graph: a lane appears only if its inputs exist.
+
+    A repository with no manifests has no supply-chain node, and that absence is
+    a routing decision recorded in the run rather than an empty stage in a
+    report.
+    """
+    from .context import ROLE_CONTEXT
+
+    nodes = [GraphNode("map", NodeRole.MAPPER, (), mandatory=True, reason="always")]
+    lanes: list[str] = []
+    for role in sorted(_REASONING_ROLES - {NodeRole.INDEPENDENT_VERIFIER}, key=lambda r: r.value):
+        required = ROLE_CONTEXT.get(role, {}).get("required", ())
+        if not required or not all(world.get(key) for key in required):
+            continue
+        node_id = role.value.lower()
+        nodes.append(
+            GraphNode(node_id, role, ("map",), reason="required context present")
+        )
+        lanes.append(node_id)
+
+    nodes.append(
+        GraphNode(
+            "verify",
+            NodeRole.INDEPENDENT_VERIFIER,
+            tuple(lanes) or ("map",),
+            mandatory=True,
+            reason="every candidate is independently verified",
+        )
+    )
+    nodes.append(
+        GraphNode("gate", NodeRole.RELEASE_GATE, ("verify",), mandatory=True, reason="always")
+    )
+    return ReasonerGraph(nodes)
+
+
+# -- commands ---------------------------------------------------------------
+
+
+def cmd_doctor(args: argparse.Namespace) -> int:
+    """Report what is available. Optional components are allowed to be absent."""
+
+    def _version(cmd: list[str]) -> str | None:
+        binary = shutil.which(cmd[0])
+        if not binary:
+            return None
+        try:
+            out = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            return (out.stdout or out.stderr).strip().splitlines()[0]
+        except (OSError, subprocess.SubprocessError, IndexError):
+            return None
+
+    root = Path(args.path).resolve()
+    report = {
+        "runner_version": RUNNER_VERSION,
+        "python": sys.version.split()[0],
+        "platform": sys.platform,
+        "git": _version(["git", "--version"]),
+        "docker": _version(["docker", "--version"]),
+        "workspace": str(root / ".sechelix"),
+        "workspace_exists": (root / ".sechelix").is_dir(),
+        "runs_recorded": len(list_runs(root)),
+        "network_mode": "DENY (static default)",
+        "reasoning_executor": "not configured (NullExecutor)",
+        "redaction": "enabled",
+        "core_contracts": _core_available(),
+    }
+    if args.json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+        return EXIT_OK
+
+    print("SecHelix doctor")
+    for key, value in report.items():
+        shown = "-" if value is None else value
+        print(f"  {key:22} {shown}")
+    print("\nOptional components may be absent; only 'core_contracts' must be present.")
+    return EXIT_OK if report["core_contracts"] else EXIT_ERROR
+
+
+def _core_available() -> bool:
+    try:
+        import sechelix_core.contracts  # noqa: F401
+    except Exception:
+        return False
+    return True
+
+
+def cmd_audit(args: argparse.Namespace) -> int:
+    root = Path(args.path).resolve()
+    if not root.is_dir():
+        print(f"error: {root} is not a directory", file=sys.stderr)
+        return EXIT_USAGE
+
+    target = describe_target(root)
+    world = build_world(root, depth=args.depth)
+    graph = _default_graph(world)
+
+    limits = BudgetLimits(
+        max_cost_usd=args.max_cost,
+        max_duration_seconds=args.max_seconds,
+        max_nodes=args.max_nodes,
+    )
+    result = Runner(
+        executor=NullExecutor(),
+        budget=BudgetGovernor(limits),
+        target_commit=target["commit"],
+        scope_id=target["scope_id"],
+    ).run(graph, world)
+
+    workspace = persist_run(root, result, graph)
+
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        _print_run(result, workspace)
+    return EXIT_OK if not result.unsatisfied_mandatory else EXIT_NOT_CLEAN
+
+
+def _print_run(result: Any, workspace: RunWorkspace) -> None:
+    print(f"run     {result.run_id}")
+    print(f"commit  {result.target_commit}")
+    print(f"nodes   {len(result.records)}")
+    print()
+    for node_id in sorted(result.records):
+        record = result.records[node_id]
+        detail = record.blocker or record.error or ""
+        print(f"  {record.status.value:<10} {node_id:<24} {detail[:60]}")
+    print()
+    if result.unsatisfied_mandatory:
+        print(f"RESULT  INCOMPLETE - unsatisfied mandatory nodes: "
+              f"{', '.join(result.unsatisfied_mandatory)}")
+        print("        No security claim can be made from this run.")
+    else:
+        print("RESULT  all mandatory nodes satisfied")
+    print(f"\nsaved   {workspace.path}")
+
+
+def cmd_runs(args: argparse.Namespace) -> int:
+    root = Path(args.path).resolve()
+    runs = list_runs(root)
+    if args.json:
+        print(json.dumps({"runs": runs}, indent=2))
+        return EXIT_OK
+    if not runs:
+        print("no runs recorded")
+        return EXIT_OK
+    for run_id in runs:
+        workspace = RunWorkspace(root, run_id)
+        problems = workspace.verify()
+        integrity = "ok" if not problems else f"TAMPERED ({len(problems)})"
+        print(f"  {run_id}  integrity={integrity}")
+    return EXIT_OK
+
+
+def cmd_replay(args: argparse.Namespace) -> int:
+    root = Path(args.path).resolve()
+    try:
+        world = build_world(root, depth="standard")
+        _, comparison = replay_run(root, args.run_id, world)
+    except ReplayError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+    if args.json:
+        print(json.dumps(comparison.to_dict(), indent=2, sort_keys=True))
+    else:
+        print(f"replay {comparison.run_id}")
+        print(f"  faithful            {comparison.faithful}")
+        print(f"  statuses match      {comparison.statuses_match}")
+        print(f"  routing matches     {comparison.routing_matches}")
+        print(f"  graph digest match  {comparison.graph_digest_matches}")
+        for difference in comparison.differences:
+            print(f"  DIFF  {difference}")
+    return EXIT_OK if comparison.faithful else EXIT_NOT_CLEAN
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    root = Path(args.path).resolve()
+    run_id = args.run_id or (list_runs(root)[-1] if list_runs(root) else None)
+    if not run_id:
+        print("error: no runs recorded", file=sys.stderr)
+        return EXIT_ERROR
+    workspace = RunWorkspace(root, run_id)
+    if not workspace.exists:
+        print(f"error: no run {run_id!r}", file=sys.stderr)
+        return EXIT_ERROR
+    data = workspace.read_json("run.json")
+
+    if args.format == "json":
+        print(json.dumps(data, indent=2, sort_keys=True))
+        return EXIT_OK
+
+    lines = [
+        f"# SecHelix run {data['run_id']}",
+        "",
+        f"- runner: `{data['runner_version']}`",
+        f"- commit: `{data['target_commit']}`",
+        f"- executor: `{data['executor']}`",
+        "",
+        "## Nodes",
+        "",
+        "| node | role | status | detail |",
+        "|---|---|---|---|",
+    ]
+    for node_id, record in sorted(data["records"].items()):
+        detail = record.get("blocker") or record.get("error") or ""
+        lines.append(
+            f"| `{node_id}` | {record['role']} | **{record['status']}** | {detail} |"
+        )
+    lines += ["", "## Result", ""]
+    if data["unsatisfied_mandatory"]:
+        lines.append(
+            "**INCOMPLETE.** Unsatisfied mandatory nodes: "
+            + ", ".join(f"`{n}`" for n in data["unsatisfied_mandatory"])
+            + ". No security claim can be made from this run."
+        )
+    else:
+        lines.append("All mandatory nodes satisfied.")
+    print("\n".join(lines))
+    return EXIT_OK
+
+
+# -- entry point -------------------------------------------------------------
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="sechelix",
+        description="SecHelix runner - evidence-first application-security orchestration.",
+    )
+    parser.add_argument("--version", action="version", version=f"sechelix-runner {RUNNER_VERSION}")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    def _common(p: argparse.ArgumentParser) -> None:
+        p.add_argument("--json", action="store_true", help="machine-readable output")
+
+    doctor = sub.add_parser("doctor", help="report available components")
+    doctor.add_argument("path", nargs="?", default=".")
+    _common(doctor)
+    doctor.set_defaults(func=cmd_doctor)
+
+    audit = sub.add_parser("audit", help="run a static audit graph over a repository")
+    audit.add_argument("path", nargs="?", default=".")
+    audit.add_argument("--depth", choices=sorted(DEPTHS), default="standard")
+    audit.add_argument("--max-cost", type=float, default=None, dest="max_cost")
+    audit.add_argument("--max-seconds", type=float, default=None, dest="max_seconds")
+    audit.add_argument("--max-nodes", type=int, default=None, dest="max_nodes")
+    _common(audit)
+    audit.set_defaults(func=cmd_audit)
+
+    runs = sub.add_parser("runs", help="list recorded runs and their integrity")
+    runs.add_argument("path", nargs="?", default=".")
+    _common(runs)
+    runs.set_defaults(func=cmd_runs)
+
+    replay = sub.add_parser("replay", help="re-execute a recorded run offline")
+    replay.add_argument("run_id")
+    replay.add_argument("path", nargs="?", default=".")
+    _common(replay)
+    replay.set_defaults(func=cmd_replay)
+
+    report = sub.add_parser("report", help="render a recorded run")
+    report.add_argument("run_id", nargs="?", default=None)
+    report.add_argument("--path", default=".")
+    report.add_argument("--format", choices=("markdown", "json"), default="markdown")
+    _common(report)
+    report.set_defaults(func=cmd_report)
+
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    try:
+        return int(args.func(args))
+    except KeyboardInterrupt:
+        print("interrupted", file=sys.stderr)
+        return EXIT_ERROR
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
