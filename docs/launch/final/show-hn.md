@@ -78,7 +78,7 @@ read-only adapters and treats every alert as a hypothesis until something suppor
 in what it refuses to report, not in what it detects.
 
 **"Isn't this just prompting?"**
-The methodology is prompt-shaped, but the contracts are not: 16 JSON Schemas, a frozen 546-item check
+The methodology is prompt-shaped, but the contracts are not: 22 JSON Schemas, a frozen 546-item check
 catalog, a report renderer, and a fail-closed release gate that exits non-zero. A report either
 validates or it does not.
 

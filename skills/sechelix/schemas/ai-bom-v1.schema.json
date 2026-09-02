@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sechelix.com/schemas/ai-bom-v1.schema.json",
+  "title": "SecHelix AI security inventory (AI-BOM) v1",
+  "description": "The asset classes an AI-enabled system adds that a dependency manifest does not list: models, providers, agents, skills, MCP servers, tools, RAG stores, datasets, memory stores, external APIs, permissions, secret references and network destinations. Every asset carries a trust boundary and a provenance, and the schema enforces the two properties that make the list useful rather than misleading: an undetermined boundary is UNKNOWN and never INTERNAL, and a declared asset is never presented as observed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "bom_id", "generated_by", "assets", "summary", "unknown_boundary_asset_ids", "declared_only_asset_ids", "observed_asset_ids", "limitations"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "bom_id": { "type": "string", "minLength": 1 },
+    "subject": { "type": "string" },
+    "generated_by": { "type": "string", "minLength": 1 },
+
+    "assets": { "type": "array", "items": { "$ref": "#/$defs/asset" } },
+
+    "relationships": { "type": "array", "items": { "$ref": "#/$defs/relationship" } },
+
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "by_kind", "by_trust_boundary", "by_provenance"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "by_kind": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "by_trust_boundary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["INTERNAL", "THIRD_PARTY", "PUBLIC", "UNKNOWN"],
+          "properties": {
+            "INTERNAL": { "type": "integer", "minimum": 0 },
+            "THIRD_PARTY": { "type": "integer", "minimum": 0 },
+            "PUBLIC": { "type": "integer", "minimum": 0 },
+            "UNKNOWN": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "by_provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["DECLARED", "OBSERVED"],
+          "properties": {
+            "DECLARED": { "type": "integer", "minimum": 0 },
+            "OBSERVED": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+
+    "unknown_boundary_asset_ids": {
+      "description": "Assets whose side of the boundary nobody established. Published as its own list so it reads as an outstanding question rather than a table cell nobody scrolled to.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+
+    "declared_only_asset_ids": {
+      "description": "Assets a file claims exist and nothing has observed running.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+
+    "observed_asset_ids": {
+      "description": "Assets something watched and left evidence for. Membership here requires at least one evidence id on the asset.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+
+    "limitations": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["applied", "total_values_redacted"],
+      "properties": {
+        "applied": { "type": "boolean" },
+        "replacement": { "type": ["string", "null"] },
+        "total_values_redacted": { "type": "integer", "minimum": 0 },
+        "by_pattern": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } }
+      }
+    }
+  },
+
+  "$defs": {
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["asset_id", "kind", "name", "provenance", "trust_boundary", "boundary_basis", "locator", "evidence_ids"],
+      "properties": {
+        "asset_id": { "type": "string", "minLength": 1 },
+        "kind": {
+          "enum": ["MODEL", "PROVIDER", "AGENT", "SKILL", "MCP_SERVER", "TOOL", "RAG_STORE", "DATASET", "MEMORY_STORE", "EXTERNAL_API", "PERMISSION", "SECRET_REFERENCE", "NETWORK_DESTINATION"]
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "provenance": {
+          "description": "DECLARED means a file says it exists. OBSERVED means something watched it and left an evidence id. They answer different questions and are never merged.",
+          "enum": ["DECLARED", "OBSERVED"]
+        },
+        "trust_boundary": {
+          "description": "UNKNOWN is the default and the honest answer when operator control was not established. INTERNAL is never inferred: it requires a stated boundary_basis.",
+          "enum": ["INTERNAL", "THIRD_PARTY", "PUBLIC", "UNKNOWN"]
+        },
+        "boundary_basis": {
+          "description": "Why the asset sits where it sits. Required for any boundary other than UNKNOWN.",
+          "type": "string"
+        },
+        "locator": {
+          "description": "Where the asset is configured or read from. For a SECRET_REFERENCE this is the variable, vault path or field name — never a value.",
+          "type": "string"
+        },
+        "evidence_ids": { "type": "array", "items": { "type": "string" } },
+        "attributes": { "type": "object" }
+      }
+    },
+
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to", "relation"],
+      "properties": {
+        "from": { "type": "string", "minLength": 1 },
+        "to": { "type": "string", "minLength": 1 },
+        "relation": {
+          "enum": ["USES", "EXPOSES", "READS", "WRITES", "REACHES", "AUTHENTICATES_WITH", "DERIVED_FROM"]
+        },
+        "note": { "type": "string" }
+      }
+    }
+  }
+}

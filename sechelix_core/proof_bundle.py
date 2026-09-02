@@ -273,14 +273,23 @@ def verify_bundle(files: Mapping[str, str]) -> list[str]:
     except json.JSONDecodeError as exc:
         return problems + [f"manifest.json is not valid JSON: {exc}"]
 
+    listed = set()
     for entry in manifest.get("files", []):
         name = entry.get("name")
+        listed.add(name)
         if name not in files:
             problems.append(f"{name} is listed in the manifest but missing")
             continue
         actual = hashlib.sha256(files[name].encode("utf-8")).hexdigest()
         if actual != entry.get("sha256"):
             problems.append(f"{name} does not match its recorded digest")
+
+    # The reciprocal check. Walking the manifest alone proves every listed file is
+    # intact and says nothing about a file that was *added* after export — which is
+    # exactly what a recipient is checking for. Without this, an injected artifact
+    # is unhashed, unlisted, and reported as internally consistent.
+    for name in sorted(set(files) - listed - {"manifest.json", "manifest.sha256"}):
+        problems.append(f"{name} is present but not listed in the manifest")
     return problems
 
 

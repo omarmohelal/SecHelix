@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sechelix.com/schemas/mcp-graph-v1.schema.json",
+  "title": "SecHelix MCP / agent permission graph v1",
+  "description": "The declared authority graph of an agent — Agent to MCP Server to Tool/Resource/Prompt to Permission to Data to External System — with the hypotheses it supports. Assembled from declarations, so every detection is a HYPOTHESIS with UNPROVEN runtime reachability. This contract deliberately has no severity or confidence property anywhere: severity is a judgement about impact in a deployment and belongs to a finding, after verification.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "graph_id", "basis", "graph", "permission_matrix", "detections", "notes", "limitations"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "graph_id": { "type": "string", "minLength": 1 },
+    "basis": {
+      "description": "What the graph was built from. DECLARATION is the only value this module can honestly emit: it reads configuration and manifests, not call logs.",
+      "const": "DECLARATION"
+    },
+
+    "graph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodes", "edges"],
+      "properties": {
+        "nodes": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+        "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } }
+      }
+    },
+
+    "mermaid": {
+      "description": "The same nodes and edges as a Mermaid flowchart. Node ids are rewritten because a declared id can contain characters Mermaid reads as syntax.",
+      "type": "string"
+    },
+
+    "permission_matrix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["columns", "rows"],
+      "properties": {
+        "columns": { "type": "array", "items": { "type": "string" } },
+        "rows": { "type": "array", "items": { "$ref": "#/$defs/matrix_row" } }
+      }
+    },
+
+    "detections": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/detection" }
+    },
+
+    "notes": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "limitations": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+  },
+
+  "$defs": {
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "label"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": {
+          "enum": ["AGENT", "MCP_SERVER", "TOOL", "RESOURCE", "PROMPT", "PERMISSION", "DATA", "EXTERNAL_SYSTEM", "INPUT_SOURCE", "SECRET_REFERENCE"]
+        },
+        "label": { "type": "string" },
+        "attributes": {
+          "description": "Kind-specific declared attributes. A TOOL node carries server_supplied_hints here: the annotations are recorded so a reader can see what the server claimed, and nothing in the detection path reads them.",
+          "type": "object"
+        }
+      }
+    },
+
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "from", "to", "kind"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "from": { "type": "string", "minLength": 1 },
+        "to": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "label": { "type": "string" }
+      }
+    },
+
+    "matrix_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_id", "server_id", "tool_id", "tool_name", "cells", "write", "irreversible", "credential_scopes", "confirmation"],
+      "properties": {
+        "agent_id": { "type": "string" },
+        "server_id": { "type": "string" },
+        "tool_id": { "type": "string" },
+        "tool_name": { "type": "string" },
+        "cells": {
+          "description": "One entry per column, in column order. NONE means the permission is not granted to this tool.",
+          "type": "array",
+          "items": { "enum": ["READ", "WRITE", "DELETE", "EXECUTE", "NETWORK", "SPAWN_AGENT", "NONE"] }
+        },
+        "write": { "type": "boolean" },
+        "irreversible": { "type": "boolean" },
+        "credential_scopes": {
+          "type": "array",
+          "items": { "enum": ["RUN_PRINCIPAL", "AMBIENT", "UNKNOWN"] }
+        },
+        "confirmation": { "enum": ["NONE", "IN_BAND", "OUT_OF_BAND_BOUND", "UNKNOWN"] }
+      }
+    },
+
+    "detection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["detection_id", "kind", "status", "basis", "runtime_reachability", "node_ids", "statement", "evidence_required", "refuted_if"],
+      "properties": {
+        "detection_id": { "type": "string", "minLength": 1 },
+        "kind": {
+          "enum": [
+            "EXCESSIVE_AUTHORITY",
+            "UNSAFE_WRITE_CAPABILITY",
+            "CONFUSED_DEPUTY",
+            "TOOL_ARGUMENT_INJECTION",
+            "SECRET_PROPAGATION",
+            "TOOL_DESCRIPTION_POISONING",
+            "SERVER_TEXT_IN_INSTRUCTION_CHANNEL",
+            "CROSS_TOOL_EXFILTRATION",
+            "ANNOTATION_CONTRADICTS_DECLARATION"
+          ]
+        },
+        "status": {
+          "description": "Always HYPOTHESIS. The graph is declarations; a declared edge is not a demonstrated call.",
+          "const": "HYPOTHESIS"
+        },
+        "basis": { "const": "DECLARATION" },
+        "runtime_reachability": { "const": "UNPROVEN" },
+        "node_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "path": { "type": "array", "items": { "type": "string" } },
+        "statement": { "type": "string", "minLength": 1 },
+        "evidence_required": {
+          "description": "What would establish this at runtime. Named on the detection so the next step is a task rather than an argument.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "refuted_if": {
+          "description": "What would close it. Refutation carries the same weight as detection.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "declared_controls": {
+          "description": "Controls the declarations claim. Recorded, never treated as demonstrated, and never used to withhold or downgrade a detection.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "server_supplied_hints": {
+          "description": "MCP tool annotations as the server sent them. Present for the reader. The specification says clients should never make critical tool-use decisions based on annotations from untrusted servers, so no detection here is produced or suppressed by reading these.",
+          "type": "object"
+        }
+      }
+    }
+  }
+}

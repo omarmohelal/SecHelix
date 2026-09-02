@@ -1,0 +1,99 @@
+{
+  "schema_version": "1.0",
+  "pack_id": "PROD-DEFAULT",
+  "version": "1.0.0",
+  "name": "Production release policy",
+  "description": "The default rules for shipping to production. Written to be readable by someone who will not read the code that enforces it.",
+  "scope": {
+    "environments": ["PRODUCTION"]
+  },
+  "rules": [
+    {
+      "rule_id": "PROD-NO-UNRESOLVED-HIGH",
+      "statement": "Production cannot ship with an unresolved High or Critical finding.",
+      "condition": {
+        "severities": ["CRITICAL", "HIGH"],
+        "finding_statuses": ["VERIFIED"],
+        "resolutions": ["OPEN", "DEFERRED"]
+      },
+      "outcome": "BLOCK",
+      "rationale": "A verified finding at this severity that nobody has resolved is a known, unmitigated problem."
+    },
+    {
+      "rule_id": "PROD-NO-UNRESOLVED-CANDIDATE",
+      "statement": "Production cannot ship while a High or Critical candidate is still unproven.",
+      "condition": {
+        "severities": ["CRITICAL", "HIGH"],
+        "finding_statuses": ["HYPOTHESIS", "LIKELY_BUT_UNPROVEN", "BLOCKED_BY_ENVIRONMENT"],
+        "resolutions": ["OPEN", "DEFERRED"]
+      },
+      "outcome": "INCOMPLETE",
+      "rationale": "Neither proven nor refuted is not the same as fine. The release decision cannot be made, which is different from failing it."
+    },
+    {
+      "rule_id": "PROD-REGRESSION-REQUIRED",
+      "statement": "A fixed High or Critical finding must carry passing regression proof.",
+      "condition": {
+        "severities": ["CRITICAL", "HIGH"],
+        "finding_statuses": ["VERIFIED"],
+        "resolutions": ["FIXED"],
+        "requires_regression": true
+      },
+      "outcome": "INCOMPLETE",
+      "rationale": "A fix nobody tested is a claim that it was fixed."
+    },
+    {
+      "rule_id": "PROD-INDEPENDENT-VERIFICATION",
+      "statement": "A High or Critical finding must have survived an independent refutation attempt.",
+      "condition": {
+        "severities": ["CRITICAL", "HIGH"],
+        "finding_statuses": ["VERIFIED"],
+        "requires_independent_verification": true
+      },
+      "outcome": "INCOMPLETE",
+      "rationale": "The reviewer agreeing with itself is not verification."
+    },
+    {
+      "rule_id": "PAYMENT-RACE-REVIEW",
+      "statement": "Code that moves money requires a race and idempotency review.",
+      "condition": {
+        "catalog_families": ["MONEY", "RACE", "BIZ"],
+        "surface_patterns": ["payment", "billing", "checkout", "refund", "payout", "ledger"],
+        "finding_statuses": ["HYPOTHESIS", "LIKELY_BUT_UNPROVEN"]
+      },
+      "outcome": "INCOMPLETE",
+      "rationale": "Money paths fail under retry and concurrency, and those failures are invisible to a single-request review."
+    },
+    {
+      "rule_id": "MCP-WRITE-AUTHORIZATION",
+      "statement": "An MCP tool with write capability requires an explicit authorization review.",
+      "condition": {
+        "catalog_families": ["AI"],
+        "surface_patterns": ["mcp", "tool", "agent"],
+        "finding_statuses": ["HYPOTHESIS", "LIKELY_BUT_UNPROVEN"]
+      },
+      "outcome": "INCOMPLETE",
+      "rationale": "A tool that can write runs with the operator's authority on whatever text reached the model."
+    },
+    {
+      "rule_id": "SSRF-FETCHER-REVIEW",
+      "statement": "An internet-facing URL fetcher requires an SSRF review.",
+      "condition": {
+        "catalog_families": ["SSRF"],
+        "finding_statuses": ["HYPOTHESIS", "LIKELY_BUT_UNPROVEN"]
+      },
+      "outcome": "INCOMPLETE",
+      "rationale": "Destination validation that happens before a redirect is not destination validation."
+    }
+  ],
+  "accepted_risk": {
+    "allowed": true,
+    "required_fields": ["owner", "reason", "approved_at", "expires_at"],
+    "max_duration_days": 90
+  },
+  "provenance": {
+    "author": "SecHelix",
+    "created_at": "2026-09-02",
+    "source": "policies/packs/production-default.json"
+  }
+}
