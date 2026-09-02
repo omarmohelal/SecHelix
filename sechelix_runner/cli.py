@@ -26,6 +26,13 @@ from typing import Any, Sequence
 
 from . import RUNNER_VERSION
 from .budget import BudgetGovernor, BudgetLimits
+from .coverage import (
+    LEDGER_FILENAME,
+    CoverageLedger,
+    LedgerMismatch,
+    TargetIdentity,
+    observe_world,
+)
 from .executor import NodeOutcome
 from .graph import GraphNode, ReasonerGraph
 from .replay import ReplayError, replay_run
@@ -182,10 +189,37 @@ def cmd_audit(args: argparse.Namespace) -> int:
 
     workspace = persist_run(root, result, graph)
 
+    # Coverage is credited only for nodes that actually delivered. A BLOCKED
+    # lane examined nothing, and recording it as covered would convert a gap
+    # into a false reassurance on the next run.
+    ledger_path = root / ".sechelix" / LEDGER_FILENAME
+    identity = TargetIdentity.from_world(world)
+    try:
+        ledger = CoverageLedger.load(ledger_path, identity)
+    except LedgerMismatch as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+    ledger.identity = identity
+    observe_world(ledger, world, root=root)
+    covered_keys: list[str] = []
+    if any(r.satisfied for r in result.records.values() if r.role is not NodeRole.MAPPER):
+        for path in world.get("file_index", []):
+            ledger.cover("file", path, result.run_id)
+            covered_keys.append(f"file:{path}")
+    ledger.record_run(result.run_id, covered_keys)
+    ledger.save(ledger_path)
+    coverage_report = ledger.report(covered_keys)
+    workspace.write_json("coverage.json", coverage_report)
+    workspace.write_manifest()
+
     if args.json:
-        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        payload = result.to_dict()
+        payload["coverage"] = coverage_report
+        print(json.dumps(payload, indent=2, sort_keys=True))
     else:
         _print_run(result, workspace)
+        blind = coverage_report["blind_spots"]
+        print(f"blind   {len(blind)} item(s) never covered or stale")
     return EXIT_OK if not result.unsatisfied_mandatory else EXIT_NOT_CLEAN
 
 
@@ -206,6 +240,41 @@ def _print_run(result: Any, workspace: RunWorkspace) -> None:
     else:
         print("RESULT  all mandatory nodes satisfied")
     print(f"\nsaved   {workspace.path}")
+
+
+def cmd_coverage(args: argparse.Namespace) -> int:
+    """What previous runs did and did not examine."""
+    root = Path(args.path).resolve()
+    ledger_path = root / ".sechelix" / LEDGER_FILENAME
+    if not ledger_path.exists():
+        print("no coverage ledger yet; run 'sechelix audit .' first", file=sys.stderr)
+        return EXIT_ERROR
+    world = build_world(root, depth="quick")
+    identity = TargetIdentity.from_world(world)
+    try:
+        ledger = CoverageLedger.load(ledger_path, identity)
+    except LedgerMismatch as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+    observe_world(ledger, world, root=root)
+    report = ledger.report(covered_keys=[])
+
+    if args.json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+        return EXIT_OK
+
+    print(f"coverage for {identity.name} @ {identity.commit[:12]}")
+    for status, count in sorted(report["totals"].items()):
+        if count:
+            print(f"  {status:16} {count}")
+    blind = report["blind_spots"]
+    print()
+    print(f"{len(blind)} blind spot(s) - never covered or stale since coverage")
+    for key in blind[:20]:
+        print(f"  {key}")
+    if len(blind) > 20:
+        print(f"  ... and {len(blind) - 20} more")
+    return EXIT_OK
 
 
 def cmd_runs(args: argparse.Namespace) -> int:
@@ -324,6 +393,11 @@ def build_parser() -> argparse.ArgumentParser:
     runs.add_argument("path", nargs="?", default=".")
     _common(runs)
     runs.set_defaults(func=cmd_runs)
+
+    coverage = sub.add_parser("coverage", help="what previous runs did not examine")
+    coverage.add_argument("path", nargs="?", default=".")
+    _common(coverage)
+    coverage.set_defaults(func=cmd_coverage)
 
     replay = sub.add_parser("replay", help="re-execute a recorded run offline")
     replay.add_argument("run_id")
