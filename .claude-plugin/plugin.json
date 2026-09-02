@@ -1,7 +1,7 @@
 {
   "name": "sechelix",
   "displayName": "SecHelix",
-  "version": "3.4.0-alpha.1",
+  "version": "3.4.0-alpha.2",
   "description": "Evidence-first application-security Agent Skill for authorized repositories and environments. Maps attack surfaces, selects applicable security hypotheses, independently verifies material findings, fixes root causes, requires regression proof, and produces explicit release decisions.",
   "author": {
     "name": "SecHelix",

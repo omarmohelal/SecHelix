@@ -2,7 +2,7 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "sechelix",
   "description": "Evidence-first application-security Agent Skill for repositories and environments you are authorized to test. Maps the attack surface, selects applicable security hypotheses from a 546-item catalog, hunts in parallel across specialist roles, then sends every candidate to an independent verifier whose job is to disprove it. Applicability resolves to APPLICABLE, NOT_APPLICABLE, UNKNOWN or BLOCKED so missing evidence is never read as absence; High and Critical findings require regression proof; and the release gate is fail-closed, returning PASS, PASS_WITH_KNOWN_RISK, BLOCKED or INCOMPLETE. Includes an UNTRUSTED_REPO mode that treats repository content as data and never as control instructions.",
-  "version": "3.4.0-alpha.1",
+  "version": "3.4.0-alpha.2",
   "author": {
     "name": "Omar",
     "url": "https://github.com/omarmohelal"
