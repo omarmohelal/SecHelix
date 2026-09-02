@@ -60,7 +60,7 @@ premise is that a security finding is a claim, and a claim gets an independent r
 before it is reported.
 
 Structurally it ships: 546 structured security hypotheses (21 families x 26 verification lenses), 17
-model-neutral specialist role profiles including an independent verifier, 16 JSON Schema Draft
+model-neutral specialist role profiles including an independent verifier, 18 JSON Schema Draft
 2020-12 contracts, 18 Gold Check Packs, 11 read-only evidence adapters, 38 paired eval fixtures
 (76 cases across 10 families), and a
 knowledge graph of 76 nodes, 100 edges, and 11 lesson cards. Applicability resolves to APPLICABLE,

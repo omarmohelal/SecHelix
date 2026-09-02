@@ -235,7 +235,7 @@ Structurally, the skill is backed by:
 
 - 546 structured security hypotheses (exactly 21 families x 26 verification lenses)
 - 17 model-neutral specialist role profiles, including an independent verifier
-- 16 JSON Schema Draft 2020-12 contracts that reports must validate against
+- 18 JSON Schema Draft 2020-12 contracts that reports must validate against
 - 18 Gold Check Packs (including IDOR, SSRF, race/idempotency, money invariants, AI/MCP tool authority)
 - 11 evidence adapters: Semgrep, Trivy, OSV, Gitleaks, ZAP, Nuclei, Playwright, package audit, SARIF
 - 38 eval fixtures / 76 cases, and a provenance-backed knowledge graph of 76 nodes and 100 edges

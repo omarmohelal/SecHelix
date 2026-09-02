@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sechelix.com/schemas/policy-pack-v1.schema.json",
+  "title": "SecHelix policy pack v1",
+  "description": "Release policy as versioned data. A policy pack decides what may ship, so it is evidence in its own right: a report that passed must record which pack version decided it, or 'we passed the gate' is an unfalsifiable claim.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "pack_id", "version", "name", "rules"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "pack_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9-]{2,63}$",
+      "description": "Stable identifier, e.g. ORG-PROD-DEFAULT."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semver. Bumped whenever a rule changes; a report cites this exact value."
+    },
+    "name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+
+    "scope": {
+      "description": "Where this pack applies. Every dimension is optional; an omitted dimension matches anything, and the resolver records that it did.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "organization": { "type": "string" },
+        "repositories": { "type": "array", "items": { "type": "string" } },
+        "branches": { "type": "array", "items": { "type": "string" } },
+        "environments": {
+          "type": "array",
+          "items": { "enum": ["DEVELOPMENT", "STAGING", "PRODUCTION", "ANY"] }
+        },
+        "data_sensitivity": {
+          "type": "array",
+          "items": { "enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "REGULATED", "UNKNOWN"] }
+        }
+      }
+    },
+
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/rule" }
+    },
+
+    "accepted_risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed"],
+      "properties": {
+        "allowed": { "type": "boolean" },
+        "required_fields": {
+          "description": "An accepted risk without an owner and an expiry is not an acceptance, it is a silence.",
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["owner", "reason", "approved_at", "expires_at"]
+        },
+        "max_duration_days": { "type": "integer", "minimum": 1 }
+      }
+    },
+
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "author": { "type": "string" },
+        "created_at": { "type": "string" },
+        "supersedes": { "type": "string" },
+        "source": { "type": "string" }
+      }
+    }
+  },
+
+  "$defs": {
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_id", "statement", "condition", "outcome"],
+      "properties": {
+        "rule_id": { "type": "string", "pattern": "^[A-Z][A-Z0-9-]{2,63}$" },
+        "statement": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The rule in one sentence a non-engineer can check, e.g. 'Production cannot ship with an unresolved High or Critical finding.'"
+        },
+        "condition": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "What triggers the rule. Every field is ANDed; an omitted field does not constrain.",
+          "properties": {
+            "severities": {
+              "type": "array",
+              "items": { "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO", "UNASSIGNED"] }
+            },
+            "verification_states": {
+              "type": "array",
+              "items": {
+                "enum": ["NOT_RUN", "VERIFIED", "LIKELY_BUT_UNPROVEN", "FALSE_POSITIVE",
+                         "DUPLICATE_ROOT_CAUSE", "BLOCKED_BY_ENVIRONMENT"]
+              }
+            },
+            "finding_statuses": {
+              "type": "array",
+              "items": {
+                "enum": ["HYPOTHESIS", "VERIFIED", "LIKELY_BUT_UNPROVEN", "FALSE_POSITIVE",
+                         "DUPLICATE_ROOT_CAUSE", "BLOCKED_BY_ENVIRONMENT"]
+              }
+            },
+            "resolutions": {
+              "type": "array",
+              "items": { "enum": ["OPEN", "FIXED", "ACCEPTED_RISK", "FALSE_POSITIVE",
+                                  "DUPLICATE_ROOT_CAUSE", "DEFERRED"] }
+            },
+            "catalog_families": { "type": "array", "items": { "type": "string" } },
+            "surface_patterns": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Substrings matched against affected_surface, e.g. 'payments/' or 'webhooks/'."
+            },
+            "requires_regression": { "type": "boolean" },
+            "requires_independent_verification": { "type": "boolean" }
+          }
+        },
+        "outcome": {
+          "description": "BLOCK asserts a problem exists. INCOMPLETE asserts the decision cannot be made — which is what missing evidence means, and is never downgraded to a pass.",
+          "enum": ["BLOCK", "INCOMPLETE", "WARN"]
+        },
+        "rationale": { "type": "string" }
+      }
+    }
+  }
+}

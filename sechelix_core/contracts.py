@@ -28,6 +28,7 @@ SCHEMAS = {
     "source-registry": "source-registry-v1.schema.json",
     "knowledge-graph": "knowledge-graph-v1.schema.json",
     "calibration": "calibration-v1.schema.json",
+    "policy-pack": "policy-pack-v1.schema.json",
     "lesson-card": "lesson-card-v1.schema.json",
     "research-packet": "research-packet-v1.schema.json",
     "gold-check-pack": "gold-check-pack-v1.schema.json",
