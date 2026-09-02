@@ -44,11 +44,19 @@ sha256sum cases.json
 Expected:
 
 ```
-c15861edbe997f5909d32d3a0870eb963b3c654b37583aaa6ba28d90d183d9fb
+1ad970d1c1ac36e38c495dfbedfedd9fe695d6170a3824364f398b6ebb39f922
 ```
 
-If the digest differs, the suite has changed since this page was written. Record the digest you got
-in your result — a measurement against an unrecorded suite is not reproducible.
+That is the digest of the canonical LF bytes — what `curl` gives you from GitHub, on any platform.
+
+> **If you checked the file out with Git on Windows** and `core.autocrlf` rewrote the line endings,
+> you will get `c15861edbe997f5909d32d3a0870eb963b3c654b37583aaa6ba28d90d183d9fb` instead. That is
+> the same 76 cases with CRLF line endings, and it was printed here as the expected value until
+> 2026-09-02. Both digests describe identical content. Prefer the `curl` download above so the LF
+> value is what you verify.
+
+If you get neither digest, the suite has changed since this page was written. Record the digest you
+got in your result — a measurement against an unrecorded suite is not reproducible.
 
 ---
 

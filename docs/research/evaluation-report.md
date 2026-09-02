@@ -1,30 +1,65 @@
 # SecHelix evaluation report
 
-**Date:** 2026-09-01 · **Benchmark status: `NOT_MEASURED`**
+**Date:** 2026-09-02 · **Blind label suite: first uncontaminated run recorded** ·
+**Full-workflow metrics: still `NOT_MEASURED`**
 
-This report explains what the evaluation lab now contains, what it measured, and — most
-importantly — why no SecHelix performance score is published.
+This report explains what the evaluation lab contains, what has now been measured, and — just as
+importantly — what still has not been.
 
 ---
 
 ## 1. Headline
 
-**There is no SecHelix benchmark number, and publishing one would have been dishonest.**
+**The blind packet has its first uncontaminated run.** It was produced on 2026-09-02 and is
+committed as [`evals/results/claude-sonnet-5-blind-2026-09-02.json`](../../evals/results/claude-sonnet-5-blind-2026-09-02.json).
 
-The fixture suite was expanded on 2026-09-01 by the same assistant session that would otherwise
-have been the evaluated model. That session authored part of the suite. Scoring it would have
-measured **recall of its own answers**, not security-review capability.
+| Metric | This run | Keyword floor |
+| --- | --- | --- |
+| Precision | **0.950** | 0.511 |
+| Detection recall | **1.000** | 0.632 |
+| False-positive rate | **0.053** | 0.605 |
+| False-positive rejection rate | **0.947** | 0.395 |
+| Counts | TP 38 · FP 2 · TN 36 · FN 0 | TP 24 · FP 23 · TN 15 · FN 14 |
 
-The blocker is recorded machine-readably in `evals/results/not-measured.json`:
+The two false positives are one Business Logic / Payments case and one SSRF / URL Fetching case.
+Every other family scored zero false positives, and no vulnerable case was missed.
 
-```json
-"blocker": {
-  "reason": "CONTAMINATED_EVALUATOR",
-  "statement": "No uncontaminated SecHelix run exists yet...",
-  "what_would_unblock_it": [ ... ],
-  "harness_status": "VALIDATED — see evals/results/baseline-keyword-v1.json"
-}
-```
+**Read that table narrowly.** Four things it does not say:
+
+1. **It is not a measurement of the SecHelix workflow.** The protocol in
+   [`evals/blind-packet/RUN.md`](../../evals/blind-packet/RUN.md) asks the evaluator one question per
+   file and takes one label back. There was no attack-surface pass, no independent refutation pass,
+   no adapters, no evidence chain and no release gate. `verified_precision` is `0.0` precisely
+   because nothing was independently verified — the procedure never asked for it.
+2. **`applicability_accuracy`, `regression_proof_rate` and `release_gate_accuracy` remain the
+   literal string `NOT_MEASURED`.** Those belong to a full audit run. `evals/results/not-measured.json`
+   still stands for them.
+3. **The suite is authored, balanced 38/38, mostly single-file and mostly Python.** Section 6 lists
+   what that costs. Precision on a balanced synthetic suite overstates precision in the field, where
+   clean code vastly outnumbers vulnerable code.
+4. **One model, one run.** No repeats, no variance estimate, no comparison to any other tool.
+
+### How contamination was avoided
+
+The run was produced by 76 independent headless `claude -p` processes, each launched from an empty
+directory containing only `cases.json`. The repository was never cloned. Tools were disabled, MCP was
+disabled, and each process saw exactly one case plus the Step 2 instruction. No process saw a label,
+a rationale, a pairing, a variant name, or how many cases were vulnerable.
+
+Two honest caveats are recorded in the result file's `limitations`, not hidden here: the host machine
+had a user-scope `sechelix` skill installed, so its name and description could appear in each
+process's skill list (methodology only — no fixtures, no labels, and tools were disabled so it could
+not be invoked); and the processes loaded user-level Claude Code configuration because no API key was
+available to run with `--bare`.
+
+### A defect this run found in the protocol itself
+
+`RUN.md` published the expected packet digest as `c15861ed…`. That value was computed on a **Windows
+working copy with CRLF line endings**. Anyone following the documented `curl` download — on any
+platform — gets `1ad970d1…` instead and would conclude the suite had changed. The content is
+byte-identical apart from 613 carriage returns. `RUN.md` and the packet README now publish the
+canonical LF digest and explain the CRLF value, so the sealed-packet check verifies for the people
+it was written for.
 
 ---
 
@@ -106,7 +141,7 @@ Regenerate with `python scripts/build_eval_fixtures.py`.
 
 ---
 
-## 5. How to produce the first legitimate measurement
+## 5. How to reproduce, or produce another run
 
 ```bash
 # 1. Export blind cases (no ground truth leaves this step)
