@@ -1,0 +1,73 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sechelix"
+version = "0.1.0"
+description = "Optional execution runtime for the SecHelix AppSec Agent Skill: deterministic reasoner DAG, budget governor, coverage ledger and replayable evidence."
+readme = "docs/packaging/PYPI_README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Omar Mohamed Helal" }]
+keywords = [
+    "appsec", "application-security", "security-audit", "agent-skills",
+    "static-analysis", "security-review", "ai-security", "mcp-security",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+# Intentionally empty. The runner uses the standard library only, and a test
+# asserts it: a security tool that drags in a dependency tree has widened the
+# attack surface of the thing it was installed to protect.
+dependencies = []
+
+[project.urls]
+Homepage = "https://sechelix.com"
+Repository = "https://github.com/omarmohelal/SecHelix"
+Documentation = "https://github.com/omarmohelal/SecHelix/blob/main/docs/v4-quickstart.md"
+Changelog = "https://github.com/omarmohelal/SecHelix/blob/main/CHANGELOG.md"
+
+[project.scripts]
+sechelix = "sechelix_runner.cli:main"
+
+[tool.hatch.build.targets.wheel]
+# The runner plus the contracts it consumes.
+#
+# sechelix_core and schemas/ are NOT a second copy of the methodology -- they are
+# the single definition of finding, evidence, verification and the release
+# decision. Shipping the runner without them would make "the runner owns no
+# definitions" true only for people who cloned the repository, and `doctor`
+# would report core_contracts=False on every pip install.
+#
+# catalog/ ships because compliance.py maps evidence onto the control mappings
+# the catalog already carries; without it that command has nothing to read.
+#
+# The Agent Skill itself is still absent: it is distributed through the skills
+# ecosystem and is deliberately not a Python package.
+packages = ["sechelix_runner", "sechelix_core"]
+artifacts = ["schemas/*.json", "catalog/*.json", "catalog/*.txt"]
+
+[tool.hatch.build.targets.wheel.force-include]
+schemas = "sechelix_runner/_bundled/schemas"
+catalog = "sechelix_runner/_bundled/catalog"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/sechelix_runner",
+    "/tests/runner",
+    "/docs/v4-quickstart.md",
+    "/docs/packaging",
+    "/examples/demo-app",
+    "/LICENSE",
+    "/CHANGELOG.md",
+]
