@@ -1,0 +1,136 @@
+{
+  "counts": {
+    "false_negative": 0,
+    "false_positive": 2,
+    "rejected_false_candidates": 36,
+    "true_negative": 36,
+    "true_positive": 38
+  },
+  "is_sechelix_result": true,
+  "limitations": [
+    "The digest of the downloaded packet is 1ad970d1c1ac36e38c495dfbedfedd9fe695d6170a3824364f398b6ebb39f922, not the c15861ed... value printed in RUN.md. The content is identical; the published digest was computed on a Windows working copy with CRLF line endings, and the canonical LF bytes served by GitHub raw hash differently. This run was scored against the canonical LF packet.",
+    "This measures a single-pass, label-only judgment using the Step 2 instruction. It is NOT the full SecHelix workflow: there was no attack-surface pass, no independent refutation pass, no adapters, no evidence chain and no release gate. Precision and recall here describe one model answering one question per file, and must not be quoted as the performance of the SecHelix methodology.",
+    "The machine running the evaluator had a user-scope `sechelix` skill installed at ~/.claude/skills/sechelix, so its name and description could appear in each process's skill list. The skill contains methodology only; it contains no fixtures, labels, pairings or rationales, and tools were disabled so it could not be invoked. One case's response explicitly noted it did not use it. Recorded because a perfectly hermetic host would not have had it present.",
+    "The evaluator processes loaded user-level Claude Code configuration (global rules and memory files) because no API key was available to run with --bare. Those files reference the SecHelix project but contain no fixture content.",
+    "One model, one temperature setting, one run. No repeat runs, no seed control and no inter-run variance estimate; a second run of the same suite would not necessarily produce the same labels.",
+    "Both the packet and the labels come from a 38-pair authored fixture suite. A score here says nothing about performance on an unfamiliar production codebase.",
+    "verification_status is NOT_RUN for every case: no claim was independently reconstructed, because the procedure asks only for a label."
+  ],
+  "measured_at": "2026-09-02T12:16:48.202100Z",
+  "measurement_status": "MEASURED",
+  "metrics": {
+    "applicability_accuracy": "NOT_MEASURED",
+    "detection_recall": 1.0,
+    "duplicate_root_cause_rate": 0.0,
+    "false_positive_rate": 0.052632,
+    "false_positive_rejection_rate": 0.947368,
+    "precision": 0.95,
+    "recall": 1.0,
+    "regression_proof_rate": "NOT_MEASURED",
+    "release_gate_accuracy": "NOT_MEASURED",
+    "verified_precision": 0.0
+  },
+  "per_family": {
+    "AI / Agent / MCP": {
+      "detection_recall": 1.0,
+      "false_positive_rate": 0.0,
+      "fn": 0,
+      "fp": 0,
+      "tn": 7,
+      "tp": 7
+    },
+    "Authentication / Sessions": {
+      "detection_recall": 1.0,
+      "false_positive_rate": 0.0,
+      "fn": 0,
+      "fp": 0,
+      "tn": 5,
+      "tp": 5
+    },
+    "Authorization / BOLA / BFLA": {
+      "detection_recall": 1.0,
+      "false_positive_rate": 0.0,
+      "fn": 0,
+      "fp": 0,
+      "tn": 7,
+      "tp": 7
+    },
+    "Browser / XSS": {
+      "detection_recall": 1.0,
+      "false_positive_rate": 0.0,
+      "fn": 0,
+      "fp": 0,
+      "tn": 3,
+      "tp": 3
+    },
+    "Business Logic / Payments": {
+      "detection_recall": 1.0,
+      "false_positive_rate": 0.5,
+      "fn": 0,
+      "fp": 1,
+      "tn": 1,
+      "tp": 2
+    },
+    "Files / Uploads / Parsers": {
+      "detection_recall": 1.0,
+      "false_positive_rate": 0.0,
+      "fn": 0,
+      "fp": 0,
+      "tn": 4,
+      "tp": 4
+    },
+    "Injection / Dataflow": {
+      "detection_recall": 1.0,
+      "false_positive_rate": 0.0,
+      "fn": 0,
+      "fp": 0,
+      "tn": 4,
+      "tp": 4
+    },
+    "Race / Idempotency / Replay": {
+      "detection_recall": 1.0,
+      "false_positive_rate": 0.0,
+      "fn": 0,
+      "fp": 0,
+      "tn": 2,
+      "tp": 2
+    },
+    "SSRF / URL Fetching": {
+      "detection_recall": 1.0,
+      "false_positive_rate": 0.5,
+      "fn": 0,
+      "fp": 1,
+      "tn": 1,
+      "tp": 2
+    },
+    "Secrets / Supply Chain": {
+      "detection_recall": 1.0,
+      "false_positive_rate": 0.0,
+      "fn": 0,
+      "fp": 0,
+      "tn": 2,
+      "tp": 2
+    }
+  },
+  "result_kind": "SECHELIX_RUN",
+  "run": {
+    "agent_host": "Claude Code",
+    "case_count": 76,
+    "cases_sha256": "1ad970d1c1ac36e38c495dfbedfedd9fe695d6170a3824364f398b6ebb39f922",
+    "cost": 7.2699,
+    "execution_mode": "STATIC",
+    "fixture_count": 38,
+    "fixture_suite_version": "76 cases",
+    "input_tokens": 152,
+    "model": "claude-sonnet-5",
+    "output_tokens": 140062,
+    "prompt_reference": "the instruction in step 2 of evals/blind-packet/RUN.md, verbatim, as the system prompt",
+    "provider": "Anthropic (first-party API via Claude Code CLI 2.1.240)",
+    "runner": "76 independent headless `claude -p` processes, one per case, launched from an empty directory that contained only cases.json. Each process received the Step 2 instruction verbatim as its system prompt and a single case (family, language, filename, task, source) as its only user message. No repository was cloned. Tools were disabled with --allowedTools \"\" and MCP with --strict-mcp-config; sessions were not persisted. Labels were extracted deterministically: 74 responses began with a bare label, 2 ended with a standalone label line.",
+    "sechelix_commit": "aba5a15f8402d7b7c43a9be8795dde58291c3fa2",
+    "time_seconds": 5442,
+    "tools": []
+  },
+  "scanner_contribution": {},
+  "schema_version": "1.0.0"
+}

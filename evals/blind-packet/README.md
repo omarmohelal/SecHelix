@@ -1,10 +1,15 @@
 # Blind evaluation packet
 
-This directory contains everything needed to produce **the first uncontaminated SecHelix
-measurement**. Benchmark status is `NOT_MEASURED` and stays that way until a run completes under
-these conditions.
+This directory contains everything needed to run the blind suite. The **first uncontaminated run
+was produced on 2026-09-02** and is published as
+[`../results/claude-sonnet-5-blind-2026-09-02.json`](../results/claude-sonnet-5-blind-2026-09-02.json).
+The packet stays here because one run is not a benchmark: further runs, other models and the
+full-workflow metrics are all still open.
 
-- `cases.json` — 76 blind cases. SHA-256 `c15861edbe997f5909d32d3a0870eb963b3c654b37583aaa6ba28d90d183d9fb`
+- `cases.json` — 76 blind cases. SHA-256 of the canonical LF bytes:
+  `1ad970d1c1ac36e38c495dfbedfedd9fe695d6170a3824364f398b6ebb39f922`. A Git checkout on Windows that
+  rewrites line endings hashes to `c15861ed…` instead; both are the same content, and `c15861ed…`
+  was published here as the expected value until 2026-09-02.
 - Ground truth is **not** in this directory. It lives in `evals/fixtures/` and is only read at
   scoring time.
 
