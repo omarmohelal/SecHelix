@@ -344,6 +344,32 @@ Different models can own different lanes without creating different security pol
 - [AI, agent, and MCP security](docs/reference/ai-agent-security.md) — mechanisms, and what evidence refutes each one
 - [Specialist agents](docs/reference/specialist-agents.md) — the 17 role profiles
 
+**Evidence and decisions**
+
+- [Policy packs](docs/reference/policy-packs.md) — release rules as versioned data, stamped into the report they decided
+- [Verifier quorum](docs/reference/verifier-quorum.md) — independent verification paths that cannot see each other
+- [Calibration](docs/reference/calibration.md) — does stated confidence predict the verifier's verdict
+- [Proof bundles](docs/reference/proof-bundles.md) — one verified finding, exported so a recipient can check it
+- [Campaigns](docs/reference/campaigns.md) — grouping findings by root cause so remediation is finite
+- [Remediation loop](docs/reference/remediation-loop.md) — reviewing the fix as adversarially as the bug
+
+**Analysis surfaces**
+
+- [Runtime trace](docs/reference/runtime-trace.md) — correlating runtime observations with static evidence
+- [Dependency exploitability](docs/reference/dependency-exploitability.md) — why a CVE being present is not enough
+- [Secret lifecycle](docs/reference/secret-lifecycle.md) — detection is the easy part
+- [MCP permission graph](docs/reference/mcp-permission-graph.md) — agent, server, tool, permission, data
+- [AI-BOM](docs/reference/ai-bom.md) — inventory for an AI-enabled repository
+- [Authorization graph](docs/reference/authorization-graph.md) — identity to role to permission to resource
+- [Evidence cache](docs/reference/evidence-cache.md) — reuse only what is provably still valid
+- [PR review mode](docs/reference/pr-review-mode.md) — silent unless something material changed
+
+**Project**
+
+- [Git history policy](docs/reference/git-history-policy.md) — squash-only, and why history is not rewritten
+- [Branch protection](docs/reference/branch-protection.md) — the rulesets, and how they were verified
+- [Open-core boundary](docs/architecture/open-core-boundary.md) — what would never be paywalled
+
 - [Quickstart](docs/QUICKSTART.md)
 - [Command cookbook](docs/COMMANDS.md)
 - [Case study: gamingops-store](docs/case-studies/gamingops-store-2026-09-01.md)
