@@ -184,8 +184,9 @@ def main(argv=None) -> int:
         for finding in findings:
             print(f"- {finding}")
         print(
-            "\nThe tree is the source of truth. Update the prose, or if the tree is wrong, "
-            "fix the tree — but do not silence this by loosening a rule."
+            "\nThe tree is the source of truth. Run `python scripts/sync_doc_counts.py` to "
+            "update every claim at once, or if the tree is wrong, fix the tree — but do not "
+            "silence this by loosening a rule."
         )
         return 1
 

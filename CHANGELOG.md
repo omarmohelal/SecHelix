@@ -2,7 +2,7 @@
 
 All notable changes to SecHelix are documented here.
 
-## [Unreleased] — V3.3 evidence intelligence
+## [V3.3] — evidence intelligence
 
 ### Fixed (fail-open defects)
 
@@ -72,6 +72,68 @@ both were fail-open in modules whose stated contract is fail-closed.
   uncontaminated evaluator. Every claim in it was verified against the tree.
 - Benchmark remains **`NOT_MEASURED`**. The session that produced V3.3 is
   disqualified as evaluator and did not run the scored benchmark.
+
+## [Unreleased] — V3.4 evidence platform
+
+### Git history
+
+- Squash-only merges with `PR_TITLE` and a blank body, enforced at both the
+  repository setting and the branch ruleset. Merge and rebase merges disabled.
+- `scripts/check_commit_hygiene.py` fails CI on assistant trailers, session URLs
+  and diary-length bodies in commits after the V3.3 baseline. **Existing history
+  is not rewritten** — that would invalidate every SHA anyone holds, including
+  the release tags and a directory submission that cites a commit.
+
+### Fixed
+
+- **A proof bundle accepted injected files.** `verify_bundle` walked the manifest
+  and stopped, so it proved every *listed* file intact and said nothing about one
+  added after export. An injected artifact was reported as internally consistent,
+  in the function whose whole purpose is a recipient checking a bundle they were
+  sent.
+
+### Policy and verification
+
+- **`policy_packs.py`** — release policy as versioned data, stamped into the
+  report it decided. A rule-less pack cannot decide a release; unresolved scope
+  is `INCOMPLETE` rather than `PASS`; rules evaluated without firing are recorded;
+  an accepted risk needs an owner and an unexpired date. Ships
+  `policies/packs/production-default.json`.
+- **`quorum.py`** — sealed multi-path verification. A quorum cannot be read before
+  it opens, cannot open while a voter is outstanding, and rejects votes cast
+  afterwards. `DISAGREEMENT` is neither a finding nor a clearance, and a majority
+  does not overrule a dissent. A quorum never promotes a finding the verifier did
+  not verify.
+- **`campaigns.py`** — root-cause remediation. Only verified findings join;
+  patched-but-unproven is `PATCHED_UNPROVEN`, never `COMPLETE`; remaining risk
+  names the open findings rather than a percentage.
+- **`remediation.py`** — the controlled loop. Existing tests, vulnerability
+  regression, a differential review of the patch itself, a remediation-risk check
+  for newly introduced authorization/validation/availability defects, and
+  independent verification. A stage that did not run blocks readiness exactly as
+  a failing one does. Nothing is ever applied.
+
+### Evidence capabilities
+
+- **`runtime_trace.py`** — LOCAL/STAGING by default, values redacted, and a
+  runtime observation alone never verifies a finding.
+- **`dependency_graph.py`** — installed → imported → reachable →
+  attacker-controlled → exposed. `UNKNOWN` never renders as `NOT_EXPLOITABLE`.
+- **`secret_lifecycle.py`** — removing a secret from source can never satisfy a
+  git-history exposure, and rotation without revocation is not remediation.
+- **`mcp_graph.py`** — MCP tool annotations are hints, not controls; they can add
+  a detection and never remove one.
+- **`ai_inventory.py`** — an undeterminable trust boundary is `UNKNOWN`, never
+  `INTERNAL`, and a declared asset is never presented as observed.
+
+### Evidence and honesty
+
+- `evals/ablation/` designs the arm-A/arm-B measurement of how much of a result is
+  the methodology rather than the model. Not run.
+- `docs/architecture/open-core-boundary.md` fixes the commercial line in advance:
+  the local engine is never paywalled, and Cloud consumes Core's artifacts rather
+  than forking its engine.
+- Benchmark remains **`NOT_MEASURED`**.
 
 ## [3.2.0-alpha.1] - 2026-09-01
 
