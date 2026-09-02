@@ -36,6 +36,7 @@ from .coverage import (
 from .executor import NodeOutcome
 from .graph import GraphNode, ReasonerGraph
 from .replay import ReplayError, replay_run
+from .report import RENDERERS
 from .roles import NodeRole, NodeStatus
 from .runner import Runner
 from .storage import InvalidRunId, RunWorkspace, list_runs, persist_run
@@ -350,38 +351,7 @@ def cmd_report(args: argparse.Namespace) -> int:
         print(f"error: no run {run_id!r}", file=sys.stderr)
         return EXIT_ERROR
     data = workspace.read_json("run.json")
-
-    if args.format == "json":
-        print(json.dumps(data, indent=2, sort_keys=True))
-        return EXIT_OK
-
-    lines = [
-        f"# SecHelix run {data['run_id']}",
-        "",
-        f"- runner: `{data['runner_version']}`",
-        f"- commit: `{data['target_commit']}`",
-        f"- executor: `{data['executor']}`",
-        "",
-        "## Nodes",
-        "",
-        "| node | role | status | detail |",
-        "|---|---|---|---|",
-    ]
-    for node_id, record in sorted(data["records"].items()):
-        detail = record.get("blocker") or record.get("error") or ""
-        lines.append(
-            f"| `{node_id}` | {record['role']} | **{record['status']}** | {detail} |"
-        )
-    lines += ["", "## Result", ""]
-    if data["unsatisfied_mandatory"]:
-        lines.append(
-            "**INCOMPLETE.** Unsatisfied mandatory nodes: "
-            + ", ".join(f"`{n}`" for n in data["unsatisfied_mandatory"])
-            + ". No security claim can be made from this run."
-        )
-    else:
-        lines.append("All mandatory nodes satisfied.")
-    print("\n".join(lines))
+    print(RENDERERS[args.format](data))
     return EXIT_OK
 
 
@@ -441,7 +411,10 @@ def build_parser() -> argparse.ArgumentParser:
     report = sub.add_parser("report", help="render a recorded run")
     report.add_argument("run_id", nargs="?", default=None)
     report.add_argument("--path", default=".")
-    report.add_argument("--format", choices=("markdown", "json"), default="markdown")
+    report.add_argument(
+        "--format", choices=tuple(sorted(RENDERERS)), default="markdown",
+        help="markdown | json | sarif | html",
+    )
     _common(report)
     report.set_defaults(func=cmd_report)
 
