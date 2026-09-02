@@ -1,6 +1,6 @@
 # Final launch content
 
-Ready-to-post copy for the `v3.2.0-alpha.1` launch. Everything here is final form — earlier
+Ready-to-post copy for the `v3.4.0-alpha.1` launch. Everything here is final form — earlier
 exploratory drafts live one directory up in `docs/launch/`.
 
 **Nothing here has been posted.** Posting is a human decision.

@@ -86,7 +86,7 @@ Install: `npx skills@latest add omarmohelal/SecHelix --skill sechelix`
   high-severity XSS that did not survive verification). It is a worked example, not a performance
   claim.
 - The trophy case is currently empty on purpose; it only accepts public, attributable results.
-- Release 3.2.0-alpha.1 — alpha software.
+- Release 3.4.0-alpha.1 — alpha software.
 
 ### Checklist
 
