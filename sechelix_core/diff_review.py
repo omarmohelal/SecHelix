@@ -275,11 +275,28 @@ def parse_unified_diff(text: str) -> list[FileDiff]:
 #: Prose files describe code; they do not execute it. Applying code-shaped rules to
 #: them produces confident noise, so only rules meaningful in text apply there.
 PROSE_SUFFIXES = (".md", ".markdown", ".rst", ".txt", ".adoc")
-PROSE_RELEVANT_KINDS = frozenset({"secret", "dependency"})
+
+#: Files that *describe* rather than execute. A JSON Schema states a shape; a
+#: policy pack states what to look for. Running the detectors over them flags the
+#: description of a risk as the risk — a policy rule named MCP-WRITE-AUTHORIZATION
+#: matched the AI-tool detector, and a schema's own redaction pattern containing
+#: the word "signature" matched the webhook detector.
+DECLARATION_SUFFIXES = (".schema.json",)
+DECLARATION_PREFIXES = ("policies/",)
+
+#: Only a credential survives the prose and declaration filters. A version number
+#: written in documentation is documentation; the dependency that would matter
+#: lives in a lockfile, and this rule fired on every `"schema_version": "1.0"` in
+#: the project's own release.
+PROSE_RELEVANT_KINDS = frozenset({"secret"})
 
 
 def _is_prose(path: str) -> bool:
-    return str(path).lower().endswith(PROSE_SUFFIXES)
+    """Whether a file describes rather than executes."""
+    lowered = str(path).lower().replace("\\", "/")
+    return (lowered.endswith(PROSE_SUFFIXES)
+            or lowered.endswith(DECLARATION_SUFFIXES)
+            or any(part in lowered for part in DECLARATION_PREFIXES))
 
 
 #: Line starts that mean "this line is commentary, not behaviour", across the
