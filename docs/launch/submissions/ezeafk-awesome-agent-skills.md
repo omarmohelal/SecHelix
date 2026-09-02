@@ -168,7 +168,7 @@ the operator owns or is explicitly authorized to test, and producing a defensibl
 
 **Reusable structure beyond a single prompt.** The repository ships, as files: 546 structured security
 hypotheses (exactly 21 families x 26 verification lenses) in a validated catalog with stable IDs; 17
-model-neutral specialist role profiles, including an independent verifier; 19 JSON Schema Draft
+model-neutral specialist role profiles, including an independent verifier; 21 JSON Schema Draft
 2020-12 contracts that reports must validate against; 18 Gold Check Packs; 11 evidence adapters
 (Semgrep, Trivy, OSV, Gitleaks, ZAP, Nuclei, Playwright, package audit, SARIF); 38 eval fixtures /
 76 cases with a scoring harness; and a provenance-backed knowledge graph of 76 nodes and 100 edges.

@@ -217,7 +217,7 @@ evidence supports it.
 On "meaningful uplift" over base model capability, since that is a stated rejection criterion: the
 uplift claimed is structural, not stylistic. The repo ships a validated catalog of 546 security
 hypotheses (exactly 21 families x 26 verification lenses), 17 model-neutral specialist role profiles
-including an independent verifier, 19 JSON Schema Draft 2020-12 contracts that reports must validate
+including an independent verifier, 21 JSON Schema Draft 2020-12 contracts that reports must validate
 against, 18 Gold Check Packs, 38 eval fixtures (76 cases), and a provenance-backed knowledge graph of
 76 nodes and 100 edges. Applicability resolves to APPLICABLE / NOT_APPLICABLE / UNKNOWN / BLOCKED, so
 missing evidence is never silently treated as absence, and the release gate is fail-closed, returning

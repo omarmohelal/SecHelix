@@ -72,7 +72,7 @@ regression assertions → release decision PASS after remediation.
 
 This is the methodology I have been building in the open as SecHelix — Apache-2.0,
 github.com/omarmohelal/SecHelix. It is deliberately structured rather than vibes-based: 546 security
-hypotheses across 21 families and 26 verification lenses, 19 JSON Schema contracts that a report has
+hypotheses across 21 families and 26 verification lenses, 21 JSON Schema contracts that a report has
 to validate against, four honest applicability outcomes (APPLICABLE / NOT_APPLICABLE / UNKNOWN /
 BLOCKED, where missing evidence is never treated as absence), and a release gate that returns PASS,
 PASS_WITH_KNOWN_RISK, BLOCKED, or a fail-closed INCOMPLETE.
