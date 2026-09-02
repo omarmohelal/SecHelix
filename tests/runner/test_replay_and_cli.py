@@ -206,6 +206,28 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, cli.EXIT_OK)
         self.assertIn("records", json.loads(out))
 
+    def test_coverage_requires_a_prior_run(self) -> None:
+        code, _ = self._run(["coverage", str(self.tmp)])
+        self.assertEqual(code, cli.EXIT_ERROR)
+
+    def test_blocked_lanes_credit_no_coverage(self) -> None:
+        """Nothing was examined, so nothing may be recorded as covered.
+
+        Crediting a BLOCKED lane would turn this run's gap into next run's
+        false reassurance.
+        """
+        self._run(["audit", str(self.tmp), "--depth", "quick"])
+        code, out = self._run(["coverage", str(self.tmp), "--json"])
+        self.assertEqual(code, cli.EXIT_OK)
+        report = json.loads(out)
+        self.assertEqual(report["totals"]["REUSED"], 0)
+        self.assertGreater(report["totals"]["NEVER_COVERED"], 0)
+        self.assertTrue(report["blind_spots"])
+
+    def test_audit_json_carries_the_coverage_report(self) -> None:
+        code, out = self._run(["audit", str(self.tmp), "--depth", "quick", "--json"])
+        self.assertIn("coverage", json.loads(out))
+
     def test_replay_of_unknown_run_exits_error(self) -> None:
         code, _ = self._run(["replay", "RUN-NOPE", str(self.tmp)])
         self.assertEqual(code, cli.EXIT_ERROR)
