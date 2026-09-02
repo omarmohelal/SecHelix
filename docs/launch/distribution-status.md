@@ -12,7 +12,27 @@ Search visibility for everything on this page is measured separately in
 | Target | Listing | State |
 |---|---|---|
 | skills.sh | [`www.skills.sh/omarmohelal/sechelix`](https://www.skills.sh/omarmohelal/sechelix) | LIVE — 1 skill. The install figure it shows is **2**, and both are our own cold-install verification runs. |
-| AwesomeSkills | [`www.awesomeskills.dev/en/skill/sechelix-sechelix`](https://www.awesomeskills.dev/en/skill/sechelix-sechelix) | LIVE — name, description, install command, platforms and GitHub URL are all correct. **Auto-categorised as "Image"**, which is wrong; the listing page exposes no edit, report or contact control, so it is not self-service correctable. |
+| AwesomeSkills | [`www.awesomeskills.dev/en/skill/sechelix-sechelix`](https://www.awesomeskills.dev/en/skill/sechelix-sechelix) | LIVE — name, description, install command, platforms and GitHub URL are all correct. **Auto-categorised as "Image"**, which is wrong. See below: there is no correction route to use. |
+
+### AwesomeSkills category — NO CORRECTION ROUTE EXISTS
+
+The listing is auto-categorised **Image**. SecHelix generates no images. Searched for a supported way
+to fix it and found none:
+
+| Checked | Result |
+|---|---|
+| The listing page itself | No edit, report, flag or contact control |
+| Site footer and `#contribute` | Only "Submit a skill"; no contact, no about |
+| `/en/about`, `/en/contact` | 404 |
+| `/.well-known/security.txt`, `/humans.txt` | 404 |
+| Only external "GitHub" link on the site | Points at `anthropics/skills` — not their own repository |
+| Blog pages | No author contact, no email, no social handle |
+| The submit form | **One field** (GitHub URL) plus a Cloudflare Turnstile CAPTCHA. No category field, no notes field. "We auto-detect… Instantly live. No moderation queue." |
+
+So the two theoretically available actions are both off the table: re-submitting would re-run the same
+auto-classifier and risk a **duplicate listing**, and the form is behind a CAPTCHA that must not be
+bypassed. **Nothing was sent.** If a contact route ever appears, the message to use is in the launch
+plan; send it once.
 
 Only the AwesomeSkills URL was added to the site's `Organization.sameAs`. skills.sh was already
 there. Nothing pending, and no open pull request, is listed as an identity for this entity.
@@ -88,15 +108,17 @@ There is still no `/submit` path and no machine-readable contribution policy. Th
 be crawler-populated rather than submission-driven, so **no submission workflow was invented and
 nothing was sent.** If SecHelix appears there later it will be because their crawler found it.
 
-### Hacker News, Reddit, X — NOT AUTHENTICATED
+### Hacker News, Reddit, X — accounts now exist; platform rules are the remaining blocker
 
-Recorded because "we chose not to" and "we could not" are different sentences.
+Recorded because "we chose not to", "we could not" and "the platform refused" are three different
+sentences.
 
-| Target | Observed 2026-09-02 |
+| Target | Observed 2026-09-02, signed in |
 |---|---|
-| Hacker News | `news.ycombinator.com/submit` returns *"You have to be logged in to submit."* Nothing posted. |
-| r/netsec, r/AppSec | The current rules could not be read: the new UI serves anonymous visitors a JS challenge, and `old.reddit.com` now requires an account. Posting without reading the rules is exactly what the plan forbids, so nothing was posted. |
-| X | `x.com` shows the signed-out landing page. Nothing posted; `final/x-thread.md` stays as saved copy. |
+| Hacker News | Account `omarmohelal` (karma 1). The Show HN submission was **refused by HN**, which redirected to `news.ycombinator.com/showlim`: *"We're temporarily restricting Show HNs because of a massive influx, mostly by users who aren't yet familiar with the site or its culture … become a good contributor, and then it will be fine to post an occasional Show HN."* Nothing was posted, and the restriction was **not** worked around by re-filing it as a plain submission — dodging it is the behaviour the rule exists to stop. Submissions list is empty. |
+| r/netsec | **NOT_ALLOWED, and not close.** The current sidebar rules include **8. No tool posts** and **9. No AI-generated posts**. A SecHelix announcement is a tool post, and the drafted copy is AI-generated. Both drafts stay unposted. |
+| r/AppSec | Rules could not be read — the subreddit page renders empty for this session. The plan says read the rules first, so nothing was posted. |
+| X | Account `@Omar2070207`. The thread root is live: <https://x.com/Omar2070207/status/2095139449684246735>. The composer merged consecutive posts several times and had to be repaired; the profile shows 3 posts where 4 were composed, and X has placed the account under **graduated access** (`x.com/i/graduated-access`: *"we want to be sure there's a human behind this account"*), which limits reach until the account has more genuine activity. Re-read the thread before adding to it. |
 
 LinkedIn is the exception: authenticated, and **posted once on 2026-09-02 after the owner explicitly
 authorised it** — <https://www.linkedin.com/feed/update/urn:li:activity:7500865884689850370/>. The
