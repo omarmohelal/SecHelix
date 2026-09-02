@@ -127,7 +127,7 @@ No open pull request, pending submission, search-result page or self-created pro
 |---|---|
 | Hacker News | NOT POSTED — not authenticated. Copy stays in `final/show-hn.md`; it needed no version refresh. |
 | Dev.to / Hashnode | NOT POSTED — neither platform is reachable from this browser session, and there is no authenticated account. The canonical for the flagship article is `https://sechelix.com/research`, the research surface that already exists, so the copies have something to point at whenever they are published. No competing canonical was created. |
-| LinkedIn | NOT POSTED — the account **is** authenticated, and the copy in `final/linkedin.md` is final, but social publishing has not been explicitly authorised. Awaiting a yes. |
+| LinkedIn | **POSTED once**, after the owner explicitly authorised it — <https://www.linkedin.com/feed/update/urn:li:activity:7500865884689850370/>. `final/linkedin.md` verbatim, public visibility. The only change was reflowing the file's hard line wraps into paragraphs; no wording, claim or fact was altered. |
 | X | NOT POSTED — not authenticated. `final/x-thread.md` stays as saved copy. No account was created. |
 | r/netsec, r/AppSec | NOT POSTED — the current subreddit rules could not be read anonymously, and posting without reading them is precisely what the plan forbids. |
 
@@ -152,8 +152,11 @@ Every remaining item needs a human with an account. None is a code change.
    [`distribution-status.md`](distribution-status.md).
 3. **Bing Webmaster Tools** — sign in, add `https://sechelix.com`, import from Search Console,
    submit the sitemap.
-4. **LinkedIn** — approve and post `final/linkedin.md`.
-5. **Hacker News, X, Reddit** — authenticate, then post once, having re-read the destination's
+4. **Hacker News, X, Reddit** — authenticate, then post once, having re-read the destination's
    current rules on the day.
-6. **AwesomeSkills category** — contact them through whatever route exists off the listing page; the
+5. **AwesomeSkills category** — contact them through whatever route exists off the listing page; the
    "Image" category is wrong and cannot be fixed from the listing itself.
+
+LinkedIn is done. Be available on that post for the next few hours — the first hostile question will
+be *"how do I know it works?"*, and the honest answer is the whole argument: you don't yet, the
+benchmark is `NOT_MEASURED`, here is why, and here is the blind packet.
