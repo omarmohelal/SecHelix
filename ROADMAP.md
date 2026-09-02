@@ -2,7 +2,7 @@
 
 SecHelix should earn trust through evals before adding complexity.
 
-> **Maturity: public alpha (`3.4.0-alpha.1`).**
+> **Maturity: public alpha (`3.4.0-alpha.2`).**
 > Sections marked *complete* describe shipped repository capability, not measured
 > accuracy. The blind label suite is **`MEASURED`** — one uncontaminated run,
 > [`evals/results/claude-sonnet-5-blind-2026-09-02.json`](evals/results/claude-sonnet-5-blind-2026-09-02.json).

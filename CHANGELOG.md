@@ -2,6 +2,26 @@
 
 All notable SecHelix release changes are summarized here. Detailed release notes live in [`docs/releases/`](docs/releases/), and the Git history remains the authoritative development record.
 
+## [3.4.0-alpha.2] - 2026-09-02
+
+### Evaluation
+
+- Published the first uncontaminated blind-label evaluation: precision 0.950, detection recall 1.000, false-positive rate 0.053, false-positive rejection rate 0.947, counts TP 38 / FP 2 / TN 36 / FN 0.
+- Kept the two measurement layers separate everywhere: the **blind label suite is `MEASURED`**, the **full SecHelix workflow remains `NOT_MEASURED`**. `verified_precision` is 0.0 only because `verification_status` was `NOT_RUN` for every case.
+- Corrected the blind packet's published digest, which had been computed on a CRLF working copy and therefore failed verification for anyone following the documented download.
+
+### Public record
+
+- Synced the evidence boundary across README, ROADMAP, SUPPORT, evaluation and enterprise documents, the website, and the AI-readable `llms.txt` / `llms-full.txt` surfaces.
+- Fixed two 404 links in `llms.txt` (`SKILL.md`, `TROPHY_CASE.md`).
+
+### Discovery
+
+- Added an `/appsec-agent` product-category pillar and a second research piece on reviewing AI-generated code; declined a third page that would have duplicated the pillar.
+- Recorded a search-intent baseline together with the Search Console state it was not derived from (zero impressions).
+- Named `Google-Extended` explicitly in `robots.txt` with the same public-allow / admin-deny shape, covered by automated assertions. This governs Gemini training and grounding use, not Search ranking.
+- Strengthened entity structured data with stable `@id` values. No rating schema was added.
+
 ## [3.4.0-alpha.1] - 2026-09-02
 
 ### Evidence platform
