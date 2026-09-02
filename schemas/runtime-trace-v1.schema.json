@@ -1,0 +1,322 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sechelix.com/schemas/runtime-trace-v1.schema.json",
+  "title": "SecHelix runtime trace v1",
+  "description": "Runtime observations correlated against static claims. A trace records and correlates; it never generates traffic, and it can never carry a status above HYPOTHESIS, because behaviour observed at runtime is evidence about a claim rather than proof of one.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "trace_id",
+    "execution_mode",
+    "emits_traffic",
+    "redaction",
+    "observations",
+    "correlations",
+    "assessments",
+    "counts",
+    "notes"
+  ],
+  "allOf": [
+    {
+      "description": "PRODUCTION_SAFE is never a default. Choosing it requires stating the restrictions under which it was chosen; LOCAL and STAGING need none.",
+      "anyOf": [
+        { "properties": { "execution_mode": { "enum": ["LOCAL", "STAGING"] } } },
+        {
+          "required": ["production_safeguards"],
+          "properties": {
+            "execution_mode": { "const": "PRODUCTION_SAFE" },
+            "production_safeguards": { "minItems": 1 }
+          }
+        }
+      ]
+    }
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+
+    "trace_id": {
+      "type": "string",
+      "pattern": "^TRACE-[A-Z0-9][A-Z0-9._-]{0,63}$"
+    },
+
+    "execution_mode": {
+      "description": "Where the observations were collected. LOCAL and STAGING are the defaults; PRODUCTION_SAFE is a deliberate choice that carries its own restrictions.",
+      "enum": ["LOCAL", "STAGING", "PRODUCTION_SAFE"]
+    },
+
+    "production_safeguards": {
+      "description": "The restrictions under which PRODUCTION_SAFE was chosen. Required in that mode, because 'we ran it against production' with no stated limits is not a safeguard, it is a hope.",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+
+    "emits_traffic": {
+      "description": "Always false. This contract exists for a recorder; an artifact that claimed traffic had been generated to produce it would be describing a different tool.",
+      "const": false
+    },
+
+    "repository": { "type": "string", "minLength": 1 },
+    "commit": { "type": "string", "minLength": 1 },
+
+    "redaction": { "$ref": "#/$defs/redaction" },
+
+    "observations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/observation" }
+    },
+
+    "correlations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/correlation" }
+    },
+
+    "assessments": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/assessment" }
+    },
+
+    "counts": {
+      "description": "Per-strength correlation counts. All four are required so a renderer cannot quietly drop INSUFFICIENT and leave a reader counting only what was decided.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["CONFIRMS", "CONTRADICTS", "UNRELATED", "INSUFFICIENT"],
+      "properties": {
+        "CONFIRMS": { "type": "integer", "minimum": 0 },
+        "CONTRADICTS": { "type": "integer", "minimum": 0 },
+        "UNRELATED": { "type": "integer", "minimum": 0 },
+        "INSUFFICIENT": { "type": "integer", "minimum": 0 }
+      }
+    },
+
+    "notes": {
+      "description": "What would make a reader over-read this trace. Required and non-empty.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+
+  "$defs": {
+    "evidence_id": {
+      "type": "string",
+      "pattern": "^EV-[A-Z0-9][A-Z0-9._-]{2,95}$"
+    },
+
+    "claim_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$"
+    },
+
+    "observation_id": {
+      "type": "string",
+      "pattern": "^OBS-[A-Z0-9][A-Z0-9._-]{0,63}$"
+    },
+
+    "redaction": {
+      "description": "What redaction removed, in the shape sechelix_core.proof_bundle records it. A trace that redacted nothing says so; it never omits the field.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["applied", "total_values_redacted", "by_pattern"],
+      "properties": {
+        "applied": { "type": "boolean" },
+        "replacement": { "type": ["string", "null"] },
+        "total_values_redacted": { "type": "integer", "minimum": 0 },
+        "by_pattern": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+
+    "signals": {
+      "description": "Observed metadata, one scalar (or array of scalars) per name. Names that would carry a secret rather than describe one are forbidden by the contract, not merely discouraged: a cookie value, an Authorization header, a session identifier and a request body have no metadata reading, so there is no correct way for them to appear here.",
+      "type": "object",
+      "patternProperties": {
+        "(^|_)(value|values|secret|secrets|token|tokens|password|passwd|passphrase|authorization|auth|credential|credentials|cookie|cookies|session|sid|jwt|bearer|key|keys|body|payload|signature|sig)(_|$)": false,
+        "^[a-z][a-z0-9_]*$": { "$ref": "#/$defs/signal_value" }
+      },
+      "additionalProperties": false
+    },
+
+    "signal_value": {
+      "type": ["string", "number", "boolean", "null", "array"],
+      "items": { "type": ["string", "number", "boolean", "null"] }
+    },
+
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observation_id", "kind", "signals"],
+      "properties": {
+        "observation_id": { "$ref": "#/$defs/observation_id" },
+        "kind": {
+          "description": "What was recorded. Every kind is metadata about an exchange, never its content.",
+          "enum": [
+            "HTTP_EXCHANGE",
+            "API_CALL",
+            "REDIRECT_CHAIN",
+            "COOKIE_METADATA",
+            "WEBSOCKET_HANDSHAKE",
+            "WEBHOOK_DELIVERY",
+            "APPLICATION_TRACE"
+          ]
+        },
+        "surface": {
+          "description": "The route, path or symbol this observation is about. Absent when none was recorded, which makes every correlation for it INSUFFICIENT rather than UNRELATED.",
+          "type": "string",
+          "minLength": 1
+        },
+        "surface_redacted": {
+          "description": "True when redaction altered the surface itself. Such an observation can no longer be compared, so it can only ever produce INSUFFICIENT.",
+          "type": "boolean"
+        },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "signals": { "$ref": "#/$defs/signals" },
+        "dropped_signals": {
+          "description": "Signal names removed before anything was written, listed so a reader can tell a dropped field from one that was never observed.",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "note": { "type": "string" }
+      }
+    },
+
+    "correlation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observation_id", "claim_id", "strength", "surface_match", "reason"],
+      "allOf": [
+        {
+          "description": "INSUFFICIENT and UNRELATED are different answers and the contract keeps them apart. UNRELATED requires a surface that was actually compared and did not match; a surface that could not be compared can only produce INSUFFICIENT; and a match is required before anything may confirm or contradict.",
+          "anyOf": [
+            {
+              "properties": {
+                "strength": { "const": "UNRELATED" },
+                "surface_match": { "const": "NONE" }
+              }
+            },
+            {
+              "properties": {
+                "strength": { "enum": ["CONFIRMS", "CONTRADICTS"] },
+                "surface_match": { "enum": ["EXACT", "TEMPLATE", "FILE"] }
+              }
+            },
+            {
+              "properties": {
+                "strength": { "const": "INSUFFICIENT" },
+                "surface_match": { "enum": ["EXACT", "TEMPLATE", "FILE", "UNDETERMINED"] }
+              }
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "observation_id": { "$ref": "#/$defs/observation_id" },
+        "claim_id": { "$ref": "#/$defs/claim_id" },
+        "strength": {
+          "description": "CONFIRMS and CONTRADICTS say the observation bore on the claim. UNRELATED says nothing relevant was seen. INSUFFICIENT says it could not be told — which is not the same answer, and is never reported as UNRELATED.",
+          "enum": ["CONFIRMS", "CONTRADICTS", "UNRELATED", "INSUFFICIENT"]
+        },
+        "surface_match": {
+          "description": "How precisely the observed surface matched the claim's. FILE means the two agree on a file but not a line, so the match is real but coarse.",
+          "enum": ["EXACT", "TEMPLATE", "FILE", "NONE", "UNDETERMINED"]
+        },
+        "matched_surface": { "type": ["string", "null"] },
+        "reason": { "type": "string", "minLength": 1 },
+        "compared_signals": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "uncomparable_signals": {
+          "description": "Signals the claim predicts that could not be checked — never observed, or observed and then redacted. Listed rather than counted as agreement.",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "disagreeing_signals": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "static_evidence_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidence_id" },
+          "uniqueItems": true
+        }
+      }
+    },
+
+    "assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "status",
+        "verification_ready",
+        "static_evidence_ids",
+        "confirming_observation_ids",
+        "contradicting_observation_ids",
+        "insufficient_observation_ids",
+        "unrelated_observation_ids",
+        "reason"
+      ],
+      "allOf": [
+        {
+          "description": "A runtime observation alone never makes a claim ready for verification. Readiness requires static evidence, at least one confirming observation, and no contradiction.",
+          "anyOf": [
+            { "properties": { "verification_ready": { "const": false } } },
+            {
+              "properties": {
+                "verification_ready": { "const": true },
+                "static_evidence_ids": { "minItems": 1 },
+                "confirming_observation_ids": { "minItems": 1 },
+                "contradicting_observation_ids": { "maxItems": 0 }
+              }
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "claim_id": { "$ref": "#/$defs/claim_id" },
+        "status": {
+          "description": "Always HYPOTHESIS. A trace is not a verifier, and a contract that could express any other status here would eventually be asked to.",
+          "const": "HYPOTHESIS"
+        },
+        "verification_ready": {
+          "description": "Whether this claim may now be handed to an independent verifier. Readiness is not a status: nothing here has been verified.",
+          "type": "boolean"
+        },
+        "static_evidence_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidence_id" },
+          "uniqueItems": true
+        },
+        "confirming_observation_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/observation_id" },
+          "uniqueItems": true
+        },
+        "contradicting_observation_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/observation_id" },
+          "uniqueItems": true
+        },
+        "insufficient_observation_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/observation_id" },
+          "uniqueItems": true
+        },
+        "unrelated_observation_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/observation_id" },
+          "uniqueItems": true
+        },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

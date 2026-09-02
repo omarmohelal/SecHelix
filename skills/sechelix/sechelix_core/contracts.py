@@ -32,6 +32,11 @@ SCHEMAS = {
     "lesson-card": "lesson-card-v1.schema.json",
     "research-packet": "research-packet-v1.schema.json",
     "gold-check-pack": "gold-check-pack-v1.schema.json",
+    "runtime-trace": "runtime-trace-v1.schema.json",
+    "dependency-exploitability": "dependency-exploitability-v1.schema.json",
+    "secret-lifecycle": "secret-lifecycle-v1.schema.json",
+    "mcp-graph": "mcp-graph-v1.schema.json",
+    "ai-bom": "ai-bom-v1.schema.json",
 }
 
 

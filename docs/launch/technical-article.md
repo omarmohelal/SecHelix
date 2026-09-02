@@ -219,7 +219,7 @@ authorized owner self-audit. It has not been peer-reviewed and it has not been e
 The framework is SecHelix, Apache-2.0, at https://github.com/omarmohelal/SecHelix. Install with
 `npx skills@latest add omarmohelal/SecHelix --skill sechelix`. Structurally: 546 hypotheses across 21
 families and 26 verification lenses, 17 model-neutral specialist role profiles including an
-independent verifier, 21 JSON Schema Draft 2020-12 contracts, 18 Gold Check Packs, 38 paired eval
+independent verifier, 22 JSON Schema Draft 2020-12 contracts, 18 Gold Check Packs, 38 paired eval
 fixtures (76 cases across 10 families), and a knowledge graph of 76 nodes, 100 edges, and 11 lesson
 cards.
 

@@ -108,7 +108,7 @@ false claim of remediation. A green typecheck is not proof that a built applicat
 
 - 546 structured security hypotheses = exactly 21 families x 26 verification lenses
 - 17 model-neutral specialist role profiles, including an independent verifier
-- 21 JSON Schema Draft 2020-12 contracts
+- 22 JSON Schema Draft 2020-12 contracts
 - 18 Gold Check Packs
 - 38 paired eval fixtures = 76 cases across 10 families
 - Knowledge graph: 76 nodes, 100 edges, 11 lesson cards
@@ -151,7 +151,7 @@ Release 3.0.0-alpha.4 (alpha). Apache-2.0.
 **"So it's a prompt?"**
 Partly, and I would rather say so than pretend otherwise. The instruction layer is prompt-shaped —
 it has to be, because the execution host is a coding agent. What is not prompt-shaped: 546 stable
-hypothesis IDs in a validated catalog, 21 JSON Schema contracts that reports must validate against,
+hypothesis IDs in a validated catalog, 22 JSON Schema contracts that reports must validate against,
 a release-gate policy that fails closed on `INCOMPLETE`, scanner/SARIF adapters, and paired
 vulnerable/clean fixtures with a scoring harness. The value claim is the evidence standard and the
 schemas that make a report checkable, not the wording.
