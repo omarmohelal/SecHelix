@@ -59,11 +59,11 @@ reviewer to skip a check is itself a finding. Trust resolution fails closed.
 
 Where I am being honest about limits:
 
-- Public benchmark is NOT_MEASURED. There are 38 paired vulnerable/clean fixtures and a scoring
-  harness, but the fixtures were authored by assistant sessions working in the repo, so scoring
-  one of them measures recall of authored answers, not review capability. Recorded
-  machine-readably as CONTAMINATED_EVALUATOR. There is a sealed blind packet so an
-  uncontaminated evaluator can produce the first real number.
+- One uncontaminated blind label run exists (2026-09-02): precision 0.950, detection recall
+  1.000, FP rate 0.053 on 38 authored pairs. It is label-only — one question per file — so it is
+  not a benchmark of the workflow. Applicability accuracy, regression-proof rate and release-gate
+  accuracy remain NOT_MEASURED, and verified precision is 0.0 because verification was never run.
+  Do not read it as "SecHelix accuracy".
 - The keyword baseline in the repo is flagged is_sechelix_result: false. It is a regex matcher
   that lands at chance. It validates the harness and shows the fixtures resist pattern matching.
   It is not a score for this tool.

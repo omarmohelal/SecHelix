@@ -53,11 +53,11 @@ costs something.
 
 Honest status, because someone will ask and I would rather say it first:
 
-- The public benchmark is NOT_MEASURED. There are 38 paired vulnerable/clean fixtures and a
-  scoring harness, but the fixtures were authored by assistant sessions working in the repo, so
-  scoring one of those sessions measures recall of answers it wrote. That is recorded
-  machine-readably as CONTAMINATED_EVALUATOR, and there is a sealed blind packet so someone
-  uncontaminated can run it. If you want to be the person who produces the first real number, the
+- The blind label suite has exactly one uncontaminated run (2026-09-02): precision 0.950,
+  detection recall 1.000, FP rate 0.053, TP 38 / FP 2 / TN 36 / FN 0. It is label-only — one
+  question per file, one label back — so it is NOT a benchmark of the SecHelix workflow, and
+  applicability accuracy, regression-proof rate and release-gate accuracy are still NOT_MEASURED.
+  The suite is 38 authored pairs, balanced, mostly single-file. If you want to run it yourself, the
   instructions are in evals/blind-packet/.
 - The repo contains a keyword baseline flagged is_sechelix_result: false — a regex matcher that
   lands at chance on the fixtures. It exists to validate the harness and show the fixtures resist
@@ -82,10 +82,11 @@ The methodology is prompt-shaped, but the contracts are not: 22 JSON Schemas, a 
 catalog, a report renderer, and a fail-closed release gate that exits non-zero. A report either
 validates or it does not.
 
-**"You have no benchmark, so why should I care?"**
-That is a fair position. The honest answer is that the benchmark is blocked on a contamination
-problem I refuse to launder, and the alternative — publishing a number produced by the session that
-wrote the fixtures — would be worse than having none.
+**"0.95 precision — so it's 95% accurate?"**
+No, and I would rather say so than let that stand. It is one model, one run, answering one question
+per file on 38 authored pairs. It did not run the verifier, the adapters, remediation, regression
+proof or the release gate — the parts this whole design is about. Those are still NOT_MEASURED. On
+an unfamiliar production codebase it tells you nothing.
 
 **"Did an AI write this?"**
 Yes, substantially, with a human directing it. Saying otherwise would be its own kind of unverified

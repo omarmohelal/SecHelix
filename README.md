@@ -10,7 +10,7 @@
 <p align="center">
   <a href="https://github.com/omarmohelal/SecHelix/actions"><img src="https://img.shields.io/github/actions/workflow/status/omarmohelal/SecHelix/validate.yml?branch=main&style=flat-square&label=validate" alt="validation"/></a>
   <a href="skills/sechelix/SKILL.md"><img src="https://img.shields.io/badge/security%20hypotheses-546-7dd3fc?style=flat-square" alt="546 hypotheses"/></a>
-  <a href="#evaluation-and-proof-status"><img src="https://img.shields.io/badge/benchmark-NOT__MEASURED-f59e0b?style=flat-square" alt="benchmark NOT_MEASURED"/></a>
+  <a href="#evaluation-and-proof-status"><img src="https://img.shields.io/badge/blind%20eval-MEASURED-34d399?style=flat-square" alt="blind eval MEASURED"/></a>
   <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-3.4.0--alpha.1-9b8cff?style=flat-square" alt="3.4.0 alpha 1"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-a78bfa?style=flat-square" alt="Apache-2.0"/></a>
 </p>
@@ -59,7 +59,8 @@ A trusted finding should establish attacker control, reachability, a failed secu
 | Zero-trust audits | **`UNTRUSTED_REPO` mode** — repository content is data, never control ([details](docs/reference/untrusted-repo-mode.md)) |
 | Change review | **Differential security review** — classifies a diff into `NEW_RISK` / `RISK_REDUCED` / `UNCHANGED` / `UNKNOWN` |
 | Real-world proof | **1 published case study** — [gamingops-store](docs/case-studies/gamingops-store-2026-09-01.md) |
-| Public benchmark | **`NOT_MEASURED`** — [blocker documented](evals/results/not-measured.json), see [Evaluation](#evaluation-and-proof-status) |
+| Blind label evaluation | **`MEASURED`** — first uncontaminated 76-case run: precision **0.950** · detection recall **1.000** · FP rate **0.053** ([result](evals/results/claude-sonnet-5-blind-2026-09-02.json), [report](docs/research/evaluation-report.md)) |
+| Full SecHelix workflow benchmark | **`NOT_MEASURED`** — applicability, independent verification, remediation/regression and release-gate performance have not been measured end to end |
 | Trophy case | Public attributable results only; **no entries yet** |
 
 The canonical live product is **[sechelix.com](https://sechelix.com)**. The website source remains private; this repository contains the open security framework, portable Agent Skill, adapters, schemas, eval fixtures, and public documentation.
@@ -277,23 +278,35 @@ See [SECURITY.md](SECURITY.md).
 
 ## Evaluation and proof status
 
-SecHelix has **no measured accuracy number**, and the reason is written down rather than glossed over.
+**The first uncontaminated blind-label run is now recorded.** It was produced on 2026-09-02 by 76 independent headless processes, each launched from an empty directory holding only `cases.json`. None cloned the repository or saw a label, a rationale, a pairing, or how many cases were vulnerable.
 
-**The blocker is `CONTAMINATED_EVALUATOR`.** The fixture suite was expanded on 2026-09-01 by the same assistant session that would have acted as the evaluated model, so that session knew fixtures it had written itself. Scoring it would measure recall of authored answers, not security-review capability. Full record: [`evals/results/not-measured.json`](evals/results/not-measured.json). If you want to produce the first real number, the whole procedure is [`evals/blind-packet/RUN.md`](evals/blind-packet/RUN.md) — one file to download, and the result gets published whichever way it comes out.
+| Metric | Value |
+|---|---|
+| Precision | **0.950** |
+| Detection recall | **1.000** |
+| False-positive rate | **0.053** |
+| False-positive rejection rate | **0.947** |
+| Counts | **TP 38 · FP 2 · TN 36 · FN 0** |
 
-Unblocking it requires a run by a model or session that did not author the fixtures, using blind cases exported with `python evals/run_evals.py --export-cases`.
+> [!WARNING]
+> **This is a label-only synthetic evaluation, not measured performance of the complete SecHelix workflow.** The protocol asks one question per file and takes one label back. It did not run attack-surface mapping, the independent refutation pass, adapters, evidence-chain construction, remediation, regression proof, or the release gate.
 
-**The harness itself is validated.** [`evals/results/baseline-keyword-v1.json`](evals/results/baseline-keyword-v1.json) records a naive regex keyword matcher run against all 76 cases. It carries `"is_sechelix_result": false` and **is not a SecHelix score.** It exists to prove two things: the scoring harness works, and the fixtures cannot be solved by pattern matching — the matcher lands at chance on a balanced 38/38 split. That is a statement about fixture difficulty, nothing else.
+Raw result: [`evals/results/claude-sonnet-5-blind-2026-09-02.json`](evals/results/claude-sonnet-5-blind-2026-09-02.json). Full write-up, including every limitation: [`docs/research/evaluation-report.md`](docs/research/evaluation-report.md). The procedure anyone can repeat is [`evals/blind-packet/RUN.md`](evals/blind-packet/RUN.md).
 
-Metrics are defined in **[docs/EVALUATION.md](docs/EVALUATION.md)**: verified precision, detection recall on known-ground-truth fixtures, false-positive rejection rate, applicability accuracy, regression-proof rate, and release-gate accuracy. A public score is allowed only after a reproducible run records the exact SecHelix commit, fixture version, model/provider configuration, enabled tools, ground truth, observed outcomes, false positives and negatives, `UNKNOWN`/`BLOCKED` cases, and supporting artifacts.
+**What is still `NOT_MEASURED`.** `verified_precision` is `0.0` because `verification_status` was `NOT_RUN` for every case — the procedure never asked for verification. `applicability_accuracy`, `regression_proof_rate` and `release_gate_accuracy` remain the literal string `NOT_MEASURED`; they belong to a full audit run, not to label-only scoring, and [`evals/results/not-measured.json`](evals/results/not-measured.json) still stands for them.
 
-Until then, benchmark status remains **`NOT_MEASURED`**.
+**The harness itself is validated separately.** [`evals/results/baseline-keyword-v1.json`](evals/results/baseline-keyword-v1.json) records a naive regex keyword matcher run against all 76 cases. It carries `"result_kind": "HARNESS_BASELINE"` and `"is_sechelix_result": false` and **is not a SecHelix score.** It lands at chance (precision 0.511, recall 0.632, FP rate 0.605) on a balanced 38/38 split, which is a statement about fixture difficulty and nothing else.
+
+Metrics are defined in **[docs/EVALUATION.md](docs/EVALUATION.md)**. A public score is allowed only after a reproducible run records the exact SecHelix commit, fixture version, model/provider configuration, enabled tools, observed outcomes, and supporting artifacts — which is why the run above is published with its provenance and its seven recorded limitations attached.
 
 ## Limitations
 
 Read this before adopting.
 
-- **No benchmark.** See above. Any accuracy claim about SecHelix today would be unsupported.
+- **One blind label-suite measurement exists; no full-workflow benchmark exists.** The numbers above describe one model answering one question per file. Nothing measures the verifier, the adapters, remediation, regression proof, or the release gate.
+- **One model, one run.** No repeats, no seed control, no variance estimate. A second run would not necessarily produce the same labels.
+- **A balanced, authored suite.** 38 pairs, 38/38 vulnerable/clean — not a real base rate, where clean code vastly outnumbers vulnerable code. Precision on this suite overstates precision in the field.
+- **Mostly single-file, mostly Python, synthetic.** Real vulnerabilities often span modules; these do not. The fixtures encode one team's idea of what is hard.
 - **One case study, `n = 1`.** A ~600 LOC app with no authentication and no server-side state, audited by its own owner. It demonstrates the workflow; it measures nothing about general performance.
 - **No public third-party results.** The [trophy case](docs/research/trophy-case.md) is empty on purpose.
 - **Alpha.** `3.4.0-alpha.1`. Contracts are versioned, but they can still change.

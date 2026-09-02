@@ -4,9 +4,11 @@ This lab contains synthetic, non-destructive, paired vulnerable and clean
 controls. It measures whether a review pipeline finds important defects while
 rejecting clean siblings. No model or scanner is called by the repository.
 
-Current published result: **NOT_MEASURED**. The committed result placeholder is
-not a benchmark score and must remain `NOT_MEASURED` until a reproducible run is
-completed.
+Current published results: the blind label suite is **MEASURED** —
+`results/claude-sonnet-5-blind-2026-09-02.json`, the first uncontaminated run.
+The **full workflow remains NOT_MEASURED**: `applicability_accuracy`,
+`regression_proof_rate` and `release_gate_accuracy` are label-only scoring's
+blind spot and keep the literal string, recorded in `results/not-measured.json`.
 
 ## Safe workflow
 

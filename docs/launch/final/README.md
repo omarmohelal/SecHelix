@@ -3,7 +3,11 @@
 Ready-to-post copy for the `v3.4.0-alpha.1` launch. Everything here is final form — earlier
 exploratory drafts live one directory up in `docs/launch/`.
 
-**Nothing here has been posted.** Posting is a human decision.
+**Publication state, 2026-09-02.** `linkedin.md` and `x-thread.md` have been posted and are
+**historical records** — do not rewrite them to match the new benchmark wording; they say what was
+said at publication time. `flagship-article.md` was published on sechelix.com, Dev.to and Hashnode
+and has been synced to what actually went out. `show-hn.md`, `reddit-appsec.md` and
+`reddit-netsec.md` are unposted and carry the current wording.
 
 ## The one story
 
@@ -26,8 +30,11 @@ the part that costs something.
 
 ## Rules for every post
 
-- **No benchmark, accuracy, precision, recall or detection-rate claim.** The public benchmark is
-  `NOT_MEASURED` and the blocker is documented. Say so plainly if asked.
+- **State the measurement boundary exactly.** The first blind label-suite run is measured
+  (precision 0.950, detection recall 1.000, FP rate 0.053, TP 38 · FP 2 · TN 36 · FN 0). The
+  **full SecHelix workflow is still `NOT_MEASURED`**. Never present 0.950 as "SecHelix accuracy":
+  it is one model answering one question per file, with no verifier, adapters, remediation,
+  regression proof or release gate in the loop. If a post cannot fit that caveat, drop the number.
 - **No adoption, install, star or ranking claim.** The skills.sh install count is currently 2 and
   both are our own cold-install verification runs.
 - **No comparison to another tool**, named or implied.

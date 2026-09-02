@@ -57,12 +57,19 @@ Nothing is upgraded to `VERIFIED` on the strength of vendor documentation alone.
 
 ## The benchmark question
 
-It comes up first, so: **the public benchmark is `NOT_MEASURED`.**
+It comes up first, so, precisely: **the blind label suite is measured; the full workflow is not.**
 
-There are 38 paired fixtures and a working scoring harness, plus a machine-readable blocker
-(`CONTAMINATED_EVALUATOR`) recording why no number is published — the fixtures were authored by
-assistant sessions working in this repository, so scoring one of them measures recall of authored
-answers rather than review capability.
+The first uncontaminated run was published on 2026-09-02 —
+[`evals/results/claude-sonnet-5-blind-2026-09-02.json`](evals/results/claude-sonnet-5-blind-2026-09-02.json):
+precision 0.950, detection recall 1.000, false-positive rate 0.053, on 38 paired fixtures covering 76
+cases. Each case was judged by a separate process that had never seen the repository, the fixtures,
+the labels or the pairings.
+
+**That is a label-only run** — one question per file, one label back. It did not exercise the
+independent verifier, the adapters, remediation, regression proof or the release gate, so
+`applicability_accuracy`, `regression_proof_rate` and `release_gate_accuracy` are still
+`NOT_MEASURED`. Do not read 0.950 as "SecHelix accuracy"; read
+[`docs/research/evaluation-report.md`](docs/research/evaluation-report.md) instead.
 
 If you want to produce the first real number, the whole procedure is
 [`evals/blind-packet/RUN.md`](evals/blind-packet/RUN.md). The result gets published whichever way it
