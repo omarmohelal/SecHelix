@@ -8,6 +8,34 @@ still blocked and on whom. Live states move; the two companion pages
 [`../research/discovery-v3.4-release.md`](../research/discovery-v3.4-release.md) are the ones to
 re-read later.
 
+## Second pass, later the same day
+
+Four things changed after the first version of this page was written. They are recorded here rather
+than by rewriting the sections below, so the sequence stays visible.
+
+| Item | New state |
+|---|---|
+| Anthropic plugin directory | **SUBMITTED** — `platform.claude.com/plugins/submit`, signed in via Google OAuth as the owner. Listed at <https://platform.claude.com/plugins/submissions> as *SecHelix — Submitted and pending review*. Supported platform declared as **Claude Code only**; Claude Cowork was left unchecked because it has never been tested. The form states plainly that submitting does not guarantee inclusion, and no "Anthropic Verified" status is claimed. |
+| SkillMD | **SUBMITTED / IN REVIEW** — `omar-mohamed/sechelix`, submitted 2026-09-02 12:04 UTC via `skillmd.com/publish` using the GitHub blob URL of the canonical `SKILL.md`. `skillmd lint ./skills/sechelix` passes at **93/100** with zero errors; the registry flags `reads_secrets` and `executes_scripts`, which are inherent to an AppSec skill. Track at <https://skillmd.com/my-skills>. No verified badge is claimed. |
+| Bing Webmaster Tools | **DONE** — `https://sechelix.com/` imported from Google Search Console (no duplicate DNS verification needed), and exactly one sitemap submitted: `https://sechelix.com/sitemap.xml`, status *Processing*, 0 errors, 0 warnings. Only SecHelix was imported; the other importable property was deselected. |
+| Blind benchmark | **MEASURED** — see [`../research/evaluation-report.md`](../research/evaluation-report.md). |
+| Flagship article | **LIVE** at <https://sechelix.com/research/why-an-appsec-agent-should-try-to-disprove-its-own-findings> — canonical, `og:type=article` and `Article` JSON-LD all verified in production, in the sitemap, live-tested and submitted to Google. |
+| Dev.to | **PUBLISHED** — <https://dev.to/omarmohelal/why-an-appsec-agent-should-try-to-disprove-its-own-findings-23p6>. Canonical URL points at the sechelix.com original (the post renders "Originally published at sechelix.com"), tags `appsec` / `security` / `ai` / `opensource`, DEV's AI disclosure set to **Some AI (AI-assisted)**. |
+| Hashnode | **PUBLISHED** — <https://sechelix.hashnode.dev/why-an-appsec-agent-should-try-to-disprove-its-own-findings> on a new free publication, `sechelix.hashnode.dev`. The first publish silently dropped the canonical URL and the page self-canonicalised; it was corrected and re-verified — the live `<link rel="canonical">` now points at sechelix.com. **Check this after any future edit**, because the field did not persist the first time. |
+| X | **POSTED** — thread root <https://x.com/Omar2070207/status/2095139449684246735>. See the X row below for what did and did not land. |
+
+### Canonical discipline
+
+One original, two syndicated copies, both pointing home:
+
+| Surface | `rel=canonical` target |
+|---|---|
+| sechelix.com | itself (the original) |
+| Dev.to | sechelix.com original |
+| Hashnode | sechelix.com original |
+
+No platform claims to be a second original.
+
 ## Release
 
 | Item | Value |
