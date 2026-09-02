@@ -17,6 +17,7 @@ no writes outside a workspace, bounded processes and memory.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -77,6 +78,28 @@ def runtime_available(binary: str = "docker") -> bool:
     return probe.returncode == 0 and bool(probe.stdout.strip())
 
 
+def _container_user() -> str:
+    """The uid:gid the container runs as. Never root, and able to write the mount.
+
+    A hardcoded ``1000:1000`` is wrong on Linux: a bind-mounted host directory
+    keeps its host ownership, so a container running as some other uid cannot
+    write to its own workspace. Docker Desktop on Windows and macOS hides this
+    by translating ownership at the mount layer, which is exactly why the bug
+    only appeared on a Linux CI runner.
+
+    On POSIX the invoking user is used so the mount lines up. Root falls back to
+    a non-root id rather than running privileged, accepting that a root-owned
+    workspace then needs its permissions relaxed by the caller.
+    """
+    getuid = getattr(os, "getuid", None)
+    if getuid is None:  # Windows: Docker Desktop translates ownership anyway.
+        return "1000:1000"
+    uid, gid = getuid(), os.getgid()
+    if uid == 0:
+        return "1000:1000"
+    return f"{uid}:{gid}"
+
+
 class SandboxRunner:
     """Executes a command under a validated :class:`SandboxSpec`."""
 
@@ -99,7 +122,7 @@ class SandboxRunner:
         # A read-only root filesystem still needs somewhere to put temporary
         # files; an in-memory tmpfs gives that without a writable host path.
         command += ["--tmpfs", "/tmp:rw,noexec,nosuid,size=64m"]
-        command += ["--user", "1000:1000"]
+        command += ["--user", _container_user()]
         command.append(self.spec.image)
         command.extend(argv)
         return command

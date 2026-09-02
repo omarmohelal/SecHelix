@@ -48,7 +48,9 @@ class CommandConstructionTests(unittest.TestCase):
     def test_container_does_not_run_as_root(self) -> None:
         command = SandboxRunner(SandboxSpec(image=IMAGE)).build_command(["true"])
         self.assertIn("--user", command)
-        self.assertIn("1000:1000", command)
+        user = command[command.index("--user") + 1]
+        self.assertRegex(user, r"^\d+:\d+$")
+        self.assertFalse(user.startswith("0:"), "container must not run as root")
 
     def test_workspace_is_the_only_writable_mount(self) -> None:
         workspace = Path(tempfile.mkdtemp())
