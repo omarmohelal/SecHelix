@@ -1,6 +1,6 @@
 # Evidence adapters
 
-These standard-library-only adapters translate tool reports into one evidence envelope. They do not verify vulnerabilities. Every emitted record has `status: CANDIDATE` and `assessment`, `severity` and `verification` set to `UNASSESSED`. Original tool severity/confidence is retained only in `tool_signal.trusted_for_assessment: false`.
+These standard-library-only adapters translate tool reports into one evidence envelope. They do not verify vulnerabilities. Every emitted record has `status: CANDIDATE` and `assessment`, `severity` and `verification` set to `UNASSESSED`. Original tool severity/confidence is retained only in `tool_signal.trusted_for_assessment: false`. Repository-wide adapter counts are generated from the tree and checked by CI rather than maintained by hand.
 
 ## Normalize a report
 
