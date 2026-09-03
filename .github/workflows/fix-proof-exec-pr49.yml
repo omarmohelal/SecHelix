@@ -1,0 +1,34 @@
+name: Fix PR49 proof executor
+
+on:
+  push:
+    branches: [feat/v4-runtime-proof-execution]
+    paths: [.github/workflows/fix-proof-exec-pr49.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: true
+      - name: Keep traversal comparison body-free
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('sechelix_runner/proof_exec.py')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace('escaped = self._request("traversal-path", traversal_url, capture_body=True)', 'escaped = self._request("traversal-path", traversal_url)')
+          text = text.replace('marker_seen = getattr(escaped, "_body", b"").find(spec.sentinel_marker) >= 0', 'marker_seen = escaped.body_sha256 == marker_digest')
+          path.write_text(text, encoding='utf-8')
+      - name: Commit fix
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sechelix_runner/proof_exec.py
+          git commit -m 'fix: keep proof response bodies out of artifacts and memory state'
+          git push origin HEAD:feat/v4-runtime-proof-execution
