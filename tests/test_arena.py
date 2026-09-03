@@ -18,6 +18,7 @@ PACKET = {
         {"case_id": "CASE-B", "family": "Authorization", "source": "opaque-b"},
     ]
 }
+PACKET_DIGEST = canonical_digest(PACKET)
 
 PARTICIPANT = {
     "participant_id": "demo-agent",
@@ -48,6 +49,7 @@ BLINDNESS = {
 }
 
 ASSESSMENT = {
+    "packet_digest": PACKET_DIGEST,
     "assessor": {"identity": "independent-evaluator-1", "independent": True},
     "observations": [
         {
@@ -58,7 +60,16 @@ ASSESSMENT = {
             "root_cause": False,
             "regression_proof": True,
             "release_gate": True,
-        }
+        },
+        {
+            "case_id": "CASE-B",
+            "applicability": True,
+            "verification": True,
+            "false_positive_refutation": True,
+            "root_cause": True,
+            "regression_proof": True,
+            "release_gate": True,
+        },
     ],
 }
 
@@ -67,7 +78,7 @@ class ArenaTests(unittest.TestCase):
     def test_digest_is_canonical(self) -> None:
         self.assertEqual(canonical_digest({"a": 1, "b": 2}), canonical_digest({"b": 2, "a": 1}))
 
-    def test_prepared_manifest_contains_no_cases_or_score(self) -> None:
+    def test_prepared_manifest_contains_no_case_source_or_score(self) -> None:
         prepared = prepare_manifest(PACKET, PARTICIPANT)
         self.assertEqual(prepared["measurement_status"], NOT_MEASURED)
         self.assertFalse(prepared["publication"]["eligible"])
@@ -75,9 +86,15 @@ class ArenaTests(unittest.TestCase):
         self.assertNotIn("opaque-a", rendered)
         self.assertNotIn("opaque-b", rendered)
         self.assertEqual(prepared["packet"]["case_count"], 2)
+        self.assertEqual(prepared["packet"]["case_ids"], ["CASE-A", "CASE-B"])
 
     def test_placeholder_versions_are_not_comparable_versions(self) -> None:
         participant = dict(PARTICIPANT, version="PIN_REQUIRED")
+        with self.assertRaises(ArenaError):
+            validate_participant(participant)
+
+    def test_placeholder_capability_scope_is_refused(self) -> None:
+        participant = dict(PARTICIPANT, capability_scope=["REVIEW_AND_PIN_FROM_TESTED_VERSION"])
         with self.assertRaises(ArenaError):
             validate_participant(participant)
 
@@ -94,18 +111,36 @@ class ArenaTests(unittest.TestCase):
         result = finalize_manifest(prepared, run=RUN, blindness=BLINDNESS, assessment=ASSESSMENT)
         self.assertEqual(result["measurement_status"], MEASURED)
         self.assertTrue(result["publication"]["eligible"])
-        self.assertEqual(result["full_workflow"]["root_cause_accuracy"], 0.0)
+        self.assertEqual(result["full_workflow"]["root_cause_accuracy"], 0.5)
         self.assertEqual(result["full_workflow"]["verification_accuracy"], 1.0)
 
     def test_missing_metric_observation_keeps_record_not_measured(self) -> None:
         prepared = prepare_manifest(PACKET, PARTICIPANT)
         assessment = {
+            "packet_digest": PACKET_DIGEST,
             "assessor": ASSESSMENT["assessor"],
-            "observations": [{"case_id": "CASE-A", "applicability": True}],
+            "observations": [
+                dict(ASSESSMENT["observations"][0]),
+                {key: value for key, value in ASSESSMENT["observations"][1].items() if key != "release_gate"},
+            ],
         }
         result = finalize_manifest(prepared, run=RUN, blindness=BLINDNESS, assessment=assessment)
         self.assertEqual(result["measurement_status"], NOT_MEASURED)
-        self.assertIn("one or more full-workflow metrics", " ".join(result["publication"]["blockers"]))
+        self.assertTrue(any("release_gate" in blocker for blocker in result["publication"]["blockers"]))
+
+    def test_incomplete_case_coverage_never_measures(self) -> None:
+        prepared = prepare_manifest(PACKET, PARTICIPANT)
+        assessment = dict(ASSESSMENT, observations=[ASSESSMENT["observations"][0]])
+        result = finalize_manifest(prepared, run=RUN, blindness=BLINDNESS, assessment=assessment)
+        self.assertEqual(result["measurement_status"], NOT_MEASURED)
+        self.assertTrue(any("every prepared blind case" in blocker for blocker in result["publication"]["blockers"]))
+
+    def test_assessment_for_another_packet_never_measures(self) -> None:
+        prepared = prepare_manifest(PACKET, PARTICIPANT)
+        assessment = dict(ASSESSMENT, packet_digest="sha256:" + "9" * 64)
+        result = finalize_manifest(prepared, run=RUN, blindness=BLINDNESS, assessment=assessment)
+        self.assertEqual(result["measurement_status"], NOT_MEASURED)
+        self.assertTrue(any("prepared packet digest" in blocker for blocker in result["publication"]["blockers"]))
 
     def test_different_scopes_cannot_be_ranked_against_each_other(self) -> None:
         left = finalize_manifest(prepare_manifest(PACKET, PARTICIPANT), run=RUN, blindness=BLINDNESS, assessment=ASSESSMENT)
