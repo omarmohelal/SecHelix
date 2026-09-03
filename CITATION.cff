@@ -11,8 +11,8 @@ abstract: >-
   hypothesis until an evidence chain supports it; High and Critical
   severity claims require independent verification.
 type: software
-version: 3.4.0-alpha.2
-date-released: 2026-09-02
+version: 4.0.0-alpha.1
+date-released: 2026-09-03
 license: Apache-2.0
 repository-code: 'https://github.com/omarmohelal/SecHelix'
 url: 'https://sechelix.com'
