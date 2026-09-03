@@ -4,7 +4,7 @@
   "metrics": {},
   "results": [
     {
-      "code": "password = 'BANDIT_FIXTURE_SECRET_321'\nsubprocess.Popen(user_input, shell=True)",
+      "code": "sample = 'BANDIT_FIXTURE_SECRET_321'\nsubprocess.Popen(user_input, shell=True)",
       "col_offset": 4,
       "end_col_offset": 44,
       "filename": "src/worker.py",
