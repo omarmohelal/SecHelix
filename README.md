@@ -357,6 +357,7 @@ Different models can own different lanes without creating different security pol
 
 - [Command recipes](docs/reference/command-recipes.md) — one instruction per review lane
 - [Repository map](docs/reference/repository-map.md) — what lives where
+- [Status vocabulary](docs/reference/status-vocabulary.md) — what `UNKNOWN`, `BLOCKED`, `VERIFIED`, `NOT_MEASURED`, and other SecHelix states actually assert
 - [Zero-trust repository mode](docs/reference/untrusted-repo-mode.md) — auditing a hostile repository
 - [AI, agent, and MCP security](docs/reference/ai-agent-security.md) — mechanisms, and what evidence refutes each one
 - [Specialist agents](docs/reference/specialist-agents.md) — the 17 role profiles
