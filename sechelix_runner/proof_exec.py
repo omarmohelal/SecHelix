@@ -257,10 +257,10 @@ class LocalProofExecutor:
         safe_url = spec.url_template.format(path=urllib.parse.quote(spec.safe_path, safe="/"))
         traversal_url = spec.url_template.format(path=urllib.parse.quote(spec.traversal_path, safe="/"))
         safe = self._request("safe-path-control", safe_url)
-        escaped = self._request("traversal-path", traversal_url, capture_body=True)
+        escaped = self._request("traversal-path", traversal_url)
         observations = [safe.to_dict(), escaped.to_dict()]
         marker_digest = hashlib.sha256(spec.sentinel_marker).hexdigest()
-        marker_seen = getattr(escaped, "_body", b"").find(spec.sentinel_marker) >= 0
+        marker_seen = escaped.body_sha256 == marker_digest
         notes = [f"sentinel_sha256={marker_digest}"]
         behavior = ProofBehavior.VULNERABLE_BEHAVIOR if marker_seen else ProofBehavior.SECURE_BEHAVIOR
         notes.append("sentinel returned by traversal path" if marker_seen else "sentinel not returned")
