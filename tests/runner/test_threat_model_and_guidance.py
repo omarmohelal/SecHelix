@@ -107,14 +107,25 @@ class ThreatModelTests(unittest.TestCase):
             apply_adversarial_verdict(threat, state=ThreatState.SUPPORTED, rationale="looks real")
 
     def test_registry_orders_supported_before_unresolved_and_refuted(self) -> None:
-        base = self.candidate()
+        supported_seed = Threat(
+            threat_id="THREAT-SUPPORTED",
+            category=Stride.ELEVATION_OF_PRIVILEGE,
+            statement="supported candidate",
+            node_ids=("N-ENTRY", "N-STORE"),
+        )
+        refuted_seed = Threat(
+            threat_id="THREAT-REFUTED",
+            category=Stride.TAMPERING,
+            statement="refuted candidate",
+            node_ids=("N-ENTRY",),
+        )
         supported = apply_adversarial_verdict(
-            base,
+            supported_seed,
             state=ThreatState.SUPPORTED,
             rationale="grounded",
             evidence_ids=("EV-1",),
         )
-        refuted = apply_adversarial_verdict(base, state=ThreatState.REFUTED, rationale="killed")
+        refuted = apply_adversarial_verdict(refuted_seed, state=ThreatState.REFUTED, rationale="killed")
         second = Threat(
             threat_id="THREAT-SECOND",
             category=Stride.INFORMATION_DISCLOSURE,
