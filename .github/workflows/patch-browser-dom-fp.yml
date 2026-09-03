@@ -1,0 +1,67 @@
+name: Patch Browser DOM false-positive lesson
+
+on:
+  push:
+    branches:
+      - fix/browser-dom-react-url-fp
+    paths:
+      - .github/workflows/patch-browser-dom-fp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
+      - name: Record narrow React URL-sink and attacker-control refutations
+        shell: python
+        run: |
+          import json
+          from pathlib import Path
+
+          path = Path('gold-packs/SEC-BROWSER-DOM-001/pack.json')
+          pack = json.loads(path.read_text(encoding='utf-8'))
+          pack['version'] = '0.1.1'
+
+          case_study = 'https://github.com/omarmohelal/SecHelix/blob/main/docs/case-studies/gamingops-store-2026-09-01.md#4-refuted-candidate--shx-f-gos-urlscheme-001'
+          if case_study not in pack['sources']['references']:
+              pack['sources']['references'].append(case_study)
+
+          filters = [
+              "For a React 19 URL prop rendered by React itself, a local reproduction shows the javascript: value being replaced with React's inert blocked-URL error value before it reaches the document; this refutes script execution through that exact framework-rendered href/src sink only, not direct DOM setters, dangerouslySetInnerHTML, location/window navigation, another framework path, another scheme, or an open-redirect claim, and a scheme allowlist is still preferred hardening",
+              "The apparent URL source is an operator-controlled configuration boundary with no demonstrated attacker write path; until a user, tenant, external provider, or other untrusted actor can actually change that value, attacker control for the XSS claim is not established even if the value reaches a URL sink",
+          ]
+          for value in filters:
+              if value not in pack['false_positive_filters']:
+                  pack['false_positive_filters'].append(value)
+
+          tests = [
+              "On an authorized local React 19 build, pass an inert javascript: marker through the exact React-rendered href/src prop, inspect the rendered attribute and execution result, and verify React neutralizes that sink; separately search for the same value reaching direct setAttribute/property assignment, dangerouslySetInnerHTML, location.assign, window.open, or another non-React path before refuting the candidate",
+              "Trace who can write the configuration value all the way to its source API/storage and attempt the lowest-privilege authorized write path; refute attacker control only when no untrusted identity or external provider can change it, and reopen the candidate if any alternate write path exists",
+          ]
+          for value in tests:
+              if value not in pack['verification']['refutation_tests']:
+                  pack['verification']['refutation_tests'].append(value)
+
+          path.write_text(json.dumps(pack, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+      - name: Validate pack and repository links
+        run: |
+          python scripts/validate_gold_packs.py
+          python -m unittest tests.test_gold_packs -v
+          python scripts/check_local_links.py
+          python scripts/check_doc_consistency.py
+      - name: Commit lesson
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add gold-packs/SEC-BROWSER-DOM-001/pack.json
+          git commit -m 'fix: teach Browser DOM pack a verified URL-sink refutation'
+          git push origin HEAD:fix/browser-dom-react-url-fp
