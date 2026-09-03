@@ -1,0 +1,43 @@
+name: Finalize V31 Local Gaps
+
+on:
+  push:
+    branches: [feat/close-v31-local-gaps]
+    paths: [.github/workflows/finalize-v31-local.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
+      - name: Update roadmap and derived counts
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('ROADMAP.md')
+          t = p.read_text(encoding='utf-8')
+          t = t.replace('## v3.1 — expert knowledge engine and credibility program — in progress', '## v3.1 — expert knowledge engine and credibility program — complete')
+          t = t.replace('- **partial** — add framework, database, cloud, container, supply-chain, and\n  AI-security lesson cards (11 cards exist, all CWE-anchored; the AI and\n  agent set landed alongside `docs/reference/ai-agent-security.md`, and the\n  framework/cloud/container set is not started);', '- **done** — framework, database, cloud, container, supply-chain, and AI-security lesson coverage, including dedicated framework authorization, cloud SSRF, and container provenance/confinement cards;')
+          t = t.replace('- **not started** — pin and rights-review selected NIST SARD suites and OWASP\n  Benchmark repositories;', '- **done** — pin and rights-review selected NIST SARD Juliet and OWASP Benchmark Java evaluation corpora without vendoring third-party source;')
+          t = t.replace('- **not started** — build reproducible importers that preserve origin,\n  revision, license, and attribution;', '- **done** — offline reproducible corpus importer verifies pinned identity and preserves origin, revision, license, and attribution metadata;')
+          t = t.replace('- **not started** — eight cumulative exam levels with de-identified\n  mistake-class memory.', '- **done** — eight cumulative exam levels plus de-identified mistake-class memory that can ask future verification questions but never auto-dismiss findings.')
+          p.write_text(t, encoding='utf-8')
+      - name: Sync documented counts
+        run: python scripts/sync_doc_counts.py
+      - name: Commit generated documentation state
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ROADMAP.md README.md CLAUDE.md AGENTS.md docs skills .claude .agents knowledge 2>/dev/null || true
+          git commit -m 'docs: close remaining local v3.1 gaps' || exit 0
+          git push origin HEAD:feat/close-v31-local-gaps
