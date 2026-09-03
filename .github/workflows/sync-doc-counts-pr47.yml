@@ -6,6 +6,7 @@ on:
       - feat/v4-opengrep-interoperability
     paths:
       - adapters/USAGE.md
+      - .github/workflows/sync-doc-counts-pr47.yml
 
 permissions:
   contents: write
@@ -37,6 +38,6 @@ jobs:
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add docs README.md COMPATIBILITY.md CHANGELOG.md 2>/dev/null || true
+          git add docs
           git commit -m 'docs: sync adapter count after Opengrep'
           git push origin HEAD:feat/v4-opengrep-interoperability
