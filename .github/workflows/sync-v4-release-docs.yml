@@ -5,7 +5,6 @@ on:
     branches:
       - release/v4.0.0-alpha.1
     paths:
-      - scripts/_release_v4_patch.py
       - .github/workflows/sync-v4-release-docs.yml
 
 permissions:
@@ -22,14 +21,64 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: '3.12'
-      - name: Synchronize release documentation
-        run: python scripts/_release_v4_patch.py
-      - name: Show remaining previous-version references
-        run: grep -R "3.4.0-alpha.2" -n --exclude-dir=.git . || true
-      - name: Commit synchronized documentation
+      - name: Close non-historical V4 documentation drift
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def rep(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              if old not in text:
+                  raise SystemExit(f'expected text not found in {path}: {old!r}')
+              p.write_text(text.replace(old, new), encoding='utf-8')
+
+          rep('README.md', '- **Alpha.** `3.4.0-alpha.2`. Contracts are versioned, but they can still change.', '- **Alpha.** `4.0.0-alpha.1`. Contracts and runtime interfaces are versioned, but they can still change.')
+
+          rep(
+              'docs/v4-quickstart.md',
+              '**This documents what is built. It is not a release.** The current release line\nis `3.4.0-alpha.2` and contains none of this. Capabilities marked `SPECIFIED` or\n`OPEN` in\n[`architecture/v4-adaptive-evidence-runtime.md`](architecture/v4-adaptive-evidence-runtime.md)\nare not documented here, because documenting unbuilt work is how a roadmap turns\ninto a claim.',
+              '**Release line:** `4.0.0-alpha.1`. This quickstart documents the optional V4 runtime that ships with that alpha. The portable Agent Skill remains usable without the runner. Capabilities still marked `SPECIFIED` or `OPEN` in [`architecture/v4-adaptive-evidence-runtime.md`](architecture/v4-adaptive-evidence-runtime.md) remain roadmap material, not shipped claims.'
+          )
+          rep(
+              'docs/v4-quickstart.md',
+              'The runner uses the standard library only. There is nothing to `pip install`.',
+              'The runner uses the standard library only and has no runtime dependencies. Until the separately versioned runner is published to PyPI, run it from the repository clone as below.'
+          )
+
+          rep('docs/architecture/v4-adaptive-evidence-runtime.md', '# V4 — Adaptive Evidence Runtime (plan)', '# V4 — Adaptive Evidence Runtime')
+          rep(
+              'docs/architecture/v4-adaptive-evidence-runtime.md',
+              '**Status: PARTIALLY BUILT. Not released, not measured against any competitor.**',
+              '**Status: RELEASED AS `4.0.0-alpha.1`. Capability is shipped; end-to-end performance and competitor comparisons remain `NOT_MEASURED`.**'
+          )
+          rep(
+              'docs/architecture/v4-adaptive-evidence-runtime.md',
+              '| Active proof builder (plans, not execution) | **BUILT** | `proof.py` |',
+              '| Active proof planning + bounded LOCAL execution | **BUILT** | `proof.py`, `proof_exec.py` — IDOR, traversal, race/idempotency, webhook, SSRF; no auto-promotion |'
+          )
+          rep(
+              'docs/architecture/v4-adaptive-evidence-runtime.md',
+              '| Deep protocol packs | `SPECIFIED` | — |\n| Native / memory-safety lane | `SPECIFIED` | — |',
+              '| Deep protocol packs | **BUILT** | `protocols.py` — GraphQL, WebSocket, gRPC, OAuth/OIDC, SAML, JWT, webhooks, HTTP proxy/cache/desync |\n| Native / memory-safety lane | **BUILT** | `native.py` — C/C++/Rust candidate signals only, never automatic findings |'
+          )
+          rep(
+              'docs/architecture/v4-adaptive-evidence-runtime.md',
+              '| Workbench V4 surfaces | `SPECIFIED` | — |\n| Arena benchmark | `OPEN` | design settled, not built — see §3 |',
+              '| Workbench V4 surfaces | **BUILT** | production local-first viewer at `sechelix.com/workbench/v4`; website source remains private |\n| Arena full-workflow measurement protocol | **BUILT** | `evals/arena.py`; no competitor score and complete workflow remains `NOT_MEASURED` |'
+          )
+          rep(
+              'docs/architecture/v4-adaptive-evidence-runtime.md',
+              '**There is no V4 release.** The current release line is `3.4.0-alpha.2` and it\ncontains none of the above. Nothing in the built column has been measured against\nany competitor, and the capability table is a map of work, not a scoreboard.',
+              '**V4 capability is released as `4.0.0-alpha.1`.** Nothing in the built column should be read as a measured accuracy claim. The blind label task has one published uncontaminated result; the complete V4 workflow and competitor comparisons remain `NOT_MEASURED`. The capability table is a map of shipped evidence surfaces, not a scoreboard.'
+          )
+      - name: Confirm only historical 3.4.0-alpha.2 references remain
+        run: |
+          grep -R "3.4.0-alpha.2" -n --exclude-dir=.git . || true
+      - name: Commit current-state documentation
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add README.md ROADMAP.md CHANGELOG.md docs/packaging/RELEASE.md
-          git commit -m 'release: synchronize V4 public documentation'
+          git add README.md docs/v4-quickstart.md docs/architecture/v4-adaptive-evidence-runtime.md
+          git commit -m 'release: mark V4 runtime as shipped alpha'
           git push origin HEAD:release/v4.0.0-alpha.1
