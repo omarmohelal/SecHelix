@@ -1,0 +1,170 @@
+name: Publish version release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - plugin.json
+      - .claude-plugin/plugin.json
+
+permissions: {}
+
+concurrency:
+  group: version-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Validate release and build SBOM
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+      tag_exists: ${{ steps.release.outputs.tag_exists }}
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.12'
+
+      - name: Validate version contract
+        id: release
+        shell: python
+        run: |
+          import json
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
+
+          root = Path.cwd()
+          agent = json.loads((root / 'plugin.json').read_text(encoding='utf-8'))
+          claude = json.loads((root / '.claude-plugin/plugin.json').read_text(encoding='utf-8'))
+          version = agent.get('version')
+          if version != claude.get('version'):
+              raise SystemExit('plugin manifests disagree on version')
+          if not isinstance(version, str) or not re.fullmatch(r'\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?', version):
+              raise SystemExit(f'unsupported release version: {version!r}')
+
+          citation = (root / 'CITATION.cff').read_text(encoding='utf-8')
+          changelog = (root / 'CHANGELOG.md').read_text(encoding='utf-8')
+          notes = root / 'docs' / 'releases' / f'{version}.md'
+          if f'version: {version}' not in citation:
+              raise SystemExit('CITATION.cff does not match plugin version')
+          if f'## [{version}]' not in changelog:
+              raise SystemExit('CHANGELOG.md does not contain this version')
+          if not notes.is_file():
+              raise SystemExit(f'missing release notes: {notes}')
+
+          tag = f'v{version}'
+          try:
+              existing = subprocess.check_output(
+                  ['git', 'rev-parse', '--verify', f'{tag}^{{commit}}'],
+                  text=True,
+                  stderr=subprocess.DEVNULL,
+              ).strip()
+          except subprocess.CalledProcessError:
+              existing = ''
+          current = os.environ['GITHUB_SHA']
+          if existing and existing != current:
+              raise SystemExit(
+                  f'{tag} already points to {existing}; refusing to reuse the version for {current}'
+              )
+
+          output = Path(os.environ['GITHUB_OUTPUT'])
+          with output.open('a', encoding='utf-8') as handle:
+              handle.write(f'version={version}\n')
+              handle.write(f'tag={tag}\n')
+              handle.write(f'tag_exists={str(bool(existing)).lower()}\n')
+
+      - name: Generate reproducible CycloneDX SBOM
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          SOURCE_DATE_EPOCH="$(git log -1 --pretty=%ct)" \
+            python scripts/generate_sbom.py --output dist/sechelix-sbom.cdx.json
+          sha256sum dist/sechelix-sbom.cdx.json | tee dist/sechelix-sbom.cdx.json.sha256
+          printf '%s\n' '${{ steps.release.outputs.version }}' > dist/release-version.txt
+
+      - name: Attest SBOM build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/sechelix-sbom.cdx.json
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sechelix-version-release
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Create GitHub release
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout exact release commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: sechelix-version-release
+          path: dist
+
+      - name: Create or complete the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          TAG_EXISTS: ${{ needs.prepare.outputs.tag_exists }}
+        run: |
+          set -euo pipefail
+          notes="docs/releases/${VERSION}.md"
+          prerelease=()
+          if [[ "${VERSION}" == *-* ]]; then
+            prerelease=(--prerelease)
+          fi
+
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            echo "Release ${TAG} already exists at this commit; refreshing only its SBOM artifacts."
+          elif [[ "${TAG_EXISTS}" == "true" ]]; then
+            gh release create "${TAG}" \
+              --verify-tag \
+              --title "SecHelix ${VERSION}" \
+              --notes-file "${notes}" \
+              "${prerelease[@]}"
+          else
+            gh release create "${TAG}" \
+              --target "${GITHUB_SHA}" \
+              --title "SecHelix ${VERSION}" \
+              --notes-file "${notes}" \
+              "${prerelease[@]}"
+          fi
+
+          gh release upload "${TAG}" \
+            dist/sechelix-sbom.cdx.json \
+            dist/sechelix-sbom.cdx.json.sha256 \
+            --clobber
+
+          echo "::notice title=SecHelix release::Published ${TAG} for ${GITHUB_SHA}"
+          echo "::notice title=SBOM provenance::Verify with: gh attestation verify sechelix-sbom.cdx.json --repo ${GH_REPO}"
