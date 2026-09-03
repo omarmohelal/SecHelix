@@ -76,7 +76,7 @@ SecHelix should earn trust through evals before adding complexity.
 - V2 Pro overview, Evidence Workbench, Attack Surface, Authorization Matrix,
   Variant Analysis, Benchmark Lab, and Command Center product surfaces.
 
-## v3.1 — expert knowledge engine and credibility program — complete
+## v3.1 — expert knowledge engine and credibility program — in progress
 
 Status is per item. Nothing here is marked done without an artifact in the
 repository.
