@@ -1,0 +1,25 @@
+{
+  "errors": [],
+  "generated_at": "2026-09-03T00:00:00Z",
+  "metrics": {},
+  "results": [
+    {
+      "code": "password = 'BANDIT_FIXTURE_SECRET_321'\nsubprocess.Popen(user_input, shell=True)",
+      "col_offset": 4,
+      "end_col_offset": 44,
+      "filename": "src/worker.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 78,
+        "link": "https://cwe.mitre.org/data/definitions/78.html"
+      },
+      "issue_severity": "HIGH",
+      "issue_text": "subprocess call with shell=True identified, security issue.",
+      "line_number": 42,
+      "line_range": [42, 43],
+      "more_info": "https://bandit.readthedocs.io/en/latest/plugins/b602_subprocess_popen_with_shell_equals_true.html",
+      "test_id": "B602",
+      "test_name": "subprocess_popen_with_shell_equals_true"
+    }
+  ]
+}
