@@ -144,6 +144,19 @@ class SsrfHttpSpec:
     callback_timeout_seconds: float = 1.5
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Return redirect responses to the proof engine instead of following them.
+
+    The original URL has passed NetworkPolicy, but a redirect target has not.
+    Automatic redirect following would therefore turn a bounded LOCAL request
+    into an authority bypass. Callers may record the 3xx response; they must
+    build a new explicitly-authorized request to follow it.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
+        return None
+
+
 class _CallbackHandler(BaseHTTPRequestHandler):
     event: threading.Event
 
@@ -417,7 +430,8 @@ class LocalProofExecutor:
         response_body = b""
         error = ""
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
+            with opener.open(request, timeout=self.timeout_seconds) as response:
                 status = int(response.status)
                 response_body = response.read(262_144)
         except urllib.error.HTTPError as exc:
