@@ -313,7 +313,7 @@ Read this before adopting.
 - **Mostly single-file, mostly Python, synthetic.** Real vulnerabilities often span modules; these do not. The fixtures encode one team's idea of what is hard.
 - **One case study, `n = 1`.** A ~600 LOC app with no authentication and no server-side state, audited by its own owner. It demonstrates the workflow; it measures nothing about general performance.
 - **No public third-party results.** The [trophy case](docs/research/trophy-case.md) is empty on purpose.
-- **Alpha.** `3.4.0-alpha.2`. Contracts are versioned, but they can still change.
+- **Alpha.** `4.0.0-alpha.1`. Contracts and runtime interfaces are versioned, but they can still change.
 - **SecHelix is a methodology, not a scanner.** Output quality depends on the host agent, the model, and the tools you enable. It does not run itself.
 - **It cannot verify what it cannot reach.** Missing evidence yields `UNKNOWN` or `BLOCKED`, never `NOT_APPLICABLE`. That is the design, but it means an under-instrumented run returns honest non-answers rather than coverage.
 - **Authorized targets only.** See [SECURITY.md](SECURITY.md).

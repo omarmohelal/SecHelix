@@ -1,11 +1,6 @@
 # SecHelix V4 runner — quickstart
 
-**This documents what is built. It is not a release.** The current release line
-is `3.4.0-alpha.2` and contains none of this. Capabilities marked `SPECIFIED` or
-`OPEN` in
-[`architecture/v4-adaptive-evidence-runtime.md`](architecture/v4-adaptive-evidence-runtime.md)
-are not documented here, because documenting unbuilt work is how a roadmap turns
-into a claim.
+**Release line:** `4.0.0-alpha.1`. This quickstart documents the optional V4 runtime that ships with that alpha. The portable Agent Skill remains usable without the runner. Capabilities still marked `SPECIFIED` or `OPEN` in [`architecture/v4-adaptive-evidence-runtime.md`](architecture/v4-adaptive-evidence-runtime.md) remain roadmap material, not shipped claims.
 
 ## The runner is optional
 
@@ -14,7 +9,7 @@ this installed, and `sechelix_core` never imports the runner — there is a test
 that fails if it ever does. Install the runner when you want SecHelix
 orchestrated by code instead of by an agent reading `SKILL.md`.
 
-The runner uses the standard library only. There is nothing to `pip install`.
+The runner uses the standard library only and has no runtime dependencies. Until the separately versioned runner is published to PyPI, run it from the repository clone as below.
 
 ```bash
 git clone https://github.com/omarmohelal/SecHelix
