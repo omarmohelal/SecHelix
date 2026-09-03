@@ -64,6 +64,6 @@ sechelix doctor
 ## Version policy
 
 The package version (`0.1.0`) tracks the **runner**, not the SecHelix
-methodology version (`3.4.0-alpha.2`). They move independently: the runner can
+methodology version (`4.0.0-alpha.1`). They move independently: the runner can
 ship a bug fix without the catalog changing, and the catalog is the versioned
 artifact with its own validator.

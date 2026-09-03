@@ -1,6 +1,6 @@
-# V4 — Adaptive Evidence Runtime (plan)
+# V4 — Adaptive Evidence Runtime
 
-**Status: PARTIALLY BUILT. Not released, not measured against any competitor.**
+**Status: RELEASED AS `4.0.0-alpha.1`. Capability is shipped; end-to-end performance and competitor comparisons remain `NOT_MEASURED`.**
 
 This is a working record, not a description of a finished product. Every
 capability states which of three states it is in, and nothing here licenses a
@@ -34,17 +34,15 @@ written from cloned source at pinned commits.
 | Adaptive orchestration (shipped disabled) | **BUILT** | `adaptive.py` |
 | Compliance evidence mapping | **BUILT** | `compliance.py` — reads catalog mappings |
 | Sandbox policy + network authority | **BUILT** | `sandbox.py` — deny-default, no permissive constructor |
-| Active proof builder (plans, not execution) | **BUILT** | `proof.py` |
+| Active proof planning + bounded LOCAL execution | **BUILT** | `proof.py`, `proof_exec.py` — IDOR, traversal, race/idempotency, webhook, SSRF; no auto-promotion |
 | Security self-audit of the runner | **BUILT** | `tests/runner/test_self_audit.py` |
-| Deep protocol packs | `SPECIFIED` | — |
-| Native / memory-safety lane | `SPECIFIED` | — |
+| Deep protocol packs | **BUILT** | `protocols.py` — GraphQL, WebSocket, gRPC, OAuth/OIDC, SAML, JWT, webhooks, HTTP proxy/cache/desync |
+| Native / memory-safety lane | **BUILT** | `native.py` — C/C++/Rust candidate signals only, never automatic findings |
 | Local API (loopback-only, read-mostly) | **BUILT** | `api.py` |
-| Workbench V4 surfaces | `SPECIFIED` | — |
-| Arena benchmark | `OPEN` | design settled, not built — see §3 |
+| Workbench V4 surfaces | **BUILT** | production local-first viewer at `sechelix.com/workbench/v4`; website source remains private |
+| Arena full-workflow measurement protocol | **BUILT** | `evals/arena.py`; no competitor score and complete workflow remains `NOT_MEASURED` |
 
-**There is no V4 release.** The current release line is `3.4.0-alpha.2` and it
-contains none of the above. Nothing in the built column has been measured against
-any competitor, and the capability table is a map of work, not a scoreboard.
+**V4 capability is released as `4.0.0-alpha.1`.** Nothing in the built column should be read as a measured accuracy claim. The blind label task has one published uncontaminated result; the complete V4 workflow and competitor comparisons remain `NOT_MEASURED`. The capability table is a map of shipped evidence surfaces, not a scoreboard.
 
 ## 1. The shape, and the one rule that constrains it
 
