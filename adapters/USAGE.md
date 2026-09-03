@@ -7,6 +7,7 @@ These standard-library-only adapters translate tool reports into one evidence en
 ```console
 python -m adapters.cli semgrep semgrep.json --pretty
 python -m adapters.cli opengrep opengrep.json --pretty
+python -m adapters.cli bandit bandit.json --pretty
 python -m adapters.cli codeql codeql.sarif -o normalized.json
 python -m adapters.cli sarif report.sarif
 python -m adapters.cli osv osv.json
@@ -18,6 +19,8 @@ python -m adapters.cli playwright playwright.json
 python -m adapters.cli zap zap.json
 python -m adapters.cli nuclei nuclei.jsonl
 ```
+
+Bandit JSON keeps `issue_severity` and `issue_confidence` only as untrusted `tool_signal` metadata. Its `code` source-snippet field is deliberately omitted from normalized evidence because source snippets can contain credentials or other sensitive literals.
 
 Opengrep intentionally accepts Semgrep-compatible rules and JSON result shapes, but SecHelix keeps its provenance distinct as `source.tool: opengrep`. This matters when an independent verifier needs to reproduce which engine produced a source→sink signal. Opengrep severity and taint-analysis confidence remain untrusted candidate metadata until SecHelix establishes attacker control, reachability and boundary failure independently.
 

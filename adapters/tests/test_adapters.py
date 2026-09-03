@@ -18,6 +18,7 @@ class AdapterContractTests(unittest.TestCase):
     CASES = (
         ("semgrep", "semgrep.json", "semgrep"),
         ("opengrep", "semgrep.json", "opengrep"),
+        ("bandit", "bandit.json", "bandit"),
         ("sarif", "sarif.json", "Example SARIF Scanner"),
         ("codeql", "codeql.sarif", "codeql"),
         ("osv", "osv.json", "osv"),
@@ -36,7 +37,7 @@ class AdapterContractTests(unittest.TestCase):
     def test_registry_contains_every_supported_adapter(self) -> None:
         self.assertEqual(
             set(ADAPTERS),
-            {"semgrep", "opengrep", "sarif", "codeql", "osv", "trivy", "gitleaks", "npm-audit", "pnpm-audit", "playwright", "zap", "nuclei"},
+            {"semgrep", "opengrep", "bandit", "sarif", "codeql", "osv", "trivy", "gitleaks", "npm-audit", "pnpm-audit", "playwright", "zap", "nuclei"},
         )
 
     def test_every_fixture_emits_candidate_unassessed_records(self) -> None:
@@ -62,8 +63,24 @@ class AdapterContractTests(unittest.TestCase):
         self.assertEqual(record["status"], "CANDIDATE")
         self.assertEqual(record["assessment"], "UNASSESSED")
 
+    def test_bandit_keeps_tool_judgement_untrusted_and_omits_code(self) -> None:
+        record = self._records("bandit", "bandit.json")[0]
+        self.assertEqual(record["rule_id"], "B602")
+        self.assertEqual(record["tool_signal"]["issue_severity"], "HIGH")
+        self.assertEqual(record["tool_signal"]["issue_confidence"], "HIGH")
+        self.assertIs(record["tool_signal"]["trusted_for_assessment"], False)
+        self.assertEqual(record["severity"], "UNASSESSED")
+        self.assertEqual(record["assessment"], "UNASSESSED")
+        self.assertEqual(record["verification"], "UNASSESSED")
+        self.assertEqual(record["properties"]["issue_cwe"]["id"], 78)
+        self.assertIs(record["properties"]["source_snippet_omitted"], True)
+        self.assertIs(record["properties"]["redacted"], True)
+        self.assertNotIn("code", record["properties"])
+        self.assertNotIn("BANDIT_FIXTURE_SECRET_321", json.dumps(record, sort_keys=True))
+
     def test_high_and_critical_tool_labels_never_promote_assessment(self) -> None:
         for adapter, fixture in (
+            ("bandit", "bandit.json"),
             ("osv", "osv.json"),
             ("trivy", "trivy.json"),
             ("npm-audit", "npm-audit.json"),
@@ -80,6 +97,7 @@ class AdapterContractTests(unittest.TestCase):
 
     def test_secret_material_is_not_emitted(self) -> None:
         cases = (
+            ("bandit", "bandit.json", "BANDIT_FIXTURE_SECRET_321"),
             ("trivy", "trivy.json", "TRIVY_FIXTURE_SECRET_123"),
             ("gitleaks", "gitleaks.json", "GITLEAKS_FIXTURE_SECRET_456"),
             ("nuclei", "nuclei.jsonl", "NUCLEI_FIXTURE_SECRET_789"),
@@ -102,6 +120,8 @@ class AdapterContractTests(unittest.TestCase):
             parse("opengrep", b"{not json")
         with self.assertRaises(AdapterError):
             parse("sarif", b"[]")
+        with self.assertRaises(AdapterError):
+            parse("bandit", b"{}")
 
     def test_cli_emits_trust_boundary(self) -> None:
         stdout = io.StringIO()

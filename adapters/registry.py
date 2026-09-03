@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from . import gitleaks, nuclei, opengrep, osv, package_audit, playwright, semgrep, trivy, zap
+from . import bandit, gitleaks, nuclei, opengrep, osv, package_audit, playwright, semgrep, trivy, zap
 from .base import AdapterError
 from .sarif import parse_codeql, parse_sarif
 
@@ -14,6 +14,7 @@ Parser = Callable[[Any], list[dict[str, Any]]]
 ADAPTERS: dict[str, Parser] = {
     "semgrep": semgrep.parse,
     "opengrep": opengrep.parse,
+    "bandit": bandit.parse,
     "codeql": parse_codeql,
     "sarif": parse_sarif,
     "osv": osv.parse,
