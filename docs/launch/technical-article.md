@@ -220,7 +220,7 @@ The framework is SecHelix, Apache-2.0, at https://github.com/omarmohelal/SecHeli
 `npx skills@latest add omarmohelal/SecHelix --skill sechelix`. Structurally: 546 hypotheses across 21
 families and 26 verification lenses, 17 model-neutral specialist role profiles including an
 independent verifier, 22 JSON Schema Draft 2020-12 contracts, 18 Gold Check Packs, 38 paired eval
-fixtures (76 cases across 10 families), and a knowledge graph of 76 nodes, 100 edges, and 11 lesson
+fixtures (76 cases across 10 families), and a knowledge graph of 76 nodes, 100 edges, and 14 lesson
 cards.
 
 None of that structure is the argument. The argument is one sentence, and the run above is the only

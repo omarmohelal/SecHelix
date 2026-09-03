@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0",
+  "lesson_id": "LC-FRAMEWORK-AUTHZ",
+  "title": "Framework authorization boundaries beyond route and UI guards",
+  "updated_at": "2026-09-03T00:00:00Z",
+  "domains": ["framework", "web", "api", "auth"],
+  "summary": "Framework conventions can make authorization look centralized while object-level and field-level decisions still differ across server actions, API handlers, background jobs, GraphQL resolvers, RPC methods, middleware bypasses, and direct data-layer calls. Review the effective server-side enforcement path for each operation and treat client gates, route grouping, middleware presence, and framework defaults as evidence inputs rather than proof that the object or action is authorized.",
+  "detection_signals": [
+    "A framework middleware or layout guard protects navigation, but a server action, API route, resolver, RPC method, or direct service call reaches the same resource without the same subject-object predicate.",
+    "A handler fetches by request-controlled object or tenant identifier and relies on a framework-level authenticated-user check rather than binding the authenticated subject into the lookup.",
+    "Administrative or staff functionality is hidden by route groups, templates, or client components while the server entry point accepts the same operation for a lower-privileged authenticated role."
+  ],
+  "safe_local_tests": [
+    "Build a two-principal fixture and exercise the same object operation through every framework entry point that reaches it, including server actions, API routes, resolvers, RPC handlers, jobs, and direct service methods available in the local test harness.",
+    "Trace the authenticated subject from framework session extraction to the final data query or policy decision and record whether ownership or tenancy is enforced at a shared trusted boundary.",
+    "Verify that bypassing navigation, middleware-friendly URLs, or client components does not create a second path whose authorization semantics differ from the canonical service or data-layer policy."
+  ],
+  "false_positive_traps": [
+    "A route without a visible local check may still be protected by a shared server-side policy or row-level security that constrains the actual data lookup.",
+    "Middleware is not automatically weak; the issue is whether alternate entry points or internal calls bypass it and whether object-level policy still exists at the trusted boundary.",
+    "Framework-generated identifiers and UUIDs affect guessability, not authorization, so identifier format alone cannot establish or refute a cross-object access flaw."
+  ],
+  "remediation_patterns": [
+    "Centralize subject-object and subject-action authorization at a service or data layer that all framework entry points share, and default to deny when the relationship cannot be resolved.",
+    "Bind authenticated subject or tenant identity into object queries instead of trusting request-supplied owner, account, organization, or role fields.",
+    "Add parity tests across framework entry points so a new server action, resolver, job, or API route cannot silently bypass the canonical policy."
+  ],
+  "regression_proof": [
+    "Two-principal tests prove foreign-object access fails through every supported framework entry point while the owning principal's equivalent request succeeds.",
+    "Role tests prove privileged actions are denied server-side to lower roles even when the route or action is invoked directly without the normal UI flow."
+  ],
+  "mapping_node_ids": [
+    "CWE-639",
+    "CWE-863",
+    "CWE-285",
+    "OWASP-TOP10-2021-A01",
+    "OWASP-API-2023-API1",
+    "OWASP-ASVS-5.0.0-V8.2.2",
+    "SHX-FAMILY-AUTHZ"
+  ],
+  "source_ids": ["mitre-cwe", "owasp-top-10", "owasp-api-top-10", "owasp-asvs"]
+}

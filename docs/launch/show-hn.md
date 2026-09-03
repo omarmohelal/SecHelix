@@ -111,7 +111,7 @@ false claim of remediation. A green typecheck is not proof that a built applicat
 - 22 JSON Schema Draft 2020-12 contracts
 - 18 Gold Check Packs
 - 38 paired eval fixtures = 76 cases across 10 families
-- Knowledge graph: 76 nodes, 100 edges, 11 lesson cards
+- Knowledge graph: 76 nodes, 100 edges, 14 lesson cards
 - Four applicability outcomes: `APPLICABLE` / `NOT_APPLICABLE` / `UNKNOWN` / `BLOCKED`. Missing
   evidence is never treated as absence.
 - Release gate returns `PASS` / `PASS_WITH_KNOWN_RISK` / `BLOCKED` / fail-closed `INCOMPLETE`.

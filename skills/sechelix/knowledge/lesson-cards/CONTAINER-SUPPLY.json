@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "lesson_id": "LC-CONTAINER-SUPPLY",
+  "title": "Container image provenance, runtime privilege, and mutable delivery",
+  "updated_at": "2026-09-03T00:00:00Z",
+  "domains": ["containers", "cloud", "supply-chain"],
+  "summary": "Container security review must separate image provenance from runtime confinement. A signed or pinned image can still run with excessive privilege, while a well-confined workload can still consume an unintended mutable artifact. Verification should establish the exact image identity, how the deployment resolves and verifies it, which user and Linux capabilities the workload receives, what filesystems and sockets are mounted, and what network or cloud identity remains reachable at runtime.",
+  "detection_signals": [
+    "Deployments reference mutable image tags or unverified registries where the resolved image can change without a corresponding source or release change.",
+    "A container runs as root, privileged, with broad Linux capabilities, a writable host mount, container-runtime socket, host namespace, or equivalent escape-enabling authority without a documented requirement.",
+    "Build or deployment automation pulls plugins, binaries, packages, or base images without an immutable digest or integrity verification before the content enters the runtime image."
+  ],
+  "safe_local_tests": [
+    "Inspect the generated deployment specification and local container runtime settings to record the resolved image digest, user, capabilities, mounts, namespaces, filesystem mode, resource limits, and network policy.",
+    "Run a local confinement fixture that attempts to write outside the declared workspace, access host files, resolve external DNS, or use denied capabilities and record the refusal without targeting production infrastructure.",
+    "Substitute a modified local fixture artifact during image build and verify that the build or deployment fails before execution when the expected digest or signature no longer matches."
+  ],
+  "false_positive_traps": [
+    "Running as root inside a strongly isolated container is a risk signal, not by itself proof of a host escape; the effective capabilities, mounts, kernel boundary, and reachable sockets determine the security boundary.",
+    "A mutable tag can be operationally controlled by immutable deployment digests generated elsewhere, so inspect the final resolved manifest rather than stopping at the source YAML.",
+    "A private registry limits who can publish but does not itself prove that the runtime pulled the exact intended image or that the image was verified before execution."
+  ],
+  "remediation_patterns": [
+    "Deploy immutable image digests and verify provenance or signatures in the release path, failing closed when the expected artifact identity cannot be established.",
+    "Run as a non-root user, drop unnecessary capabilities, disable privileged mode, use a read-only root filesystem where feasible, and allow only narrowly required writable mounts and namespaces.",
+    "Deny network egress by default for isolated security jobs and minimize cloud or orchestrator identity permissions available to the workload."
+  ],
+  "regression_proof": [
+    "A deployment-policy test fails when an image becomes tag-only, privileged, root-by-default, or gains an undeclared capability or writable host mount.",
+    "A real local confinement test proves host filesystem access, unexpected writes, external network egress, and denied capabilities remain unavailable while the declared workspace operation still succeeds."
+  ],
+  "mapping_node_ids": [
+    "CWE-494",
+    "OWASP-TOP10-2021-A08",
+    "NIST-SSDF-PS.2",
+    "SHX-FAMILY-SUPPLY"
+  ],
+  "source_ids": ["mitre-cwe", "owasp-top-10", "nist-ssdf"]
+}

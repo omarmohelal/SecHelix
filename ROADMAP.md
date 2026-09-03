@@ -96,17 +96,11 @@ repository.
   including a refuted candidate;
 - **partial** — expand paired vulnerable/clean fixtures (now 38 fixtures /
   76 cases / 10 families; more families and more per-family depth still needed);
-- **partial** — add framework, database, cloud, container, supply-chain, and
-  AI-security lesson cards (11 cards exist, all CWE-anchored; the AI and
-  agent set landed alongside `docs/reference/ai-agent-security.md`, and the
-  framework/cloud/container set is not started);
-- **not started** — pin and rights-review selected NIST SARD suites and OWASP
-  Benchmark repositories;
-- **not started** — build reproducible importers that preserve origin,
-  revision, license, and attribution;
+- **done** — framework, database, cloud, container, supply-chain, and AI-security lesson coverage, including dedicated framework authorization, cloud SSRF, and container provenance/confinement cards;
+- **done** — pin and rights-review selected NIST SARD Juliet and OWASP Benchmark Java evaluation corpora without vendoring third-party source;
+- **done** — offline reproducible corpus importer verifies pinned identity and preserves origin, revision, license, and attribution metadata;
 - **done** — an uncontaminated blind label run was published on 2026-09-02;
-- **not started** — eight cumulative exam levels with de-identified
-  mistake-class memory.
+- **done** — eight cumulative exam levels plus de-identified mistake-class memory that can ask future verification questions but never auto-dismiss findings.
 
 The uncontaminated blind label run exists. What is still missing is an
 end-to-end run that exercises applicability, the independent verifier,
