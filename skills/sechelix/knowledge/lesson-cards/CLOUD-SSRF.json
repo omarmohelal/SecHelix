@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "lesson_id": "LC-CLOUD-SSRF",
+  "title": "Cloud SSRF and metadata trust boundaries",
+  "updated_at": "2026-09-03T00:00:00Z",
+  "domains": ["cloud", "web", "api"],
+  "summary": "Cloud SSRF impact depends on more than an outbound fetch. Verification must establish attacker influence over the destination, the exact parser and redirect behavior, what network boundary the workload can reach, whether metadata or internal control planes require additional protections, and what credentials or data a reachable service would actually expose. Cloud deployment context can increase impact, but it cannot replace proof of controllable reachability.",
+  "detection_signals": [
+    "A request-controlled URL, host, path, redirect target, webhook destination, image fetch, import source, or callback is passed to an outbound HTTP client from a cloud workload.",
+    "Destination validation happens before normalization or DNS resolution while redirects, alternate address forms, proxy configuration, or later parsing can change the effective destination.",
+    "The workload has network reachability or identity permissions to metadata, internal admin APIs, service meshes, control planes, or private storage endpoints that are not reachable from the public internet."
+  ],
+  "safe_local_tests": [
+    "Use an owned loopback callback in LOCAL mode to prove whether attacker-controlled destination data can cause a server-side request; never use a public out-of-band listener for an untrusted target.",
+    "Exercise parser and redirect edge cases against local fixtures and record the effective destination after normalization, while keeping DNS rebinding and cloud metadata probes out of production-safe testing.",
+    "Review deployment identity and network policy separately to determine what a proven server-side request could reach instead of inferring cloud credential exposure from SSRF alone."
+  ],
+  "false_positive_traps": [
+    "An outbound fetch is not SSRF when the destination is operator-controlled and request data cannot influence scheme, host, port, redirect destination, or equivalent routing inputs.",
+    "A cloud metadata hostname or IP mentioned in code or documentation does not prove it is reachable from the deployed workload or that metadata credentials are available.",
+    "A host allowlist can be effective when it is applied to the canonical destination and redirects, proxies, alternate encodings, and resolved addresses cannot escape the same policy."
+  ],
+  "remediation_patterns": [
+    "Prefer fixed destination identifiers or server-side destination maps over arbitrary URLs, and validate the final canonical scheme, host, port, resolved address, and redirect behavior before each connection.",
+    "Apply egress policy so application workloads cannot reach metadata or sensitive control-plane networks unless explicitly required, and minimize the workload identity permissions available after a network compromise.",
+    "Disable ambient proxy and redirect behavior where it can bypass application destination policy, and re-authorize every redirect or secondary connection independently."
+  ],
+  "regression_proof": [
+    "Local callback tests prove approved fixture destinations still work while loopback/private or alternate encoded destinations are denied by the canonical policy.",
+    "Deployment tests or policy assertions prove metadata and sensitive internal networks are not reachable by the application identity unless a documented requirement explicitly permits them."
+  ],
+  "mapping_node_ids": [
+    "CWE-918",
+    "OWASP-TOP10-2021-A10",
+    "SHX-FAMILY-SSRF"
+  ],
+  "source_ids": ["mitre-cwe", "owasp-top-10", "nist-ssdf"]
+}
