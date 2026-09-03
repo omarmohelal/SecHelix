@@ -2,8 +2,10 @@ name: Harden PR50 local proof transport
 
 on:
   push:
-    branches: [feat/v4-runtime-proof-execution]
-    paths: [.github/workflows/fix-proof-pr50-v2.yml]
+    branches:
+      - feat/v4-runtime-proof-execution
+    paths:
+      - .github/workflows/fix-proof-pr50-v2.yml
 
 permissions:
   contents: write
@@ -19,138 +21,13 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: '3.12'
-      - name: Replace ambient URL transport with literal-loopback HTTP client
-        shell: python
-        run: |
-          from pathlib import Path
-
-          path = Path('sechelix_runner/proof_exec.py')
-          text = path.read_text(encoding='utf-8')
-          text = text.replace('import hashlib\nimport json\n', 'import hashlib\nimport http.client\nimport json\n')
-          text = text.replace('import urllib.error\n', '')
-          text = text.replace('import urllib.request\n', '')
-          text = text.replace('from .sandbox import ExecutionMode, NetworkPolicy, is_loopback\n', 'from .sandbox import ExecutionMode, NetworkPolicy\n')
-
-          start = text.find('class _NoRedirect(')
-          end = text.find('class _CallbackHandler', start)
-          if start != -1 and end != -1:
-              text = text[:start] + text[end:]
-
-          old = '''        host = parsed.hostname
-          port = parsed.port or (443 if parsed.scheme == "https" else 80)
-          if self.policy.mode is ExecutionMode.LOCAL and not is_loopback(host):
-              raise ProofExecutionError(f"LOCAL proof target must be loopback, got {host!r}")
-          self.policy.require(host, port, protocol=parsed.scheme)
-          self._requests += 1
-
-          request = urllib.request.Request(
-              url,
-              data=body if method.upper() not in ("GET", "HEAD") else None,
-              headers=dict(headers or {}),
-              method=method.upper(),
-          )
-          started = time.monotonic()
-          status: int | None = None
-          response_body = b""
-          error = ""
-          try:
-              opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
-              with opener.open(request, timeout=self.timeout_seconds) as response:
-                  status = int(response.status)
-                  response_body = response.read(262_144)
-          except urllib.error.HTTPError as exc:
-              status = int(exc.code)
-              response_body = exc.read(262_144)
-          except (urllib.error.URLError, TimeoutError, OSError) as exc:
-              error = type(exc).__name__
-  '''
-          new = '''        host = parsed.hostname
-          port = parsed.port or (443 if parsed.scheme == "https" else 80)
-          if parsed.username is not None or parsed.password is not None:
-              raise ProofExecutionError("proof URL must not contain user-info credentials")
-          # LOCAL execution deliberately accepts literal loopback addresses only.
-          # DNS names (including localhost) create a rebinding/TOCTOU boundary that
-          # a proof runner does not need. Selecting a constant connect host also
-          # makes the network authority visible to static analysis.
-          if host == "127.0.0.1":
-              connect_host = "127.0.0.1"
-          elif host == "::1":
-              connect_host = "::1"
-          else:
-              raise ProofExecutionError(
-                  f"LOCAL proof target must use literal loopback 127.0.0.1 or ::1, got {host!r}"
-              )
-          self.policy.require(connect_host, port, protocol=parsed.scheme)
-          self._requests += 1
-
-          request_target = urllib.parse.urlunsplit(("", "", parsed.path or "/", parsed.query, ""))
-          connection_type = http.client.HTTPSConnection if parsed.scheme == "https" else http.client.HTTPConnection
-          connection = connection_type(connect_host, port, timeout=self.timeout_seconds)
-          started = time.monotonic()
-          status: int | None = None
-          response_body = b""
-          error = ""
-          try:
-              connection.request(
-                  method.upper(),
-                  request_target,
-                  body=body if method.upper() not in ("GET", "HEAD") else None,
-                  headers=dict(headers or {}),
-              )
-              response = connection.getresponse()
-              status = int(response.status)
-              response_body = response.read(262_144)
-          except (http.client.HTTPException, TimeoutError, OSError) as exc:
-              error = type(exc).__name__
-          finally:
-              connection.close()
-  '''
-          if old not in text:
-              raise SystemExit('expected proof transport block not found')
-          text = text.replace(old, new)
-          path.write_text(text, encoding='utf-8')
-
-          optionality = Path('tests/runner/test_optionality.py')
-          ot = optionality.read_text(encoding='utf-8')
-          needle = '"subprocess", "tempfile", "textwrap", "math", "copy", "abc", "functools",\n'
-          if '"concurrent"' not in ot:
-              ot = ot.replace(needle, needle + '            "concurrent",\n')
-          optionality.write_text(ot, encoding='utf-8')
-
-          tests = Path('tests/runner/test_proof_exec.py')
-          tt = tests.read_text(encoding='utf-8')
-          marker = '\n\nif __name__ == "__main__":\n'
-          addition = '''
-
-              def test_local_executor_refuses_dns_names_even_when_they_resolve_to_loopback(self) -> None:
-                  plan = build_plan(
-                      ProofClass.PATH_TRAVERSAL,
-                      "F-LOCALHOST",
-                      available_authority={"fixture_filesystem"},
-                  )
-                  with self.assertRaises(ProofExecutionError):
-                      self.executor.execute(
-                          plan,
-                          TraversalHttpSpec(
-                              url_template=f"http://localhost:{self.port}/files?path={{path}}",
-                              safe_path="safe",
-                              traversal_path="../sentinel",
-                              sentinel_marker=b"x",
-                          ),
-                      )
-          '''
-          addition = addition.replace('\n              ', '\n    ').rstrip() + '\n'
-          if 'test_local_executor_refuses_dns_names_even_when_they_resolve_to_loopback' not in tt:
-              if marker not in tt:
-                  raise SystemExit('test insertion marker not found')
-              tt = tt.replace(marker, addition + marker)
-          tests.write_text(tt, encoding='utf-8')
-      - name: Run focused proof and optionality tests
+      - name: Apply hardening patch
+        run: python scripts/_fix_pr50_local.py
+      - name: Run focused tests
         run: |
           python -m unittest discover -s tests/runner -p 'test_optionality.py' -v
           python -m unittest discover -s tests/runner -p 'test_proof_exec.py' -v
-      - name: Commit hardening
-        shell: bash
+      - name: Commit
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
