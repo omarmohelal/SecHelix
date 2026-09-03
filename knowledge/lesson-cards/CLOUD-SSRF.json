@@ -32,8 +32,7 @@
   "mapping_node_ids": [
     "CWE-918",
     "OWASP-TOP10-2021-A10",
-    "OWASP-ASVS-5.0.0-V13.4.1",
     "SHX-FAMILY-SSRF"
   ],
-  "source_ids": ["mitre-cwe", "owasp-top-10", "owasp-asvs", "nist-ssdf"]
+  "source_ids": ["mitre-cwe", "owasp-top-10", "nist-ssdf"]
 }
