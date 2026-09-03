@@ -56,9 +56,11 @@ def parse(payload: Any) -> list[dict[str, Any]]:
         if issue_cwe:
             properties["issue_cwe"] = issue_cwe
         # Proves an intentional omission to downstream reviewers without copying
-        # the source snippet itself into normalized evidence.
+        # the source snippet itself into normalized evidence. ``redacted`` keeps
+        # the secret-adapter contract explicit for downstream consumers.
         if "code" in finding:
             properties["source_snippet_omitted"] = True
+            properties["redacted"] = True
 
         output.append(
             candidate(
