@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "id": "SEC-BROWSER-DOM-001",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "title": "Browser trust boundaries across DOM sinks, origins, and framing",
   "lifecycle": "REFERENCE",
   "threat_model": {
@@ -12,7 +12,13 @@
     "impact": "Script runs in the application's origin, or a foreign document drives privileged behaviour, reads state, or captures user intent"
   },
   "applicability": {
-    "capability_tags": ["browser_client", "html_rendering", "cross_origin", "embedded_frames", "client_storage"],
+    "capability_tags": [
+      "browser_client",
+      "html_rendering",
+      "cross_origin",
+      "embedded_frames",
+      "client_storage"
+    ],
     "rule": "ANY_CAPABILITY_PRESENT",
     "required_evidence": [
       "The application renders content in a browser and at least some of that content originates outside the codebase",
@@ -22,7 +28,9 @@
   "framework_fingerprints": [
     {
       "framework": "dom-rendering",
-      "versions": ["any"],
+      "versions": [
+        "any"
+      ],
       "signals": [
         "Markup is assembled as a string and assigned to a parsing sink rather than built as nodes",
         "An escaping helper handles element text but the value is interpolated into an attribute or a URL position",
@@ -31,7 +39,9 @@
     },
     {
       "framework": "component-framework",
-      "versions": ["any"],
+      "versions": [
+        "any"
+      ],
       "signals": [
         "A framework escape hatch for raw HTML is used for content the server did not author",
         "A dynamic component, tag, or property name is chosen from data rather than from a fixed map",
@@ -40,7 +50,9 @@
     },
     {
       "framework": "cross-document-messaging",
-      "versions": ["any"],
+      "versions": [
+        "any"
+      ],
       "signals": [
         "The message origin is compared with a prefix, a substring, or a regular expression instead of an exact match",
         "The sending window is never compared with the frame the application created",
@@ -49,7 +61,9 @@
     },
     {
       "framework": "framing-and-policy",
-      "versions": ["any"],
+      "versions": [
+        "any"
+      ],
       "signals": [
         "A sandbox attribute grants allow-scripts together with allow-same-origin",
         "An isolation attribute is applied after the content is assigned or after the element joins the document",
@@ -58,7 +72,9 @@
     },
     {
       "framework": "javascript-synthetic-fixture",
-      "versions": ["es2020"],
+      "versions": [
+        "es2020"
+      ],
       "signals": [
         "A message handler admits an origin by prefix and dispatches to a privileged command table",
         "A preview renders unsanitised markup into a frame whose sandbox is granted away"
@@ -66,14 +82,25 @@
     }
   ],
   "sources": {
-    "source_ids": ["mitre-cwe", "mitre-capec", "owasp-asvs", "owasp-top-10"],
-    "catalog_hypothesis_ids": ["SHX-WEB-L01", "SHX-WEB-L08", "SHX-WEB-L18", "SHX-WEB-L24"],
+    "source_ids": [
+      "mitre-cwe",
+      "mitre-capec",
+      "owasp-asvs",
+      "owasp-top-10"
+    ],
+    "catalog_hypothesis_ids": [
+      "SHX-WEB-L01",
+      "SHX-WEB-L08",
+      "SHX-WEB-L18",
+      "SHX-WEB-L24"
+    ],
     "references": [
       "https://cwe.mitre.org/data/definitions/79.html",
       "https://cwe.mitre.org/data/definitions/346.html",
       "https://capec.mitre.org/data/definitions/591.html",
       "https://owasp.org/www-project-application-security-verification-standard/",
-      "https://owasp.org/www-project-top-ten/"
+      "https://owasp.org/www-project-top-ten/",
+      "https://github.com/omarmohelal/SecHelix/blob/main/docs/case-studies/gamingops-store-2026-09-01.md#4-refuted-candidate--shx-f-gos-urlscheme-001"
     ]
   },
   "boundary": {
@@ -84,12 +111,53 @@
     "invariant": "Content that the application did not author never becomes script or markup in the application's origin, and every cross-document peer is identified exactly before it is trusted"
   },
   "sinks": [
-    {"kind": "MARKUP_SINK", "examples": ["innerHTML or outerHTML assignment", "Framework raw-HTML escape hatch", "Document write during hydration"]},
-    {"kind": "URL_SINK", "examples": ["href or src assignment", "Client-side redirect target", "Form action attribute"]},
-    {"kind": "SCRIPT_SINK", "examples": ["Dynamic script element", "Function constructor or timer string argument", "Server-rendered state embedded as script"]},
-    {"kind": "MESSAGE_CHANNEL", "examples": ["Cross-document message handler", "Broadcast or worker channel", "Storage event listener"]},
-    {"kind": "FRAMING_SURFACE", "examples": ["Embedded frame sandbox attribute", "Frame-ancestors policy", "Overlay or drag-and-drop target"]},
-    {"kind": "CLIENT_STORAGE", "examples": ["Token written to local storage", "State restored from storage and rendered"]}
+    {
+      "kind": "MARKUP_SINK",
+      "examples": [
+        "innerHTML or outerHTML assignment",
+        "Framework raw-HTML escape hatch",
+        "Document write during hydration"
+      ]
+    },
+    {
+      "kind": "URL_SINK",
+      "examples": [
+        "href or src assignment",
+        "Client-side redirect target",
+        "Form action attribute"
+      ]
+    },
+    {
+      "kind": "SCRIPT_SINK",
+      "examples": [
+        "Dynamic script element",
+        "Function constructor or timer string argument",
+        "Server-rendered state embedded as script"
+      ]
+    },
+    {
+      "kind": "MESSAGE_CHANNEL",
+      "examples": [
+        "Cross-document message handler",
+        "Broadcast or worker channel",
+        "Storage event listener"
+      ]
+    },
+    {
+      "kind": "FRAMING_SURFACE",
+      "examples": [
+        "Embedded frame sandbox attribute",
+        "Frame-ancestors policy",
+        "Overlay or drag-and-drop target"
+      ]
+    },
+    {
+      "kind": "CLIENT_STORAGE",
+      "examples": [
+        "Token written to local storage",
+        "State restored from storage and rendered"
+      ]
+    }
   ],
   "detection_layers": [
     {
@@ -141,7 +209,9 @@
     "The framed content is isolated by a sandbox that grants neither scripts nor same-origin, applied before the content is assigned",
     "A content security policy that actually blocks the sink is delivered on the response in question, evidenced by the header rather than a configuration file alone",
     "The message handler compares the origin exactly and verifies the sending window, so a foreign document cannot be the peer",
-    "The sink is unreachable in the built bundle, or renders content the application itself authored"
+    "The sink is unreachable in the built bundle, or renders content the application itself authored",
+    "For a React 19 URL prop rendered by React itself, a local reproduction shows the javascript: value being replaced with React's inert blocked-URL error value before it reaches the document; this refutes script execution through that exact framework-rendered href/src sink only, not direct DOM setters, dangerouslySetInnerHTML, location/window navigation, another framework path, another scheme, or an open-redirect claim, and a scheme allowlist is still preferred hardening",
+    "The apparent URL source is an operator-controlled configuration boundary with no demonstrated attacker write path; until a user, tenant, external provider, or other untrusted actor can actually change that value, attacker control for the XSS claim is not established even if the value reaches a URL sink"
   ],
   "verification": {
     "independent_required": true,
@@ -155,7 +225,9 @@
       "Re-read the render for a text-node or framework-escaped path that the surrounding string building disguises",
       "Check the delivered response headers for a policy that blocks the sink before asserting execution",
       "Inspect the sandbox attribute value and the order of assignment before concluding framed content is contained",
-      "Send a message from an unrelated origin to confirm the handler's comparison really admits it"
+      "Send a message from an unrelated origin to confirm the handler's comparison really admits it",
+      "On an authorized local React 19 build, pass an inert javascript: marker through the exact React-rendered href/src prop, inspect the rendered attribute and execution result, and verify React neutralizes that sink; separately search for the same value reaching direct setAttribute/property assignment, dangerouslySetInnerHTML, location.assign, window.open, or another non-React path before refuting the candidate",
+      "Trace who can write the configuration value all the way to its source API/storage and attempt the lowest-privilege authorized write path; refute attacker control only when no untrusted identity or external provider can change it, and reopen the candidate if any alternate write path exists"
     ]
   },
   "root_causes": [
@@ -167,8 +239,19 @@
     "A privileged command table is reachable from a channel whose peer is a document rather than an authenticated caller"
   ],
   "variant_strategy": {
-    "anchor_fields": ["invariant", "boundary", "action"],
-    "variant_dimensions": ["actor", "object", "identity_state", "enforcement_layer", "sink_kind", "framework"],
+    "anchor_fields": [
+      "invariant",
+      "boundary",
+      "action"
+    ],
+    "variant_dimensions": [
+      "actor",
+      "object",
+      "identity_state",
+      "enforcement_layer",
+      "sink_kind",
+      "framework"
+    ],
     "result_contract": "EXACT | VARIANT | REFUTED | BLOCKED; exact and variant matches remain hypotheses until verified"
   },
   "remediation": {
@@ -183,7 +266,10 @@
     ]
   },
   "regression": {
-    "fixture_ids": ["EVAL-WEB-003", "EVAL-WEB-004"],
+    "fixture_ids": [
+      "EVAL-WEB-003",
+      "EVAL-WEB-004"
+    ],
     "assertions": [
       "The vulnerable bridge admits an origin that merely begins with the trusted origin and reaches a privileged command table",
       "The vulnerable bridge replies with a wildcard target origin carrying session state",
@@ -193,8 +279,17 @@
     ]
   },
   "mappings": {
-    "cwe": ["CWE-79", "CWE-346", "CWE-1021", "CWE-601"],
-    "owasp": ["OWASP-ASVS:V14", "OWASP-A03:2021", "OWASP-A05:2021"]
+    "cwe": [
+      "CWE-79",
+      "CWE-346",
+      "CWE-1021",
+      "CWE-601"
+    ],
+    "owasp": [
+      "OWASP-ASVS:V14",
+      "OWASP-A03:2021",
+      "OWASP-A05:2021"
+    ]
   },
   "calibration": {
     "measurement_status": "NOT_MEASURED",
