@@ -210,7 +210,7 @@ Disclosure: I am the author of this project.
 
 What it is: an Apache-2.0 Agent Skill and methodology for application-security review of systems the
 operator owns or is explicitly authorized to test. It is not a scanner and not a scanner wrapper; it
-consumes scanner evidence through 11 adapters (Semgrep, Trivy, OSV, Gitleaks, ZAP, Nuclei, Playwright,
+consumes scanner evidence through 12 adapters (Semgrep, Trivy, OSV, Gitleaks, ZAP, Nuclei, Playwright,
 package audit, SARIF) and treats every scanner alert or model suspicion as a hypothesis until
 evidence supports it.
 
@@ -317,7 +317,7 @@ Canonical source: https://github.com/omarmohelal/SecHelix (Apache-2.0)
 ### Content accuracy
 
 - [ ] **C-5.** Every number in the submission matches the tagged tree: 546 hypotheses, 21 families,
-      26 lenses, 17 roles, 16 JSON contracts, 11 adapters, 18 Gold Check Packs, 38 fixtures / 76 cases,
+      26 lenses, 17 roles, 16 JSON contracts, 12 adapters, 18 Gold Check Packs, 38 fixtures / 76 cases,
       knowledge graph 76 nodes / 100 edges. Re-run `python scripts/validate_catalog.py` at the tag.
 - [ ] **C-6.** The `UNTRUSTED_REPO` mode and differential security review are present and documented
       at the tagged ref (`docs/reference/untrusted-repo-mode.md` exists on the current branch).

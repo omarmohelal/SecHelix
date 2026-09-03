@@ -257,7 +257,7 @@ Gap is scored against **SecHelix `3.4.0-alpha.2` as it exists**, not against its
 | Proof bundles | **NONE** | `proof_bundle.py`. |
 | Applicability states | **NONE** | `APPLICABLE/NOT_APPLICABLE/UNKNOWN/BLOCKED` — no competitor has `UNKNOWN`. |
 | Untrusted-repo mode | **NONE** | `untrusted_repo.py`. No competitor treats repo content as non-instructional. |
-| Scanner adapters | **NONE** | 11 adapters vs sec-af's 0 and cloudflare's 0. |
+| Scanner adapters | **NONE** | 12 adapters vs sec-af's 0 and cloudflare's 0. |
 
 ## 3. Things to deliberately reject
 

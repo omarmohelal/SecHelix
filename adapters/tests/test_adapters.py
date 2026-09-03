@@ -17,6 +17,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 class AdapterContractTests(unittest.TestCase):
     CASES = (
         ("semgrep", "semgrep.json", "semgrep"),
+        ("opengrep", "semgrep.json", "opengrep"),
         ("sarif", "sarif.json", "Example SARIF Scanner"),
         ("codeql", "codeql.sarif", "codeql"),
         ("osv", "osv.json", "osv"),
@@ -35,7 +36,7 @@ class AdapterContractTests(unittest.TestCase):
     def test_registry_contains_every_supported_adapter(self) -> None:
         self.assertEqual(
             set(ADAPTERS),
-            {"semgrep", "sarif", "codeql", "osv", "trivy", "gitleaks", "npm-audit", "pnpm-audit", "playwright", "zap", "nuclei"},
+            {"semgrep", "opengrep", "sarif", "codeql", "osv", "trivy", "gitleaks", "npm-audit", "pnpm-audit", "playwright", "zap", "nuclei"},
         )
 
     def test_every_fixture_emits_candidate_unassessed_records(self) -> None:
@@ -53,6 +54,13 @@ class AdapterContractTests(unittest.TestCase):
                     signal = record["tool_signal"]
                     if signal:
                         self.assertIs(signal["trusted_for_assessment"], False)
+
+    def test_opengrep_keeps_engine_provenance_distinct(self) -> None:
+        record = self._records("opengrep", "semgrep.json")[0]
+        self.assertEqual(record["source"]["tool"], "opengrep")
+        self.assertEqual(record["properties"]["engine"], "opengrep")
+        self.assertEqual(record["status"], "CANDIDATE")
+        self.assertEqual(record["assessment"], "UNASSESSED")
 
     def test_high_and_critical_tool_labels_never_promote_assessment(self) -> None:
         for adapter, fixture in (
@@ -90,6 +98,8 @@ class AdapterContractTests(unittest.TestCase):
     def test_malformed_json_fails_closed(self) -> None:
         with self.assertRaises(AdapterError):
             parse("semgrep", b"{not json")
+        with self.assertRaises(AdapterError):
+            parse("opengrep", b"{not json")
         with self.assertRaises(AdapterError):
             parse("sarif", b"[]")
 
