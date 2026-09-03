@@ -6,6 +6,7 @@ on:
       - release/v4.0.0-alpha.1
     paths:
       - scripts/_release_v4_patch.py
+      - .github/workflows/sync-v4-release-docs.yml
 
 permissions:
   contents: write
