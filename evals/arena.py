@@ -13,7 +13,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping
 
 MEASURED = "MEASURED"
 NOT_MEASURED = "NOT_MEASURED"
@@ -63,6 +63,13 @@ def canonical_digest(value: Any) -> str:
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
+def _is_digest(value: Any) -> bool:
+    if not isinstance(value, str) or not value.startswith("sha256:"):
+        return False
+    digest = value.removeprefix("sha256:")
+    return len(digest) == 64 and all(char in "0123456789abcdef" for char in digest)
+
+
 def _read_json(path: str | Path) -> Any:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
@@ -93,12 +100,21 @@ def validate_participant(participant: Mapping[str, Any]) -> dict[str, Any]:
     category = participant["category"]
     if category not in PARTICIPANT_CATEGORIES:
         raise ArenaError(f"unknown participant category: {category!r}")
+    source_url = participant["source_url"]
+    if not isinstance(source_url, str) or not source_url.startswith("https://"):
+        raise ArenaError("participant source_url must be an explicit HTTPS source")
     scope = participant["capability_scope"]
     if not isinstance(scope, list) or not scope or not all(isinstance(item, str) and item.strip() for item in scope):
         raise ArenaError("capability_scope must be a non-empty list of explicit capabilities")
+    if "REVIEW_AND_PIN_FROM_TESTED_VERSION" in scope:
+        raise ArenaError("placeholder capability scope must be replaced before a run")
     version = participant["version"]
-    if not isinstance(version, str) or not version.strip() or version in {"latest", "HEAD", "UNKNOWN"}:
-        raise ArenaError("participant version must be pinned; latest/HEAD/UNKNOWN are not comparable")
+    if (
+        not isinstance(version, str)
+        or not version.strip()
+        or version in {"latest", "HEAD", "UNKNOWN", "PIN_REQUIRED"}
+    ):
+        raise ArenaError("participant version must be pinned; placeholders/latest/HEAD are not comparable")
     return dict(participant)
 
 
@@ -113,6 +129,7 @@ def prepare_manifest(packet: Mapping[str, Any], participant: Mapping[str, Any]) 
         "packet": {
             "digest": canonical_digest(packet),
             "case_count": len(case_ids),
+            "case_ids": case_ids,
             "case_id_digest": canonical_digest(case_ids),
         },
         "participant": clean_participant,
@@ -149,9 +166,9 @@ def _rate(assessment: Mapping[str, Any], metric: str) -> float | str:
     field = metric.removesuffix("_accuracy")
     values: list[bool] = []
     for observation in observations:
-        if not isinstance(observation, Mapping):
+        if not isinstance(observation, Mapping) or field not in observation:
             return NOT_MEASURED
-        value = observation.get(field, NA)
+        value = observation[field]
         if value == NA:
             continue
         if not isinstance(value, bool):
@@ -162,11 +179,50 @@ def _rate(assessment: Mapping[str, Any], metric: str) -> float | str:
     return round(sum(values) / len(values), 6)
 
 
-def _publication_blockers(manifest: Mapping[str, Any], assessment: Mapping[str, Any]) -> list[str]:
+def _assessment_blockers(manifest: Mapping[str, Any], assessment: Mapping[str, Any]) -> list[str]:
     blockers: list[str] = []
+    packet = manifest.get("packet")
+    if not isinstance(packet, Mapping):
+        return ["packet record missing"]
+    expected_ids = packet.get("case_ids")
+    if not isinstance(expected_ids, list) or not all(isinstance(item, str) for item in expected_ids):
+        return ["prepared packet case identities missing"]
+    if assessment.get("packet_digest") != packet.get("digest"):
+        blockers.append("assessment is not bound to the prepared packet digest")
+    observations = assessment.get("observations")
+    if not isinstance(observations, list):
+        blockers.append("assessment observations missing")
+        return blockers
+    observed_ids: list[str] = []
+    for observation in observations:
+        if not isinstance(observation, Mapping):
+            blockers.append("assessment contains a non-object observation")
+            continue
+        case_id = observation.get("case_id")
+        if not isinstance(case_id, str):
+            blockers.append("assessment observation missing case_id")
+            continue
+        observed_ids.append(case_id)
+        for metric in WORKFLOW_METRICS:
+            field = metric.removesuffix("_accuracy")
+            if field not in observation:
+                blockers.append(f"{case_id} missing workflow field {field}")
+                continue
+            value = observation[field]
+            if value != NA and not isinstance(value, bool):
+                blockers.append(f"{case_id}.{field} must be boolean or {NA}")
+    if len(observed_ids) != len(set(observed_ids)):
+        blockers.append("assessment contains duplicate case IDs")
+    if sorted(observed_ids) != sorted(expected_ids):
+        blockers.append("assessment does not cover every prepared blind case exactly once")
+    return blockers
+
+
+def _publication_blockers(manifest: Mapping[str, Any], assessment: Mapping[str, Any]) -> list[str]:
+    blockers = _assessment_blockers(manifest, assessment)
     run = manifest.get("run")
     if not isinstance(run, Mapping):
-        return ["run metadata missing"]
+        return sorted(set(blockers + ["run metadata missing"]))
     for key in REQUIRED_RUN_FIELDS:
         if not isinstance(run.get(key), str) or not str(run.get(key)).strip():
             blockers.append(f"run.{key} missing")
@@ -182,9 +238,8 @@ def _publication_blockers(manifest: Mapping[str, Any], assessment: Mapping[str, 
         if blindness.get("truth_revealed_after_predictions") is not True:
             blockers.append("truth was not established as sealed until predictions were fixed")
         for key in ("ground_truth_digest", "prediction_digest"):
-            value = blindness.get(key)
-            if not isinstance(value, str) or not value.startswith("sha256:"):
-                blockers.append(f"blindness.{key} missing")
+            if not _is_digest(blindness.get(key)):
+                blockers.append(f"blindness.{key} missing or malformed")
 
     assessor = assessment.get("assessor")
     if not isinstance(assessor, Mapping):
