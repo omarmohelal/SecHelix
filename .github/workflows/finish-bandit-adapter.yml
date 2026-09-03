@@ -6,6 +6,8 @@ on:
       - feat/bandit-adapter
     paths:
       - .github/workflows/finish-bandit-adapter.yml
+      - adapters/bandit.py
+      - adapters/tests/fixtures/bandit.json
 
 permissions:
   contents: write
