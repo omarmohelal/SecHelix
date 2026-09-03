@@ -2,6 +2,28 @@
 
 All notable SecHelix release changes are summarized here. Detailed release notes live in [`docs/releases/`](docs/releases/), and the Git history remains the authoritative development record.
 
+## [4.0.0-alpha.1] - 2026-09-03
+
+### V4 evidence runtime
+
+- Added the optional standard-library-only runner with deterministic DAG orchestration, least-context routing, budget/coverage state, replayable evidence, loopback API/MCP integration and fail-closed provider execution.
+- Added bounded LOCAL proof execution for authorization/IDOR, traversal, race/idempotency, webhook and SSRF; hardened HTTP proofs to literal loopback with no DNS names, ambient proxies or automatic redirects. Proof behavior never auto-promotes a finding.
+- Added graph-grounded threat modeling, conservative false-positive guidance, deep protocol packs and a candidate-only C/C++/Rust native source lane.
+- Added Opengrep as deterministic candidate evidence.
+
+### Measurement and product surfaces
+
+- Added the fail-closed Arena protocol for end-to-end applicability, verification, false-positive refutation, root-cause, regression-proof and release-gate measurement. The full workflow remains `NOT_MEASURED`; no competitor score is published in this release.
+- Shipped Workbench V4 on `sechelix.com` for local recorded-run inspection without uploading artifacts.
+- Preserved the existing uncontaminated 76-case blind-label result and its explicit boundary: precision 0.950, recall 1.000 and FP rate 0.053 describe the label task, not the complete V4 workflow.
+
+### Distribution
+
+- Bumped the Agent Skill/plugin release to `4.0.0-alpha.1` while keeping the optional Python runner at its independent `0.1.0` version.
+- Added release notes and automated release/SBOM publication safeguards. PyPI publication remains blocked on an external publishing credential or trusted-publisher setup.
+
+See [`docs/releases/4.0.0-alpha.1.md`](docs/releases/4.0.0-alpha.1.md) for the full notes.
+
 ## [3.4.0-alpha.2] - 2026-09-02
 
 ### Evaluation

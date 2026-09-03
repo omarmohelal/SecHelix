@@ -11,7 +11,7 @@
   <a href="https://github.com/omarmohelal/SecHelix/actions"><img src="https://img.shields.io/github/actions/workflow/status/omarmohelal/SecHelix/validate.yml?branch=main&style=flat-square&label=validate" alt="validation"/></a>
   <a href="skills/sechelix/SKILL.md"><img src="https://img.shields.io/badge/security%20hypotheses-546-7dd3fc?style=flat-square" alt="546 hypotheses"/></a>
   <a href="#evaluation-and-proof-status"><img src="https://img.shields.io/badge/blind%20eval-MEASURED-34d399?style=flat-square" alt="blind eval MEASURED"/></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-3.4.0--alpha.2-9b8cff?style=flat-square" alt="3.4.0 alpha 2"/></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-4.0.0--alpha.1-9b8cff?style=flat-square" alt="4.0.0 alpha 1"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-a78bfa?style=flat-square" alt="Apache-2.0"/></a>
 </p>
 
@@ -53,14 +53,18 @@ A trusted finding should establish attacker control, reachability, a failed secu
 | Gold Check Packs | **18 deep reference packs** — 12 bug-class (IDOR, SSRF, injection, race/idempotency, money invariants, AI/MCP tool authority, and more) plus 6 framework packs (Next.js, Express/Node, Django, Supabase/PostgREST, Spring Boot, Laravel) |
 | Eval fixtures | **38 paired fixtures — 76 cases across 10 families**, each with a vulnerable and a clean variant |
 | Knowledge graph | **76 nodes, 100 edges**, provenance-backed, plus **11 lesson cards** |
-| Evidence adapters | Semgrep, CodeQL/SARIF, OSV, Gitleaks, Trivy, npm/pnpm audit, Playwright, ZAP, Nuclei |
+| Evidence adapters | Semgrep, **Opengrep**, CodeQL/SARIF, OSV, Gitleaks, Trivy, npm/pnpm audit, Playwright, ZAP, Nuclei |
 | Reports | Markdown, redacted JSON, SARIF 2.1.0, escaped standalone HTML |
 | Release truth | `PASS`, `PASS_WITH_KNOWN_RISK`, `BLOCKED`, or fail-closed `INCOMPLETE` |
 | Zero-trust audits | **`UNTRUSTED_REPO` mode** — repository content is data, never control ([details](docs/reference/untrusted-repo-mode.md)) |
 | Change review | **Differential security review** — classifies a diff into `NEW_RISK` / `RISK_REDUCED` / `UNCHANGED` / `UNKNOWN` |
+| V4 evidence runtime | **Optional stdlib-only runner `0.1.0`** — deterministic reasoner DAG, least-context routing, budget governor, coverage ledger, replay, loopback API and MCP |
+| Bounded runtime proof | **LOCAL-only** IDOR, traversal, race/idempotency, webhook and SSRF proof executors; literal loopback only, no ambient proxy/redirect following, and no automatic finding promotion |
+| Protocol / native lanes | Applicability-gated GraphQL, WebSocket, gRPC, OAuth/OIDC, SAML, JWT, webhook and HTTP proxy/cache review plus candidate-only C/C++/Rust source analysis |
+| Full-workflow Arena | **Protocol shipped; result still `NOT_MEASURED`** — complete packet coverage, pinned versions, independent assessment and uncontaminated evidence are required before publication |
 | Real-world proof | **1 published case study** — [gamingops-store](docs/case-studies/gamingops-store-2026-09-01.md) |
 | Blind label evaluation | **`MEASURED`** — first uncontaminated 76-case run: precision **0.950** · detection recall **1.000** · FP rate **0.053** ([result](evals/results/claude-sonnet-5-blind-2026-09-02.json), [report](docs/research/evaluation-report.md)) |
-| Full SecHelix workflow benchmark | **`NOT_MEASURED`** — applicability, independent verification, remediation/regression and release-gate performance have not been measured end to end |
+| Full SecHelix workflow benchmark | **`NOT_MEASURED`** — V4 ships the fail-closed Arena protocol, but no uncontaminated end-to-end applicability → verification → remediation/regression → release-gate run has been published |
 | Trophy case | Public attributable results only; **no entries yet** |
 
 The canonical live product is **[sechelix.com](https://sechelix.com)**. The website source remains private; this repository contains the open security framework, portable Agent Skill, adapters, schemas, eval fixtures, and public documentation.

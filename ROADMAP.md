@@ -2,7 +2,7 @@
 
 SecHelix should earn trust through evals before adding complexity.
 
-> **Maturity: public alpha (`3.4.0-alpha.2`).**
+> **Maturity: public alpha (`4.0.0-alpha.1`).**
 > Sections marked *complete* describe shipped repository capability, not measured
 > accuracy. The blind label suite is **`MEASURED`** — one uncontaminated run,
 > [`evals/results/claude-sonnet-5-blind-2026-09-02.json`](evals/results/claude-sonnet-5-blind-2026-09-02.json).
@@ -56,7 +56,7 @@ SecHelix should earn trust through evals before adding complexity.
 - severity/company-policy gates;
 - historical comparison.
 
-## v3.0 alpha — contract-first orchestration foundation — current
+## v3.0 alpha — contract-first orchestration foundation — complete
 
 - fifteen versioned JSON contracts, including community extensions, source trust,
   knowledge graph, lesson cards, live research packets, and Gold Check Packs;
@@ -112,6 +112,23 @@ The uncontaminated blind label run exists. What is still missing is an
 end-to-end run that exercises applicability, the independent verifier,
 remediation with regression proof, and the release gate — until that exists those
 rows stay `NOT_MEASURED`.
+
+## v4.0 alpha — optional evidence runtime — current
+
+- **done** — standard-library-only optional runner (`0.1.0`) with deterministic reasoner DAG, least-context views, budget reservations, durable coverage, replay and four report formats;
+- **done** — fail-closed provider isolation with a real Claude Code reasoning adapter and structured-output validation;
+- **done** — loopback API and MCP integration without arbitrary shell exposure;
+- **done** — Docker-backed sandbox specification and real confinement tests: read-only root, dropped capabilities, non-root user, bounded resources, workspace-only writes and default-deny network;
+- **done** — graph-grounded threat modeling plus conservative cross-target false-positive guidance that can ask a future verification question but cannot auto-dismiss a finding;
+- **done** — bounded LOCAL proof execution for IDOR, traversal, race/idempotency, webhook and SSRF. LOCAL HTTP proofs use literal loopback only and never follow redirects or ambient proxies; proof results never self-promote to findings;
+- **done** — deep protocol packs for GraphQL, WebSocket, gRPC, OAuth/OIDC, SAML, JWT, webhooks and HTTP proxy/cache/desync boundaries;
+- **done** — candidate-only native source lane for C, C++ and Rust unsafe/FFI/parser/crypto patterns;
+- **done** — Opengrep interoperability beside the existing deterministic scanner adapters;
+- **done** — production Workbench V4 at `sechelix.com/workbench/v4` for local `run.json` / `graph.json` / `coverage.json` inspection without uploading artifacts;
+- **done** — fail-closed Arena full-workflow measurement protocol with pinned participant versions, explicit capability scope, complete opaque-case coverage, independent assessment and contamination gates;
+- **not measured** — the complete V4 workflow. No end-to-end applicability/verification/remediation/regression/release-gate performance number is published yet;
+- **external blocker** — PyPI upload requires a publishing credential or trusted-publisher configuration outside this repository session;
+- **external evidence needed** — competitor Arena runs and the first public Trophy Case require independently authorized runs, not synthetic claims.
 
 ## v3.x — orchestration platform (optional)
 
