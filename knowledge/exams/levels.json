@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "updated_at": "2026-09-03T00:00:00Z",
+  "policy": "Levels are cumulative. Promotion requires evidence-backed answers and cannot be earned by severity guessing or memorizing fixture labels.",
+  "levels": [
+    {"level": 1, "id": "recognition", "name": "Recognition", "requires": [], "skills": ["identify security-relevant surfaces", "separate signal from finding", "name missing evidence"]},
+    {"level": 2, "id": "code-review", "name": "Code Review", "requires": ["recognition"], "skills": ["trace source to validation to sink", "locate enforcement boundaries", "produce safe candidate evidence"]},
+    {"level": 3, "id": "false-positive", "name": "False Positive", "requires": ["code-review"], "skills": ["find compensating controls", "refute candidates with evidence", "keep unknown distinct from clean"]},
+    {"level": 4, "id": "architecture", "name": "Architecture", "requires": ["false-positive"], "skills": ["build attack-surface and trust-boundary models", "map authorization and tenant policy", "reason about framework and infrastructure controls"]},
+    {"level": 5, "id": "black-box", "name": "Black-box Verification", "requires": ["architecture"], "skills": ["design bounded local or staging verification", "use two-identity authorization controls", "record reproducible evidence without destructive testing"]},
+    {"level": 6, "id": "business-logic", "name": "Business Logic", "requires": ["black-box"], "skills": ["derive invariants", "test replay ordering and concurrency", "reason about ownership price quota and state transitions"]},
+    {"level": 7, "id": "chains", "name": "Attack Chains", "requires": ["business-logic"], "skills": ["compose only established links", "state missing prerequisites", "assign chain impact from proven outcome rather than severity inflation"]},
+    {"level": 8, "id": "unknown-research", "name": "Unknown Research", "requires": ["chains"], "skills": ["form falsifiable hypotheses for unfamiliar systems", "use provenance and rights-aware research", "design a safe verifier before making a vulnerability claim"]}
+  ]
+}
