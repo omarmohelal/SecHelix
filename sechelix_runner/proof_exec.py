@@ -19,12 +19,11 @@ a finding can become VERIFIED.
 from __future__ import annotations
 
 import hashlib
+import http.client
 import json
 import threading
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -32,7 +31,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Callable, Mapping
 
 from .proof import PlanState, ProofClass, ProofPlan
-from .sandbox import ExecutionMode, NetworkPolicy, is_loopback
+from .sandbox import ExecutionMode, NetworkPolicy
 
 
 class ProofExecutionError(RuntimeError):
@@ -142,19 +141,6 @@ class SsrfHttpSpec:
 
     submit_url_template: str
     callback_timeout_seconds: float = 1.5
-
-
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    """Return redirect responses to the proof engine instead of following them.
-
-    The original URL has passed NetworkPolicy, but a redirect target has not.
-    Automatic redirect following would therefore turn a bounded LOCAL request
-    into an authority bypass. Callers may record the 3xx response; they must
-    build a new explicitly-authorized request to follow it.
-    """
-
-    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
-        return None
 
 
 class _CallbackHandler(BaseHTTPRequestHandler):
@@ -414,31 +400,44 @@ class LocalProofExecutor:
             raise ProofExecutionError(f"proof URL must be absolute HTTP(S): {url!r}")
         host = parsed.hostname
         port = parsed.port or (443 if parsed.scheme == "https" else 80)
-        if self.policy.mode is ExecutionMode.LOCAL and not is_loopback(host):
-            raise ProofExecutionError(f"LOCAL proof target must be loopback, got {host!r}")
-        self.policy.require(host, port, protocol=parsed.scheme)
+        if parsed.username is not None or parsed.password is not None:
+            raise ProofExecutionError("proof URL must not contain user-info credentials")
+
+        # LOCAL proof execution has no reason to cross a DNS trust boundary.
+        # Select a constant connect host so DNS rebinding, ambient proxies and
+        # redirect-following cannot turn a bounded proof into arbitrary egress.
+        if host == "127.0.0.1":
+            connect_host = "127.0.0.1"
+        elif host == "::1":
+            connect_host = "::1"
+        else:
+            raise ProofExecutionError(
+                f"LOCAL proof target must use literal loopback 127.0.0.1 or ::1, got {host!r}"
+            )
+        self.policy.require(connect_host, port, protocol=parsed.scheme)
         self._requests += 1
 
-        request = urllib.request.Request(
-            url,
-            data=body if method.upper() not in ("GET", "HEAD") else None,
-            headers=dict(headers or {}),
-            method=method.upper(),
-        )
+        request_target = urllib.parse.urlunsplit(("", "", parsed.path or "/", parsed.query, ""))
+        connection_type = http.client.HTTPSConnection if parsed.scheme == "https" else http.client.HTTPConnection
+        connection = connection_type(connect_host, port, timeout=self.timeout_seconds)
         started = time.monotonic()
         status: int | None = None
         response_body = b""
         error = ""
         try:
-            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
-            with opener.open(request, timeout=self.timeout_seconds) as response:
-                status = int(response.status)
-                response_body = response.read(262_144)
-        except urllib.error.HTTPError as exc:
-            status = int(exc.code)
-            response_body = exc.read(262_144)
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            connection.request(
+                method.upper(),
+                request_target,
+                body=body if method.upper() not in ("GET", "HEAD") else None,
+                headers=dict(headers or {}),
+            )
+            response = connection.getresponse()
+            status = int(response.status)
+            response_body = response.read(262_144)
+        except (http.client.HTTPException, TimeoutError, OSError) as exc:
             error = type(exc).__name__
+        finally:
+            connection.close()
         elapsed = int((time.monotonic() - started) * 1000)
         observation = HttpObservation(
             label=label,

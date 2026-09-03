@@ -232,5 +232,23 @@ class LocalProofExecutionTests(unittest.TestCase):
             )
 
 
+    def test_local_executor_refuses_dns_names_even_when_they_resolve_to_loopback(self) -> None:
+        plan = build_plan(
+            ProofClass.PATH_TRAVERSAL,
+            "F-LOCALHOST",
+            available_authority={"fixture_filesystem"},
+        )
+        with self.assertRaises(ProofExecutionError):
+            self.executor.execute(
+                plan,
+                TraversalHttpSpec(
+                    url_template=f"http://localhost:{self.port}/files?path={{path}}",
+                    safe_path="safe",
+                    traversal_path="../sentinel",
+                    sentinel_marker=b"x",
+                ),
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
