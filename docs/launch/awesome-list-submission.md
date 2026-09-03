@@ -63,7 +63,7 @@ Structurally it ships: 546 structured security hypotheses (21 families x 26 veri
 model-neutral specialist role profiles including an independent verifier, 22 JSON Schema Draft
 2020-12 contracts, 18 Gold Check Packs, 11 read-only evidence adapters, 38 paired eval fixtures
 (76 cases across 10 families), and a
-knowledge graph of 76 nodes, 100 edges, and 11 lesson cards. Applicability resolves to APPLICABLE,
+knowledge graph of 76 nodes, 100 edges, and 14 lesson cards. Applicability resolves to APPLICABLE,
 NOT_APPLICABLE, UNKNOWN, or BLOCKED — missing evidence is never treated as absence — and the release
 gate returns PASS, PASS_WITH_KNOWN_RISK, BLOCKED, or a fail-closed INCOMPLETE.
 
