@@ -1,0 +1,53 @@
+{
+  "note": "Templates only. Pin the exact audited version/commit and fill capability_scope from that version's documented behavior before preparing a run. SecHelix does not auto-install or auto-run competitors.",
+  "participants": [
+    {
+      "participant_id": "sechelix",
+      "display_name": "SecHelix",
+      "category": "AGENT_WORKFLOW",
+      "source_url": "https://github.com/omarmohelal/SecHelix",
+      "version": "PIN_REQUIRED",
+      "capability_scope": [
+        "repository_security_review",
+        "authorization_business_logic",
+        "independent_verification",
+        "false_positive_refutation",
+        "mcp_ai_security",
+        "root_cause_remediation",
+        "regression_proof"
+      ]
+    },
+    {
+      "participant_id": "owasp-appsec-agent",
+      "display_name": "OWASP AppSec Agent",
+      "category": "AGENT_WORKFLOW",
+      "source_url": "https://github.com/OWASP/appsec-agent",
+      "version": "PIN_REQUIRED",
+      "capability_scope": ["REVIEW_AND_PIN_FROM_TESTED_VERSION"]
+    },
+    {
+      "participant_id": "owasp-secure-agent-playbook",
+      "display_name": "OWASP Secure Agent Playbook",
+      "category": "AGENT_WORKFLOW",
+      "source_url": "https://github.com/OWASP/secure-agent-playbook",
+      "version": "PIN_REQUIRED",
+      "capability_scope": ["REVIEW_AND_PIN_FROM_TESTED_VERSION"]
+    },
+    {
+      "participant_id": "vulnhuntr",
+      "display_name": "Vulnhuntr",
+      "category": "RESEARCH_AGENT",
+      "source_url": "https://github.com/protectai/vulnhuntr",
+      "version": "PIN_REQUIRED",
+      "capability_scope": ["REVIEW_AND_PIN_FROM_TESTED_VERSION"]
+    },
+    {
+      "participant_id": "opengrep",
+      "display_name": "Opengrep",
+      "category": "SAST_ENGINE",
+      "source_url": "https://github.com/opengrep/opengrep",
+      "version": "PIN_REQUIRED",
+      "capability_scope": ["REVIEW_AND_PIN_FROM_TESTED_VERSION"]
+    }
+  ]
+}
