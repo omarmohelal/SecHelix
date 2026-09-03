@@ -1,0 +1,42 @@
+name: Sync PR47 portable skill
+
+on:
+  push:
+    branches:
+      - feat/v4-opengrep-interoperability
+    paths:
+      - .github/workflows/sync-portable-pr47.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
+
+      - name: Synchronize the portable skill
+        run: python scripts/sync_portable_skill.py
+
+      - name: Commit only portable skill changes
+        shell: bash
+        run: |
+          if [ -z "$(git status --porcelain skills/)" ]; then
+            echo 'Portable skill already matches canonical sources.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add skills
+          git commit -m 'chore: sync portable skill for Opengrep'
+          git push origin HEAD:feat/v4-opengrep-interoperability
