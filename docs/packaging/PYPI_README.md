@@ -31,8 +31,14 @@ reports `No security claim can be made from this run.`
 
 A stub returning "no findings" would be indistinguishable from a genuine clean
 audit, and a fail-closed gate would hand out a PASS for a run that examined
-nothing. To actually analyse code, pass `--executor claude-code` with an
-authenticated Claude Code CLI on `PATH`.
+nothing. To actually analyse code, select an already-authenticated supported CLI on `PATH`:
+
+```bash
+sechelix audit . --executor claude-code
+sechelix audit . --executor gemini-cli
+```
+
+SecHelix invokes the official CLIs; it does not read or reuse their OAuth/API credentials. Each node is isolated, and provider quota/errors remain fail-closed.
 
 ## No dependencies
 

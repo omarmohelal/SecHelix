@@ -58,7 +58,7 @@ A trusted finding should establish attacker control, reachability, a failed secu
 | Release truth | `PASS`, `PASS_WITH_KNOWN_RISK`, `BLOCKED`, or fail-closed `INCOMPLETE` |
 | Zero-trust audits | **`UNTRUSTED_REPO` mode** — repository content is data, never control ([details](docs/reference/untrusted-repo-mode.md)) |
 | Change review | **Differential security review** — classifies a diff into `NEW_RISK` / `RISK_REDUCED` / `UNCHANGED` / `UNKNOWN` |
-| V4 evidence runtime | **Optional stdlib-only runner `0.1.1` on PyPI** — deterministic reasoner DAG, least-context routing, budget governor, coverage ledger, replay, loopback API and MCP |
+| V4 evidence runtime | **Optional stdlib-only runner `0.2.0` on PyPI** — deterministic reasoner DAG, least-context routing, budget governor, coverage ledger, replay, loopback API and MCP |
 | Bounded runtime proof | **LOCAL-only** IDOR, traversal, race/idempotency, webhook and SSRF proof executors; literal loopback only, no ambient proxy/redirect following, and no automatic finding promotion |
 | Protocol / native lanes | Applicability-gated GraphQL, WebSocket, gRPC, OAuth/OIDC, SAML, JWT, webhook and HTTP proxy/cache review plus candidate-only C/C++/Rust source analysis |
 | Full-workflow Arena | **Protocol shipped; result still `NOT_MEASURED`** — complete packet coverage, pinned versions, independent assessment and uncontaminated evidence are required before publication |
@@ -84,7 +84,7 @@ pipx install sechelix
 sechelix doctor
 ```
 
-`uv tool install sechelix` or `python -m pip install sechelix` also work. The portable Agent Skill does not require the Python runner.
+`uv tool install sechelix` or `python -m pip install sechelix` also work. The portable Agent Skill does not require the Python runner. The runtime supports isolated `claude-code` and `gemini-cli` reasoning executors; provider errors and quota exhaustion remain fail-closed.
 
 Then ask your coding agent:
 
