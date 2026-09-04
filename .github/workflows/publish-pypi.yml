@@ -4,14 +4,19 @@ on:
   workflow_dispatch:
     inputs:
       confirm_version:
-        description: 'Exact pyproject.toml version to publish (for example 0.1.0)'
+        description: 'Exact pyproject.toml version to publish (for example 0.1.1)'
         required: true
         type: string
+  push:
+    branches:
+      - main
+    paths:
+      - runner-release.json
 
 permissions: {}
 
 concurrency:
-  group: pypi-publish-${{ github.ref }}
+  group: pypi-publish-${{ github.repository }}
   cancel-in-progress: false
 
 jobs:
@@ -22,32 +27,50 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Checkout main
+      - name: Checkout exact revision
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
-          ref: main
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: '3.12'
 
-      - name: Refuse version mismatch
+      - name: Refuse version or release-trigger mismatch
         env:
           CONFIRM_VERSION: ${{ inputs.confirm_version }}
+          EVENT_NAME: ${{ github.event_name }}
+          GIT_REF: ${{ github.ref }}
         shell: python
         run: |
+          import json
           import os
           import re
           from pathlib import Path
+
+          if os.environ['GIT_REF'] != 'refs/heads/main':
+              raise SystemExit(f"refusing publish outside main: {os.environ['GIT_REF']}")
 
           text = Path('pyproject.toml').read_text(encoding='utf-8')
           match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.M)
           if not match:
               raise SystemExit('pyproject.toml does not declare a version')
           actual = match.group(1)
-          expected = os.environ['CONFIRM_VERSION'].strip()
+
+          init_text = Path('sechelix_runner/__init__.py').read_text(encoding='utf-8')
+          runner_match = re.search(r'^RUNNER_VERSION\s*=\s*"([^"]+)"', init_text, re.M)
+          if not runner_match or runner_match.group(1) != actual:
+              raise SystemExit('sechelix_runner.RUNNER_VERSION does not match pyproject.toml')
+
+          if os.environ['EVENT_NAME'] == 'workflow_dispatch':
+              expected = os.environ.get('CONFIRM_VERSION', '').strip()
+          else:
+              marker = json.loads(Path('runner-release.json').read_text(encoding='utf-8'))
+              expected = str(marker.get('version', '')).strip()
+              if marker.get('publish') is not True:
+                  raise SystemExit('runner-release.json must set publish=true')
+
           if actual != expected:
               raise SystemExit(f'refusing publish: requested {expected!r}, package is {actual!r}')
           if not re.fullmatch(r'\d+\.\d+\.\d+(?:[ab]\d+|rc\d+)?', actual):

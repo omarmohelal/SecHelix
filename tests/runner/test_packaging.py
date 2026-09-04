@@ -4,16 +4,26 @@ The wheel is how most people will get the runner, so the properties that make it
 trustworthy are asserted here rather than checked by hand at release time.
 """
 
+import json
 import re
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PYPROJECT = ROOT / "pyproject.toml"
+RELEASE_MARKER = ROOT / "runner-release.json"
+PUBLISH_WORKFLOW = ROOT / ".github" / "workflows" / "publish-pypi.yml"
 
 
 def pyproject_text() -> str:
     return PYPROJECT.read_text(encoding="utf-8")
+
+
+def package_version() -> str:
+    match = re.search(r'^version\s*=\s*"([^"]+)"', pyproject_text(), re.M)
+    if not match:
+        raise AssertionError("pyproject.toml does not declare a version")
+    return match.group(1)
 
 
 class PackageMetadataTests(unittest.TestCase):
@@ -71,8 +81,24 @@ class PackageMetadataTests(unittest.TestCase):
         self.assertNotIn("skills", match.group(1))
 
     def test_version_is_a_valid_release_identifier(self) -> None:
-        match = re.search(r'^version\s*=\s*"([^"]+)"', pyproject_text(), re.M)
-        self.assertRegex(match.group(1), r"^\d+\.\d+\.\d+([ab]\d+|rc\d+)?$")
+        self.assertRegex(package_version(), r"^\d+\.\d+\.\d+([ab]\d+|rc\d+)?$")
+
+    def test_release_marker_matches_package_version(self) -> None:
+        """Publishing is an explicit, reviewable repository change.
+
+        A stale marker makes CI fail before a release can silently publish the
+        wrong bytes. Updating the marker is the intentional release trigger.
+        """
+        self.assertTrue(RELEASE_MARKER.is_file())
+        marker = json.loads(RELEASE_MARKER.read_text(encoding="utf-8"))
+        self.assertIs(marker.get("publish"), True)
+        self.assertEqual(marker.get("version"), package_version())
+
+    def test_publish_workflow_tracks_the_release_marker(self) -> None:
+        workflow = PUBLISH_WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("runner-release.json", workflow)
+        self.assertIn("id-token: write", workflow)
+        self.assertIn("environment:\n      name: pypi", workflow)
 
     def test_readme_referenced_by_pyproject_exists(self) -> None:
         match = re.search(r'^readme\s*=\s*"([^"]+)"', pyproject_text(), re.M)
