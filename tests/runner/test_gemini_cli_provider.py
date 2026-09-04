@@ -7,8 +7,10 @@ boundaries without needing an account or consuming quota.
 
 from __future__ import annotations
 
+import ast
 import inspect
 import json
+import textwrap
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -83,10 +85,22 @@ class IsolationPolicyTests(unittest.TestCase):
         self.assertFalse(_LOCKED_SETTINGS["telemetry"]["enabled"])
         self.assertNotEqual(_LOCKED_SETTINGS["context"]["fileName"], "GEMINI.md")
 
-    def test_provider_never_uses_shell_true(self) -> None:
-        source = inspect.getsource(GeminiCliExecutor.invoke)
-        self.assertIn("shell=False", source)
-        self.assertNotIn("shell=True", source)
+    def test_provider_popen_sets_shell_false_as_a_boolean(self) -> None:
+        """Inspect syntax, not comments that may contain the phrase shell=True."""
+        tree = ast.parse(textwrap.dedent(inspect.getsource(GeminiCliExecutor.invoke)))
+        popen_calls = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "Popen"
+        ]
+        self.assertEqual(len(popen_calls), 1)
+        shell_keywords = [kw for kw in popen_calls[0].keywords if kw.arg == "shell"]
+        self.assertEqual(len(shell_keywords), 1)
+        value = shell_keywords[0].value
+        self.assertIsInstance(value, ast.Constant)
+        self.assertIs(value.value, False)
 
     def test_windows_npm_path_does_not_use_cmd_or_powershell_evaluation(self) -> None:
         source = inspect.getsource(gemini_cli._command).lower()
@@ -135,7 +149,10 @@ class InvocationTests(unittest.TestCase):
         )
         self.assertEqual(result.text, '{"candidates": []}')
         self.assertEqual(result.provider, "google-gemini-cli")
-        self.assertEqual((result.model, result.input_tokens, result.output_tokens), ("gemini-x", 7, 3))
+        self.assertEqual(
+            (result.model, result.input_tokens, result.output_tokens),
+            ("gemini-x", 7, 3),
+        )
         self.assertFalse(capture["shell"])
         self.assertEqual(capture["settings"], _LOCKED_SETTINGS)
         self.assertTrue(Path(capture["cwd"]).name.startswith("sechelix-gemini-"))
