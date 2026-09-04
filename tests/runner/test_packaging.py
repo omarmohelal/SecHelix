@@ -46,6 +46,25 @@ class PackageMetadataTests(unittest.TestCase):
         self.assertIn("schemas", text)
         self.assertIn("catalog", text)
 
+    def test_sdist_contains_every_wheel_input(self) -> None:
+        """A wheel built from the sdist must not depend on files only present in
+        the git checkout.
+
+        Regression for the first PyPI publish attempt: the sdist omitted
+        ``catalog/`` (and the other canonical wheel inputs), so Hatch could build
+        the sdist but failed when it tried to build a wheel from that sdist.
+        """
+        text = pyproject_text()
+        sdist = re.search(
+            r"\[tool\.hatch\.build\.targets\.sdist\]\s*.*?include\s*=\s*\[(.*?)\]",
+            text,
+            re.M | re.S,
+        )
+        self.assertIsNotNone(sdist, "sdist include list not declared")
+        body = sdist.group(1)
+        for required in ("/sechelix_runner", "/sechelix_core", "/schemas", "/catalog"):
+            self.assertIn(f'"{required}"', body, f"sdist omits wheel input {required}")
+
     def test_the_agent_skill_is_not_packaged(self) -> None:
         """The skill is distributed through the skills ecosystem, not pip."""
         match = re.search(r"^packages\s*=\s*\[(.*?)\]", pyproject_text(), re.M | re.S)
