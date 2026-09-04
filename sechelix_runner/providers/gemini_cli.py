@@ -10,10 +10,12 @@ silently reacquiring repository or user-agent context, each invocation:
 
 * runs from a fresh empty temporary working directory;
 * supplies a highest-precedence system settings file with no core tools;
-* disables MCP, extensions, skills, YOLO/always-allow behavior, and telemetry;
+* disables MCP, extensions, skills, hooks, IDE integration,
+  YOLO/always-allow behavior, and telemetry;
 * changes the context filename to a SecHelix-specific impossible default so a
   normal global/project ``GEMINI.md`` is not loaded;
-* verifies after the call that Gemini reported zero tool calls.
+* neutralizes inherited ``GEMINI_SYSTEM_MD`` and ``GEMINI_SANDBOX`` overrides;
+* requires the JSON session metrics to prove that zero tools were called.
 
 If any of those assumptions fail, the provider fails closed and downstream graph
 nodes are blocked. Unreported accounting stays ``None`` rather than being
@@ -46,6 +48,8 @@ _LOCKED_SETTINGS: dict[str, Any] = {
         "mcp": {"enabled": False},
         "skills": {"enabled": False},
     },
+    "hooksConfig": {"enabled": False},
+    "ide": {"enabled": False},
     "telemetry": {"enabled": False},
 }
 
@@ -90,13 +94,18 @@ class GeminiCliExecutor:
 
             env = os.environ.copy()
             env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] = str(settings)
+            # These environment variables can otherwise change Gemini CLI behavior
+            # outside the settings merge. Preserve authentication variables, but
+            # neutralize ambient execution/context overrides.
+            env["GEMINI_SYSTEM_MD"] = "false"
+            env["GEMINI_SANDBOX"] = "false"
             env["NO_COLOR"] = "1"
 
             command, env = _command(self.binary, prompt, self.model, env)
 
             try:
                 with open(os.devnull, "rb") as devnull:
-                    self._process = subprocess.Popen(  # noqa: S603 - argv/env, never shell=True
+                    self._process = subprocess.Popen(  # noqa: S603 - fixed argv, shell is false
                         command,
                         stdin=devnull,
                         stdout=subprocess.PIPE,
@@ -146,7 +155,11 @@ class GeminiCliExecutor:
 
         stats = envelope.get("stats") if isinstance(envelope.get("stats"), dict) else {}
         tool_calls = _tool_calls(stats)
-        if tool_calls not in (None, 0):
+        if tool_calls is None:
+            raise ProviderError(
+                "least-context proof unavailable: Gemini CLI did not report tools.totalCalls"
+            )
+        if tool_calls != 0:
             raise ProviderError(
                 f"least-context violation: Gemini CLI reported {tool_calls} tool call(s)"
             )
