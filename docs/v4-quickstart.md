@@ -9,13 +9,14 @@ this installed, and `sechelix_core` never imports the runner — there is a test
 that fails if it ever does. Install the runner when you want SecHelix
 orchestrated by code instead of by an agent reading `SKILL.md`.
 
-The runner uses the standard library only and has no runtime dependencies. Until the separately versioned runner is published to PyPI, run it from the repository clone as below.
+The runner uses the standard library only and has no runtime dependencies. Runner `0.1.1` is published separately on PyPI. The recommended isolated CLI install is:
 
 ```bash
-git clone https://github.com/omarmohelal/SecHelix
-cd SecHelix
-python -m sechelix_runner.cli doctor .
+pipx install sechelix
+sechelix doctor .
 ```
+
+`uv tool install sechelix` or `python -m pip install sechelix` are also supported. A repository clone remains a source-development fallback, not the normal installation path.
 
 ## The first thing you will see, and why
 
@@ -148,9 +149,8 @@ The sandbox spec defaults to read-only root, all Linux capabilities dropped, no
 new privileges, no network, and bounded memory/CPU/pids. It emits `docker run`
 arguments; it does not start containers. `STATIC` needs no Docker.
 
-## What this does not do
+## What remains deliberately bounded
 
-No reasoning provider is wired in. No protocol packs, no native lane, no browser
-or HTTP evidence capture, no Workbench surfaces, and no competitive benchmark.
-Those are `SPECIFIED` or `OPEN`, and nothing in this document should be read as
-claiming otherwise.
+The shipped runner includes a Claude Code reasoning adapter, deep protocol packs, a candidate-only C/C++/Rust lane, bounded LOCAL proof execution, and Workbench V4 artifact inspection. Those capabilities do not turn an incomplete provider run into a clean result: if the selected reasoning provider is unavailable, rate-limited, or returns unusable output, required nodes fail closed.
+
+The complete V4 workflow benchmark remains `NOT_MEASURED`. No competitor Arena score is published yet, browser-backed XSS execution is not a bundled default, and SecHelix does not perform uncontrolled production exploitation.

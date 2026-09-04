@@ -109,7 +109,7 @@ rows stay `NOT_MEASURED`.
 
 ## v4.0 alpha — optional evidence runtime — current
 
-- **done** — standard-library-only optional runner (`0.1.0`) with deterministic reasoner DAG, least-context views, budget reservations, durable coverage, replay and four report formats;
+- **done** — standard-library-only optional runner (`0.1.1`, published on PyPI) with deterministic reasoner DAG, least-context views, budget reservations, durable coverage, replay and four report formats;
 - **done** — fail-closed provider isolation with a real Claude Code reasoning adapter and structured-output validation;
 - **done** — loopback API and MCP integration without arbitrary shell exposure;
 - **done** — Docker-backed sandbox specification and real confinement tests: read-only root, dropped capabilities, non-root user, bounded resources, workspace-only writes and default-deny network;
@@ -121,7 +121,7 @@ rows stay `NOT_MEASURED`.
 - **done** — production Workbench V4 at `sechelix.com/workbench/v4` for local `run.json` / `graph.json` / `coverage.json` inspection without uploading artifacts;
 - **done** — fail-closed Arena full-workflow measurement protocol with pinned participant versions, explicit capability scope, complete opaque-case coverage, independent assessment and contamination gates;
 - **not measured** — the complete V4 workflow. No end-to-end applicability/verification/remediation/regression/release-gate performance number is published yet;
-- **external blocker** — PyPI upload requires a publishing credential or trusted-publisher configuration outside this repository session;
+- **done** — runner `0.1.1` is published on PyPI through GitHub OIDC Trusted Publishing, with an explicit release marker and version-drift guard;
 - **external evidence needed** — competitor Arena runs and the first public Trophy Case require independently authorized runs, not synthetic claims.
 
 ## v3.x — orchestration platform (optional)

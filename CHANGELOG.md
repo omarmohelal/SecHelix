@@ -2,6 +2,12 @@
 
 All notable SecHelix release changes are summarized here. Detailed release notes live in [`docs/releases/`](docs/releases/), and the Git history remains the authoritative development record.
 
+## Runner 0.1.1 - 2026-09-04
+
+- Published the independently versioned Python runner to PyPI using GitHub OIDC Trusted Publishing; no long-lived PyPI token is stored in the repository.
+- Fixed Claude Code 2.1.248 compatibility where an explicitly successful JSON envelope ending with `stop_sequence` could accompany a non-zero process status. The adapter accepts only the narrow successful-completion case; truncation, tool continuation, malformed output and explicit errors still fail closed.
+- Added an explicit `runner-release.json` publication marker and CI guards binding the marker, `pyproject.toml`, and `RUNNER_VERSION` before release.
+
 ## [4.0.0-alpha.1] - 2026-09-03
 
 ### V4 evidence runtime
@@ -20,7 +26,7 @@ All notable SecHelix release changes are summarized here. Detailed release notes
 ### Distribution
 
 - Bumped the Agent Skill/plugin release to `4.0.0-alpha.1` while keeping the optional Python runner at its independent `0.1.0` version.
-- Added release notes and automated release/SBOM publication safeguards. PyPI publication remains blocked on an external publishing credential or trusted-publisher setup.
+- Added release notes and automated release/SBOM publication safeguards. At the time `4.0.0-alpha.1` was cut, PyPI publication was still blocked on external publisher setup; runner `0.1.1` is now published through Trusted Publishing.
 
 See [`docs/releases/4.0.0-alpha.1.md`](docs/releases/4.0.0-alpha.1.md) for the full notes.
 
