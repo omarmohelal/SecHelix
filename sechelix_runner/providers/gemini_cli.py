@@ -196,8 +196,8 @@ def _command(
         )
         if not node or not entry.is_file():
             raise ProviderError(
-      "Gemini CLI resolved to an npm batch shim, but its official Node entry "
-      "point could not be resolved safely; reinstall @google/gemini-cli"
+                "Gemini CLI resolved to an npm batch shim, but its official Node entry "
+                "point could not be resolved safely; reinstall @google/gemini-cli"
             )
         command = [node, str(entry), "-p", prompt, "--output-format", "json"]
     else:
@@ -205,6 +205,7 @@ def _command(
     if model:
         command += ["--model", model]
     return command, env
+
 
 def _parse_envelope(stdout: str) -> dict[str, Any]:
     """Return the first balanced JSON object, tolerating a leading warning."""

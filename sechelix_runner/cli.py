@@ -176,15 +176,17 @@ def _build_executor(args: argparse.Namespace):
     if choice == "none":
         return NullExecutor()
     if choice == "claude-code":
-    from .providers.claude_code import ClaudeCodeExecutor
-    from .providers.reasoning import ReasoningExecutor
+        from .providers.claude_code import ClaudeCodeExecutor
+        from .providers.reasoning import ReasoningExecutor
 
-    provider = ClaudeCodeExecutor(model=getattr(args, "model", None))
-    if not provider.available:
-        raise RuntimeError(
-            "claude CLI not found on PATH; install Claude Code or use --executor none"
+        provider = ClaudeCodeExecutor(model=getattr(args, "model", None))
+        if not provider.available:
+            raise RuntimeError(
+      "claude CLI not found on PATH; install Claude Code or use --executor none"
+            )
+        return ReasoningExecutor(
+            provider, timeout=float(getattr(args, "node_timeout", 300))
         )
-    return ReasoningExecutor(provider, timeout=float(getattr(args, "node_timeout", 300)))
     if choice == "gemini-cli":
         from .providers.gemini_cli import GeminiCliExecutor
         from .providers.reasoning import ReasoningExecutor
@@ -194,9 +196,10 @@ def _build_executor(args: argparse.Namespace):
             raise RuntimeError(
       "gemini CLI not found on PATH; install Gemini CLI or use --executor none"
             )
-        return ReasoningExecutor(provider, timeout=float(getattr(args, "node_timeout", 300)))
+        return ReasoningExecutor(
+            provider, timeout=float(getattr(args, "node_timeout", 300))
+        )
     raise RuntimeError(f"unknown executor: {choice}")
-
 
 def cmd_audit(args: argparse.Namespace) -> int:
     root = Path(args.path).resolve()
