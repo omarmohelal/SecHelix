@@ -1,28 +1,12 @@
 """Reasoning through an already-authenticated Claude Code CLI.
 
-Chosen because it needs no new account and no API key: if the owner can run
-``claude``, the runner can reason. Nothing about SecHelix is bound to it -- this
-is one implementation of :class:`~sechelix_runner.providers.base.ProviderExecutor`
-and the evidence contracts never mention a vendor.
-
-Four things this adapter is careful about, each learned by probing the real CLI:
-
-**No shell.** The command is a list and ``shell`` stays false, so a prompt
-containing backticks, quotes or semicolons is data. A prompt is built from
-repository content, which is exactly the input that must never reach a shell.
-
-**Fresh session per call.** ``--resume`` and ``--continue`` are never passed, so
-two nodes cannot share conversation memory. That is what makes the independent
-verifier independent: if it inherited the hunter's session it would be reviewing
-a conclusion it had already been told, not reconstructing one.
-
-**Warnings are not JSON.** The CLI prints a stdin warning before its JSON when
-stdin is a pipe. stdin is redirected from devnull and the parser finds the first
-balanced object rather than assuming stdout starts with ``{``.
-
-**Accounting is copied, never estimated.** ``modelUsage`` reports the canonical
-model, provider, token counts and ``costUSD``; those are passed through
-verbatim. Anything the host does not report stays ``None``.
+The adapter keeps each reasoning call isolated, invokes the CLI without a shell,
+and treats the JSON envelope as the authoritative completion record. Claude Code
+versions may return a non-zero process status even when the envelope itself says
+``subtype=success`` and terminates on a normal ``stop_sequence``. In that case we
+accept the envelope only when it contains a non-empty result and a known natural
+stop reason; downstream JSON/schema validation still fails closed if that result
+is incomplete or malformed.
 """
 
 from __future__ import annotations
@@ -35,29 +19,16 @@ from typing import Any
 
 from .base import ProviderError, ProviderResult
 
-#: Permission mode for every invocation. ``plan`` is the most restrictive mode
-#: that still lets the model read and reason: it cannot edit files or run
-#: commands. A reasoning node has no business doing either.
 _PERMISSION_MODE = "plan"
-
-#: Tools denied to every reasoning node.
-#:
-#: Not a safety measure -- ``plan`` mode already prevents writes. This preserves
-#: the least-context guarantee. A node is given a projected view of the target
-#: precisely so its answer is attributable to that view; a node that can read
-#: the whole repository has silently reacquired the full context the projection
-#: exists to withhold, and the context digest recorded against its output would
-#: no longer describe what it actually saw.
-#:
-#: Denying tools does not stop the model *attempting* one, and an attempt costs
-#: a turn. That is why ``max_turns`` defaults to 4 rather than 1: turn one may be
-#: a denied tool call, and the answer arrives on a later turn. With ``max_turns
-#: 1`` the CLI exited ``error_max_turns`` having produced nothing -- while still
-#: charging for the attempt.
 _DENIED_TOOLS = (
     "Bash", "Edit", "Write", "Read", "Glob", "Grep", "NotebookEdit",
     "WebFetch", "WebSearch", "Task", "TodoWrite",
 )
+
+# A non-zero CLI exit may still accompany a successful JSON envelope. We only
+# accept that compatibility case for stop reasons that represent a completed
+# textual response. Truncation/tool continuation states stay fail-closed.
+_NATURAL_STOP_REASONS = {None, "end_turn", "stop_sequence"}
 
 
 class ClaudeCodeExecutor:
@@ -84,7 +55,6 @@ class ClaudeCodeExecutor:
         return shutil.which(self.binary) is not None or os.path.isfile(self.binary)
 
     def cancel(self) -> None:
-        """Terminate an in-flight invocation, if any."""
         process = self._process
         if process is not None and process.poll() is None:
             process.kill()
@@ -135,10 +105,6 @@ class ClaudeCodeExecutor:
         finally:
             process, self._process = self._process, None
 
-        # Parse before checking the exit code. A non-zero exit still carries a
-        # full envelope naming the reason (`error_max_turns`, `error_during_
-        # execution`) and the cost already incurred. Discarding it would report
-        # a useless truncated blob and lose spend that genuinely happened.
         envelope: dict[str, Any] = {}
         try:
             envelope = _parse_envelope(stdout)
@@ -150,14 +116,15 @@ class ClaudeCodeExecutor:
                 ) from None
             raise
 
-        if process.returncode != 0 or envelope.get("is_error"):
-            reason = envelope.get("subtype") or envelope.get("terminal_reason") or "unknown"
+        completion_problem = _completion_problem(envelope, process.returncode)
+        if completion_problem:
             spent = envelope.get("total_cost_usd")
-            spent_note = f"; {spent:.4f} USD already spent" if isinstance(spent, (int, float)) else ""
-            raise ProviderError(
-                f"provider did not complete ({reason}), "
-                f"stop_reason={envelope.get('stop_reason')}{spent_note}"
+            spent_note = (
+                f"; {spent:.4f} USD already spent"
+                if isinstance(spent, (int, float))
+                else ""
             )
+            raise ProviderError(f"{completion_problem}{spent_note}")
 
         model, provider, cost, input_tokens, output_tokens = _accounting(envelope)
         return ProviderResult(
@@ -168,8 +135,49 @@ class ClaudeCodeExecutor:
             output_tokens=output_tokens,
             cost_usd=cost,
             session_id=envelope.get("session_id"),
-            raw={k: envelope.get(k) for k in ("subtype", "num_turns", "stop_reason")},
+            raw={
+                "subtype": envelope.get("subtype"),
+                "num_turns": envelope.get("num_turns"),
+                "stop_reason": envelope.get("stop_reason"),
+                "exit_code": process.returncode,
+            },
         )
+
+
+def _completion_problem(envelope: dict[str, Any], returncode: int) -> str | None:
+    """Return an error description when a CLI envelope is not a usable finish.
+
+    ``is_error`` always wins. A zero process exit keeps the historical behavior
+    and is accepted unless the envelope explicitly reports an error. For a
+    non-zero process exit we require a positive success envelope, a non-empty
+    result, and a natural text-completion stop reason. This handles Claude Code
+    CLI versions that use a non-zero status for ``stop_sequence`` while keeping
+    max-token/tool-continuation and malformed results fail-closed.
+    """
+
+    reason = envelope.get("subtype") or envelope.get("terminal_reason") or "unknown"
+    stop_reason = envelope.get("stop_reason")
+
+    if envelope.get("is_error"):
+        return f"provider did not complete ({reason}), stop_reason={stop_reason}"
+
+    if returncode == 0:
+        return None
+
+    result = envelope.get("result")
+    compatible_success = (
+        reason == "success"
+        and stop_reason in _NATURAL_STOP_REASONS
+        and isinstance(result, str)
+        and bool(result.strip())
+    )
+    if compatible_success:
+        return None
+
+    return (
+        f"provider did not complete ({reason}), stop_reason={stop_reason}, "
+        f"exit_code={returncode}"
+    )
 
 
 def _parse_envelope(stdout: str) -> dict[str, Any]:
@@ -193,9 +201,6 @@ def _accounting(
         cost = envelope.get("total_cost_usd")
         return None, None, cost if isinstance(cost, (int, float)) else None, None, None
 
-    # One node is one request, so there is normally a single model here. If a
-    # host ever reports several, the counts are summed and the canonical names
-    # joined rather than one being picked arbitrarily.
     models: list[str] = []
     providers: list[str] = []
     cost = 0.0

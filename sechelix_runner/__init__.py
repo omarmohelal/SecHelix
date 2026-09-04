@@ -20,4 +20,4 @@ __all__ = ["RUNNER_VERSION"]
 
 #: Version of the orchestration layer. Distinct from the SecHelix catalog/skill
 #: version because the runner can ship fixes without the methodology changing.
-RUNNER_VERSION = "0.1.0"
+RUNNER_VERSION = "0.1.1"

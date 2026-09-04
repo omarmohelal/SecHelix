@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sechelix"
-version = "0.1.0"
+version = "0.1.1"
 description = "Optional execution runtime for the SecHelix AppSec Agent Skill: deterministic reasoner DAG, budget governor, coverage ledger and replayable evidence."
 readme = "docs/packaging/PYPI_README.md"
 requires-python = ">=3.10"
