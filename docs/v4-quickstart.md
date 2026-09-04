@@ -9,7 +9,7 @@ this installed, and `sechelix_core` never imports the runner — there is a test
 that fails if it ever does. Install the runner when you want SecHelix
 orchestrated by code instead of by an agent reading `SKILL.md`.
 
-The runner uses the standard library only and has no runtime dependencies. Runner `0.1.1` is published separately on PyPI. The recommended isolated CLI install is:
+The runner uses the standard library only and has no runtime dependencies. Runner `0.2.0` is published separately on PyPI. The recommended isolated CLI install is:
 
 ```bash
 pipx install sechelix
@@ -17,6 +17,16 @@ sechelix doctor .
 ```
 
 `uv tool install sechelix` or `python -m pip install sechelix` are also supported. A repository clone remains a source-development fallback, not the normal installation path.
+
+To let the runner reason about source, choose an already-authenticated local CLI. SecHelix does not read or export either provider's credentials:
+
+```bash
+sechelix audit . --executor claude-code
+# or
+sechelix audit . --executor gemini-cli
+```
+
+Each reasoning node is launched in a fresh provider process. The Gemini CLI adapter uses the official headless JSON interface from an empty temporary working directory, disables built-in tools, MCP, extensions and skills through system settings, suppresses normal `GEMINI.md` discovery, and rejects the result if the CLI reports any tool call. Provider quota/errors block required nodes rather than producing a clean result.
 
 ## The first thing you will see, and why
 

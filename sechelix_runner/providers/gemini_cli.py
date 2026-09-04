@@ -175,37 +175,36 @@ def _command(
 ) -> tuple[list[str], dict[str, str]]:
     """Build a non-evaluating argv for Unix/native binaries and npm .cmd shims.
 
-    On Windows, npm commonly exposes ``gemini.cmd``. Running a batch shim through
-    ``cmd /c`` while putting an untrusted prompt on that command line would
-    reintroduce shell metacharacter parsing. Instead a fixed PowerShell program
-    reads the prompt/model from environment variables and splats them as
-    argument values; the prompt is never parsed as code.
+    On Windows, npm commonly exposes ``gemini.cmd``. A batch shim would require
+    ``cmd.exe`` parsing, which is an unacceptable boundary for prompts derived from
+    untrusted repository content. For the official npm layout we bypass the shim and
+    invoke its JavaScript entry point with ``node`` directly. If that exact layout is
+    unavailable, the adapter fails closed instead of falling back to a shell.
     """
 
     resolved = shutil.which(binary) or binary
-    suffix = Path(resolved).suffix.lower()
+    suffix = os.path.splitext(resolved)[1].lower()
     if os.name == "nt" and suffix in {".cmd", ".bat"}:
-        powershell = shutil.which("pwsh") or shutil.which("powershell")
-        if not powershell:
-            raise ProviderError(
-                "Gemini CLI is an npm batch shim but PowerShell was not found for safe argv launch"
-            )
-        env = dict(env)
-        env["SECHELIX_GEMINI_BINARY"] = resolved
-        env["SECHELIX_GEMINI_PROMPT"] = prompt
-        env["SECHELIX_GEMINI_MODEL"] = model or ""
-        script = (
-            "$a=@('-p',$env:SECHELIX_GEMINI_PROMPT,'--output-format','json');"
-            "if($env:SECHELIX_GEMINI_MODEL){$a+=@('--model',$env:SECHELIX_GEMINI_MODEL)};"
-            "& $env:SECHELIX_GEMINI_BINARY @a; exit $LASTEXITCODE"
+        node = shutil.which("node")
+        entry = (
+            Path(resolved).parent
+            / "node_modules"
+            / "@google"
+            / "gemini-cli"
+            / "dist"
+            / "index.js"
         )
-        return [powershell, "-NoProfile", "-NonInteractive", "-Command", script], env
-
-    command = [resolved, "-p", prompt, "--output-format", "json"]
+        if not node or not entry.is_file():
+            raise ProviderError(
+      "Gemini CLI resolved to an npm batch shim, but its official Node entry "
+      "point could not be resolved safely; reinstall @google/gemini-cli"
+            )
+        command = [node, str(entry), "-p", prompt, "--output-format", "json"]
+    else:
+        command = [resolved, "-p", prompt, "--output-format", "json"]
     if model:
         command += ["--model", model]
     return command, env
-
 
 def _parse_envelope(stdout: str) -> dict[str, Any]:
     """Return the first balanced JSON object, tolerating a leading warning."""

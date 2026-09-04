@@ -1,5 +1,5 @@
 {
-  "version": "0.1.1",
+  "version": "0.2.0",
   "publish": true,
-  "purpose": "Publish the independently versioned SecHelix runner after the Claude Code stop-sequence compatibility fix."
+  "purpose": "Publish Gemini CLI as a second isolated reasoning executor so the runner is not coupled to a single provider quota."
 }

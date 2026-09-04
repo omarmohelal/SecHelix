@@ -109,8 +109,8 @@ rows stay `NOT_MEASURED`.
 
 ## v4.0 alpha — optional evidence runtime — current
 
-- **done** — standard-library-only optional runner (`0.1.1`, published on PyPI) with deterministic reasoner DAG, least-context views, budget reservations, durable coverage, replay and four report formats;
-- **done** — fail-closed provider isolation with a real Claude Code reasoning adapter and structured-output validation;
+- **done** — standard-library-only optional runner (`0.2.0`, published on PyPI) with deterministic reasoner DAG, least-context views, budget reservations, durable coverage, replay and four report formats;
+- **done** — fail-closed provider isolation with real Claude Code and Gemini CLI reasoning adapters, fresh-process role isolation, least-context enforcement, and structured-output validation;
 - **done** — loopback API and MCP integration without arbitrary shell exposure;
 - **done** — Docker-backed sandbox specification and real confinement tests: read-only root, dropped capabilities, non-root user, bounded resources, workspace-only writes and default-deny network;
 - **done** — graph-grounded threat modeling plus conservative cross-target false-positive guidance that can ask a future verification question but cannot auto-dismiss a finding;

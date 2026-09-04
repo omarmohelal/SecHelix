@@ -142,7 +142,11 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         "workspace_exists": (root / ".sechelix").is_dir(),
         "runs_recorded": len(list_runs(root)),
         "network_mode": "DENY (static default)",
-        "reasoning_executor": "not configured (NullExecutor)",
+        "reasoning_executor": "select with --executor (default NullExecutor)",
+        "available_reasoning_executors": {
+            "claude-code": bool(shutil.which("claude")),
+            "gemini-cli": bool(shutil.which("gemini")),
+        },
         "redaction": "enabled",
         "core_contracts": _core_available(),
     }
@@ -172,13 +176,23 @@ def _build_executor(args: argparse.Namespace):
     if choice == "none":
         return NullExecutor()
     if choice == "claude-code":
-        from .providers.claude_code import ClaudeCodeExecutor
+    from .providers.claude_code import ClaudeCodeExecutor
+    from .providers.reasoning import ReasoningExecutor
+
+    provider = ClaudeCodeExecutor(model=getattr(args, "model", None))
+    if not provider.available:
+        raise RuntimeError(
+            "claude CLI not found on PATH; install Claude Code or use --executor none"
+        )
+    return ReasoningExecutor(provider, timeout=float(getattr(args, "node_timeout", 300)))
+    if choice == "gemini-cli":
+        from .providers.gemini_cli import GeminiCliExecutor
         from .providers.reasoning import ReasoningExecutor
 
-        provider = ClaudeCodeExecutor(model=getattr(args, "model", None))
+        provider = GeminiCliExecutor(model=getattr(args, "model", None))
         if not provider.available:
             raise RuntimeError(
-                "claude CLI not found on PATH; install Claude Code or use --executor none"
+      "gemini CLI not found on PATH; install Gemini CLI or use --executor none"
             )
         return ReasoningExecutor(provider, timeout=float(getattr(args, "node_timeout", 300)))
     raise RuntimeError(f"unknown executor: {choice}")
@@ -389,7 +403,7 @@ def build_parser() -> argparse.ArgumentParser:
     audit.add_argument("--max-seconds", type=float, default=None, dest="max_seconds")
     audit.add_argument("--max-nodes", type=int, default=None, dest="max_nodes")
     audit.add_argument(
-        "--executor", choices=("none", "claude-code"), default="none",
+        "--executor", choices=("none", "claude-code", "gemini-cli"), default="none",
         help="reasoning executor; 'none' orchestrates without analysing code",
     )
     audit.add_argument("--model", default=None, help="provider model override")

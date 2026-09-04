@@ -2,6 +2,13 @@
 
 All notable SecHelix release changes are summarized here. Detailed release notes live in [`docs/releases/`](docs/releases/), and the Git history remains the authoritative development record.
 
+## Runner 0.2.0 - 2026-09-04
+
+- Added Gemini CLI as a second provider-neutral reasoning executor using the official headless JSON interface. The adapter launches each node in a fresh empty working directory, applies system-level no-tool/MCP/extension/skill settings, suppresses normal context-file discovery, and rejects any reported tool call.
+- Kept provider authentication owned by the official CLI; SecHelix does not harvest or reuse Gemini credentials.
+- On Windows npm installs, bypasses the `gemini.cmd` shell boundary and invokes the official package's Node entry point directly. If that layout cannot be resolved, execution fails closed.
+- `sechelix doctor` now reports Claude Code and Gemini CLI availability, while `--executor` accepts `claude-code` or `gemini-cli`.
+
 ## Runner 0.1.1 - 2026-09-04
 
 - Published the independently versioned Python runner to PyPI using GitHub OIDC Trusted Publishing; no long-lived PyPI token is stored in the repository.
