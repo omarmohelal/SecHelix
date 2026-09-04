@@ -2,8 +2,7 @@ name: Temporary finish Gemini executor
 
 on:
   push:
-    branches:
-      - feat/gemini-cli-executor
+    branches: [feat/gemini-cli-executor]
 
 permissions:
   contents: write
@@ -18,7 +17,7 @@ jobs:
           persist-credentials: true
           fetch-depth: 0
 
-      - name: Finish provider, CLI, version and docs
+      - name: Patch implementation and current-state docs
         shell: python
         run: |
           import json
@@ -29,41 +28,15 @@ jobs:
               text = p.read_text(encoding='utf-8')
               found = text.count(old)
               if found != count:
-                  raise SystemExit(f'{path}: expected {count} match(es), found {found}')
+                  raise SystemExit(f'{path}: expected {count} match(es), found {found}: {old[:80]!r}')
               p.write_text(text.replace(old, new), encoding='utf-8')
 
-          old_command = '''    On Windows, npm commonly exposes ``gemini.cmd``. Running a batch shim through
-              ``cmd /c`` while putting an untrusted prompt on that command line would
-              reintroduce shell metacharacter parsing. Instead a fixed PowerShell program
-              reads the prompt/model from environment variables and splats them as
-              argument values; the prompt is never parsed as code.
-              """
-
-              resolved = shutil.which(binary) or binary
-              suffix = Path(resolved).suffix.lower()
-              if os.name == "nt" and suffix in {".cmd", ".bat"}:
-                  powershell = shutil.which("pwsh") or shutil.which("powershell")
-                  if not powershell:
-                      raise ProviderError(
-                          "Gemini CLI is an npm batch shim but PowerShell was not found for safe argv launch"
-                      )
-                  env = dict(env)
-                  env["SECHELIX_GEMINI_BINARY"] = resolved
-                  env["SECHELIX_GEMINI_PROMPT"] = prompt
-                  env["SECHELIX_GEMINI_MODEL"] = model or ""
-                  script = (
-                      "$a=@('-p',$env:SECHELIX_GEMINI_PROMPT,'--output-format','json');"
-                      "if($env:SECHELIX_GEMINI_MODEL){$a+=@('--model',$env:SECHELIX_GEMINI_MODEL)};"
-                      "& $env:SECHELIX_GEMINI_BINARY @a; exit $LASTEXITCODE"
-                  )
-                  return [powershell, "-NoProfile", "-NonInteractive", "-Command", script], env
-
-              command = [resolved, "-p", prompt, "--output-format", "json"]
-              if model:
-                  command += ["--model", model]
-              return command, env'''.replace('              ', '    ')
-
-          new_command = '''    On Windows, npm commonly exposes ``gemini.cmd``. A batch shim would require
+          # Replace only the body/tail of _command; marker slicing avoids indentation drift.
+          p = Path('sechelix_runner/providers/gemini_cli.py')
+          text = p.read_text(encoding='utf-8')
+          start = text.index('    On Windows, npm commonly exposes ``gemini.cmd``.')
+          end = text.index('\n\ndef _parse_envelope', start)
+          replacement = '''    On Windows, npm commonly exposes ``gemini.cmd``. A batch shim would require
               ``cmd.exe`` parsing, which is an unacceptable boundary for prompts derived from
               untrusted repository content. For the official npm layout we bypass the shim and
               invoke its JavaScript entry point with ``node`` directly. If that exact layout is
@@ -93,30 +66,35 @@ jobs:
               if model:
                   command += ["--model", model]
               return command, env'''.replace('              ', '    ')
+          p.write_text(text[:start] + replacement + text[end:], encoding='utf-8')
 
-          replace_exact('sechelix_runner/providers/gemini_cli.py', old_command, new_command)
+          cli = Path('sechelix_runner/cli.py')
+          text = cli.read_text(encoding='utf-8')
+          needle = '''    if choice == "claude-code":
+              from .providers.claude_code import ClaudeCodeExecutor
+              from .providers.reasoning import ReasoningExecutor
 
-          old_executor = '''    if choice == "claude-code":
-                  from .providers.claude_code import ClaudeCodeExecutor
-                  from .providers.reasoning import ReasoningExecutor
-
-                  provider = ClaudeCodeExecutor(model=getattr(args, "model", None))
-                  if not provider.available:
-                      raise RuntimeError(
-                          "claude CLI not found on PATH; install Claude Code or use --executor none"
-                      )
-                  return ReasoningExecutor(provider, timeout=float(getattr(args, "node_timeout", 300)))
+              provider = ClaudeCodeExecutor(model=getattr(args, "model", None))
+              if not provider.available:
+                  raise RuntimeError(
+                      "claude CLI not found on PATH; install Claude Code or use --executor none"
+                  )
+              return ReasoningExecutor(provider, timeout=float(getattr(args, "node_timeout", 300)))
               raise RuntimeError(f"unknown executor: {choice}")'''.replace('              ', '    ')
-          new_executor = '''    if choice == "claude-code":
-                  from .providers.claude_code import ClaudeCodeExecutor
-                  from .providers.reasoning import ReasoningExecutor
+          # Use stable start/end markers instead of matching wrapping exactly.
+          s = text.index('    if choice == "claude-code":', text.index('def _build_executor'))
+          e = text.index('    raise RuntimeError(f"unknown executor: {choice}")', s)
+          e = text.index('\n', e) + 1
+          block = '''    if choice == "claude-code":
+              from .providers.claude_code import ClaudeCodeExecutor
+              from .providers.reasoning import ReasoningExecutor
 
-                  provider = ClaudeCodeExecutor(model=getattr(args, "model", None))
-                  if not provider.available:
-                      raise RuntimeError(
-                          "claude CLI not found on PATH; install Claude Code or use --executor none"
-                      )
-                  return ReasoningExecutor(provider, timeout=float(getattr(args, "node_timeout", 300)))
+              provider = ClaudeCodeExecutor(model=getattr(args, "model", None))
+              if not provider.available:
+                  raise RuntimeError(
+                      "claude CLI not found on PATH; install Claude Code or use --executor none"
+                  )
+              return ReasoningExecutor(provider, timeout=float(getattr(args, "node_timeout", 300)))
               if choice == "gemini-cli":
                   from .providers.gemini_cli import GeminiCliExecutor
                   from .providers.reasoning import ReasoningExecutor
@@ -127,58 +105,50 @@ jobs:
                           "gemini CLI not found on PATH; install Gemini CLI or use --executor none"
                       )
                   return ReasoningExecutor(provider, timeout=float(getattr(args, "node_timeout", 300)))
-              raise RuntimeError(f"unknown executor: {choice}")'''.replace('              ', '    ')
-          replace_exact('sechelix_runner/cli.py', old_executor, new_executor)
-          replace_exact(
-              'sechelix_runner/cli.py',
+              raise RuntimeError(f"unknown executor: {choice}")
+          '''.replace('              ', '    ')
+          text = text[:s] + block + text[e:]
+          text = text.replace(
               '"--executor", choices=("none", "claude-code"), default="none",',
               '"--executor", choices=("none", "claude-code", "gemini-cli"), default="none",',
+              1,
           )
-          replace_exact(
-              'sechelix_runner/cli.py',
+          text = text.replace(
               '        "reasoning_executor": "not configured (NullExecutor)",\n',
               '        "reasoning_executor": "select with --executor (default NullExecutor)",\n'
               '        "available_reasoning_executors": {\n'
               '            "claude-code": bool(shutil.which("claude")),\n'
               '            "gemini-cli": bool(shutil.which("gemini")),\n'
               '        },\n',
+              1,
           )
+          cli.write_text(text, encoding='utf-8')
 
           replace_exact('pyproject.toml', 'version = "0.1.1"', 'version = "0.2.0"')
-          replace_exact(
-              'sechelix_runner/__init__.py',
-              'RUNNER_VERSION = "0.1.1"',
-              'RUNNER_VERSION = "0.2.0"',
-          )
+          replace_exact('sechelix_runner/__init__.py', 'RUNNER_VERSION = "0.1.1"', 'RUNNER_VERSION = "0.2.0"')
           marker_path = Path('runner-release.json')
           marker = json.loads(marker_path.read_text(encoding='utf-8'))
-          marker['version'] = '0.2.0'
-          marker['publish'] = True
-          marker['purpose'] = (
-              'Publish Gemini CLI as a second isolated reasoning executor so the runner is not '
-              'coupled to a single provider quota.'
-          )
+          marker.update({
+              'version': '0.2.0',
+              'publish': True,
+              'purpose': 'Publish Gemini CLI as a second isolated reasoning executor so the runner is not coupled to a single provider quota.',
+          })
           marker_path.write_text(json.dumps(marker, indent=2) + '\n', encoding='utf-8')
 
-          replace_exact(
-              'README.md',
-              '**Optional stdlib-only runner `0.1.1` on PyPI**',
-              '**Optional stdlib-only runner `0.2.0` on PyPI**',
-          )
+          replace_exact('README.md', '**Optional stdlib-only runner `0.1.1` on PyPI**', '**Optional stdlib-only runner `0.2.0` on PyPI**')
           replace_exact(
               'README.md',
               '`uv tool install sechelix` or `python -m pip install sechelix` also work. The portable Agent Skill does not require the Python runner.\n',
               '`uv tool install sechelix` or `python -m pip install sechelix` also work. The portable Agent Skill does not require the Python runner. The runtime supports isolated `claude-code` and `gemini-cli` reasoning executors; provider errors and quota exhaustion remain fail-closed.\n',
           )
 
+          replace_exact('docs/v4-quickstart.md', 'Runner `0.1.1` is published separately on PyPI.', 'Runner `0.2.0` is published separately on PyPI.')
+          anchor = '`uv tool install sechelix` or `python -m pip install sechelix` are also supported. A repository clone remains a source-development fallback, not the normal installation path.\n'
           replace_exact(
               'docs/v4-quickstart.md',
-              'Runner `0.1.1` is published separately on PyPI.',
-              'Runner `0.2.0` is published separately on PyPI.',
+              anchor,
+              anchor + '''\nTo let the runner reason about source, choose an already-authenticated local CLI. SecHelix does not read or export either provider's credentials:\n\n```bash\nsechelix audit . --executor claude-code\n# or\nsechelix audit . --executor gemini-cli\n```\n\nEach reasoning node is launched in a fresh provider process. The Gemini CLI adapter uses the official headless JSON interface from an empty temporary working directory, disables built-in tools, MCP, extensions and skills through system settings, suppresses normal `GEMINI.md` discovery, and rejects the result if the CLI reports any tool call. Provider quota/errors block required nodes rather than producing a clean result.\n''',
           )
-          install_anchor = '''`uv tool install sechelix` or `python -m pip install sechelix` are also supported. A repository clone remains a source-development fallback, not the normal installation path.\n'''
-          install_new = install_anchor + '''\nTo let the runner reason about source, choose an already-authenticated local CLI. SecHelix does not read or export either provider's credentials:\n\n```bash\nsechelix audit . --executor claude-code\n# or\nsechelix audit . --executor gemini-cli\n```\n\nEach reasoning node is launched in a fresh provider process. The Gemini CLI adapter uses the official headless JSON interface from an empty temporary working directory, disables built-in tools, MCP, extensions and skills through system settings, suppresses normal `GEMINI.md` discovery, and rejects the result if the CLI reports any tool call. Provider quota/errors block required nodes rather than producing a clean result.\n'''
-          replace_exact('docs/v4-quickstart.md', install_anchor, install_new)
 
           replace_exact(
               'docs/packaging/PYPI_README.md',
@@ -186,24 +156,20 @@ jobs:
               'To actually analyse code, select an already-authenticated supported CLI on `PATH`:\n\n```bash\nsechelix audit . --executor claude-code\nsechelix audit . --executor gemini-cli\n```\n\nSecHelix invokes the official CLIs; it does not read or reuse their OAuth/API credentials. Each node is isolated, and provider quota/errors remain fail-closed.\n',
           )
 
-          replace_exact(
-              'ROADMAP.md',
-              'standard-library-only optional runner (`0.1.1`, published on PyPI)',
-              'standard-library-only optional runner (`0.2.0`, published on PyPI)',
-          )
+          replace_exact('ROADMAP.md', 'standard-library-only optional runner (`0.1.1`, published on PyPI)', 'standard-library-only optional runner (`0.2.0`, published on PyPI)')
           replace_exact(
               'ROADMAP.md',
               '- **done** — fail-closed provider isolation with a real Claude Code reasoning adapter and structured-output validation;',
               '- **done** — fail-closed provider isolation with real Claude Code and Gemini CLI reasoning adapters, fresh-process role isolation, least-context enforcement, and structured-output validation;',
           )
 
-          p = Path('CHANGELOG.md')
-          text = p.read_text(encoding='utf-8')
+          changelog = Path('CHANGELOG.md')
+          text = changelog.read_text(encoding='utf-8')
           anchor = '## Runner 0.1.1 - 2026-09-04\n'
           if anchor not in text:
               raise SystemExit('CHANGELOG.md: runner 0.1.1 anchor missing')
           section = '''## Runner 0.2.0 - 2026-09-04\n\n- Added Gemini CLI as a second provider-neutral reasoning executor using the official headless JSON interface. The adapter launches each node in a fresh empty working directory, applies system-level no-tool/MCP/extension/skill settings, suppresses normal context-file discovery, and rejects any reported tool call.\n- Kept provider authentication owned by the official CLI; SecHelix does not harvest or reuse Gemini credentials.\n- On Windows npm installs, bypasses the `gemini.cmd` shell boundary and invokes the official package's Node entry point directly. If that layout cannot be resolved, execution fails closed.\n- `sechelix doctor` now reports Claude Code and Gemini CLI availability, while `--executor` accepts `claude-code` or `gemini-cli`.\n\n'''
-          p.write_text(text.replace(anchor, section + anchor, 1), encoding='utf-8')
+          changelog.write_text(text.replace(anchor, section + anchor, 1), encoding='utf-8')
 
       - name: Remove temporary workflow and commit
         run: |
