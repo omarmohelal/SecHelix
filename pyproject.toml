@@ -62,8 +62,15 @@ schemas = "sechelix_runner/_bundled/schemas"
 catalog = "sechelix_runner/_bundled/catalog"
 
 [tool.hatch.build.targets.sdist]
+# The sdist must contain every source that the wheel builder consumes. PyPI and
+# build frontends commonly build a wheel *from the sdist*, not from the git
+# checkout, so omitting these paths creates an sdist that cannot reproduce its
+# own wheel.
 include = [
     "/sechelix_runner",
+    "/sechelix_core",
+    "/schemas",
+    "/catalog",
     "/tests/runner",
     "/docs/v4-quickstart.md",
     "/docs/packaging",
