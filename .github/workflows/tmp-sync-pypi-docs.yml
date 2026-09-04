@@ -1,0 +1,106 @@
+name: Temporary sync PyPI docs
+
+on:
+  push:
+    branches:
+      - docs/sync-pypi-0.1.1
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Apply exact documentation replacements
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_exact(path, old, new, count=None):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              found = text.count(old)
+              if found == 0:
+                  raise SystemExit(f'{path}: expected text not found')
+              if count is not None and found != count:
+                  raise SystemExit(f'{path}: expected {count} match(es), found {found}')
+              p.write_text(text.replace(old, new), encoding='utf-8')
+
+          replace_exact(
+              'README.md',
+              '| V4 evidence runtime | **Optional stdlib-only runner `0.1.0`** — deterministic reasoner DAG, least-context routing, budget governor, coverage ledger, replay, loopback API and MCP |',
+              '| V4 evidence runtime | **Optional stdlib-only runner `0.1.1` on PyPI** — deterministic reasoner DAG, least-context routing, budget governor, coverage ledger, replay, loopback API and MCP |',
+              1,
+          )
+
+          replace_exact(
+              'README.md',
+              '''```bash\nnpx skills@latest add omarmohelal/SecHelix --skill sechelix\n```\n\nThen ask your coding agent:''',
+              '''```bash\nnpx skills@latest add omarmohelal/SecHelix --skill sechelix\n```\n\nOptional V4 evidence runtime, independently versioned and published on PyPI:\n\n```bash\npipx install sechelix\nsechelix doctor\n```\n\n`uv tool install sechelix` or `python -m pip install sechelix` also work. The portable Agent Skill does not require the Python runner.\n\nThen ask your coding agent:''',
+              1,
+          )
+
+          replace_exact(
+              'docs/v4-quickstart.md',
+              '''The runner uses the standard library only and has no runtime dependencies. Until the separately versioned runner is published to PyPI, run it from the repository clone as below.\n\n```bash\ngit clone https://github.com/omarmohelal/SecHelix\ncd SecHelix\npython -m sechelix_runner.cli doctor .\n```''',
+              '''The runner uses the standard library only and has no runtime dependencies. Runner `0.1.1` is published separately on PyPI. The recommended isolated CLI install is:\n\n```bash\npipx install sechelix\nsechelix doctor .\n```\n\n`uv tool install sechelix` or `python -m pip install sechelix` are also supported. A repository clone remains a source-development fallback, not the normal installation path.''',
+              1,
+          )
+
+          replace_exact(
+              'docs/v4-quickstart.md',
+              '''## What this does not do\n\nNo reasoning provider is wired in. No protocol packs, no native lane, no browser\nor HTTP evidence capture, no Workbench surfaces, and no competitive benchmark.\nThose are `SPECIFIED` or `OPEN`, and nothing in this document should be read as\nclaiming otherwise.''',
+              '''## What remains deliberately bounded\n\nThe shipped runner includes a Claude Code reasoning adapter, deep protocol packs, a candidate-only C/C++/Rust lane, bounded LOCAL proof execution, and Workbench V4 artifact inspection. Those capabilities do not turn an incomplete provider run into a clean result: if the selected reasoning provider is unavailable, rate-limited, or returns unusable output, required nodes fail closed.\n\nThe complete V4 workflow benchmark remains `NOT_MEASURED`. No competitor Arena score is published yet, browser-backed XSS execution is not a bundled default, and SecHelix does not perform uncontrolled production exploitation.''',
+              1,
+          )
+
+          replace_exact(
+              'ROADMAP.md',
+              'standard-library-only optional runner (`0.1.0`)',
+              'standard-library-only optional runner (`0.1.1`, published on PyPI)',
+              1,
+          )
+          replace_exact(
+              'ROADMAP.md',
+              '- **external blocker** — PyPI upload requires a publishing credential or trusted-publisher configuration outside this repository session;',
+              '- **done** — runner `0.1.1` is published on PyPI through GitHub OIDC Trusted Publishing, with an explicit release marker and version-drift guard;',
+              1,
+          )
+
+          p = Path('CHANGELOG.md')
+          text = p.read_text(encoding='utf-8')
+          anchor = 'All notable SecHelix release changes are summarized here. Detailed release notes live in [`docs/releases/`](docs/releases/), and the Git history remains the authoritative development record.\n\n'
+          if anchor not in text:
+              raise SystemExit('CHANGELOG.md: intro anchor missing')
+          section = '''## Runner 0.1.1 - 2026-09-04\n\n- Published the independently versioned Python runner to PyPI using GitHub OIDC Trusted Publishing; no long-lived PyPI token is stored in the repository.\n- Fixed Claude Code 2.1.248 compatibility where an explicitly successful JSON envelope ending with `stop_sequence` could accompany a non-zero process status. The adapter accepts only the narrow successful-completion case; truncation, tool continuation, malformed output and explicit errors still fail closed.\n- Added an explicit `runner-release.json` publication marker and CI guards binding the marker, `pyproject.toml`, and `RUNNER_VERSION` before release.\n\n'''
+          text = text.replace(anchor, anchor + section, 1)
+          text = text.replace(
+              'PyPI publication remains blocked on an external publishing credential or trusted-publisher setup.',
+              'At the time `4.0.0-alpha.1` was cut, PyPI publication was still blocked on external publisher setup; runner `0.1.1` is now published through Trusted Publishing.',
+              1,
+          )
+          p.write_text(text, encoding='utf-8')
+
+          # Current-state docs may no longer advertise the old unpublished runner.
+          for path in ('README.md', 'docs/v4-quickstart.md', 'ROADMAP.md'):
+              text = Path(path).read_text(encoding='utf-8')
+              if 'runner `0.1.0`' in text or 'runner (`0.1.0`)' in text:
+                  raise SystemExit(f'{path}: stale runner 0.1.0 current-state reference remains')
+
+      - name: Remove temporary workflow and commit only the docs
+        run: |
+          set -euo pipefail
+          rm .github/workflows/tmp-sync-pypi-docs.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add README.md ROADMAP.md CHANGELOG.md docs/v4-quickstart.md .github/workflows/tmp-sync-pypi-docs.yml
+          git diff --cached --check
+          git commit -m 'Sync PyPI runner documentation'
+          git push origin HEAD:docs/sync-pypi-0.1.1
