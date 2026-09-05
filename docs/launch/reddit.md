@@ -2,7 +2,25 @@
 
 > **DRAFT — not posted.** Post from the owner's own account.
 
-## r/netsec
+## r/netsec — DO NOT POST
+
+Checked the live sidebar rules on 2026-09-05. Two of them disqualify this
+outright:
+
+- **Rule 8 — No tool posts.** SecHelix is a tool.
+- **Rule 9 — No AI-generated posts.** The copy below was AI-drafted.
+
+Rule 4 additionally discourages commercial advertisement.
+
+The draft is kept for reference, not for posting. Rewording it to slip past
+"no tool posts" would be gaming a community's rules, and getting caught doing
+that costs more than the traffic is worth.
+
+If a genuinely non-tool writeup ever exists -- a technique or a finding that
+stands on its own without the product -- that is a different submission and it
+should be written as one.
+
+## r/netsec draft (NOT POSTED)
 
 r/netsec removes vendor-style self-promotion. Lead with the technical finding,
 not the product. Post the **article**, not the repo.

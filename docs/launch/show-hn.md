@@ -75,6 +75,22 @@ https://github.com/omarmohelal/SecHelix
 >
 > Apache-2.0. Happy to answer anything, including where it is weak.
 
+## BLOCKED — 2026-09-05
+
+Submission was refused by Hacker News:
+
+> We're temporarily restricting Show HNs because of a massive influx, mostly by
+> users who aren't yet familiar with the site or its culture. You're welcome on
+> HN! Take some time to get to know the community, become a good contributor,
+> and then it will be fine to post an occasional Show HN.
+
+Nothing was posted. This is an account-history requirement, not a content
+problem, and the only legitimate way through it is genuine participation on HN
+over time. Do not attempt to work around it: a Show HN from an account that
+evaded the restriction is worse for the project than no Show HN at all.
+
+Re-check eligibility after the owner has been commenting on HN for a while.
+
 ## Pre-flight checklist
 
 Everything below must be true at the moment of posting.

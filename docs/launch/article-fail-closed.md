@@ -1,8 +1,9 @@
 ---
 title: "Why my security scanner refuses to tell you your code is clean"
-published: false
+published: true
 tags: security, appsec, ai, opensource
-canonical_url: https://sechelix.com/research/fail-closed
+published_url: https://dev.to/omarmohelal/why-my-security-scanner-refuses-to-tell-you-your-code-is-clean-5aj8
+ai_disclosure: "Some AI (AI-assisted)"
 ---
 
 # Why my security scanner refuses to tell you your code is clean
