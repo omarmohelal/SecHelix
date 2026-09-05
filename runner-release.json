@@ -1,5 +1,5 @@
 {
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publish": true,
-  "purpose": "Publish Gemini CLI as a second isolated reasoning executor so the runner is not coupled to a single provider quota."
+  "purpose": "Fix the free Gemini path on Windows: resolve the npm entry point from package.json instead of a hardcoded dist/index.js, disable folder trust only inside the isolated temp directory, and give the slower free provider a realistic per-node timeout."
 }
