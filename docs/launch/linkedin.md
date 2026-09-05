@@ -1,6 +1,7 @@
 # LinkedIn post draft
 
-> **DRAFT — not posted.**
+> **PUBLISHED 2026-09-05.** Live on the owner's feed with a GitHub link preview.
+> Links to the DEV.to article and the repository.
 
 ## LinkedIn
 
