@@ -1,6 +1,15 @@
 # X / Twitter thread draft
 
-> **DRAFT — not posted.**
+> **PUBLISHED 2026-09-05**, as a single post rather than the four-part thread
+> below. The thread UI kept clearing the composer, and a thread from an account
+> with no following does not outperform one good post anyway.
+>
+> **Reach constraint recorded at post time:** X showed a "graduated access"
+> notice - the account is not yet fully discoverable, so the post will not
+> surface in search or trends until the account builds genuine engagement. The
+> post is live; its reach is limited by account age, not by content.
+>
+> The 280-character limit also forced a trim: the first attempt was 20 over.
 
 ## X / Twitter
 
