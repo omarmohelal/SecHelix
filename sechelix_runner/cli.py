@@ -185,7 +185,7 @@ def _build_executor(args: argparse.Namespace):
       "claude CLI not found on PATH; install Claude Code or use --executor none"
             )
         return ReasoningExecutor(
-            provider, timeout=float(getattr(args, "node_timeout", 300))
+            provider, timeout=float(args.node_timeout or 300.0)
         )
     if choice == "gemini-cli":
         from .providers.gemini_cli import GeminiCliExecutor
@@ -196,9 +196,12 @@ def _build_executor(args: argparse.Namespace):
             raise RuntimeError(
       "gemini CLI not found on PATH; install Gemini CLI or use --executor none"
             )
-        return ReasoningExecutor(
-            provider, timeout=float(getattr(args, "node_timeout", 300))
-        )
+        # Gemini CLI is materially slower per node than Claude Code: on the demo
+        # corpus a node that Claude answered in ~110s ran past 300s here and was
+        # recorded FAILED on timeout. The free path is the one most new users
+        # will try first, so its default is generous rather than shared.
+        default_timeout = 900.0 if args.node_timeout is None else float(args.node_timeout)
+        return ReasoningExecutor(provider, timeout=default_timeout)
     raise RuntimeError(f"unknown executor: {choice}")
 
 def cmd_audit(args: argparse.Namespace) -> int:
@@ -411,8 +414,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     audit.add_argument("--model", default=None, help="provider model override")
     audit.add_argument(
-        "--node-timeout", type=float, default=300.0, dest="node_timeout",
-        help="seconds allowed per reasoning node",
+        "--node-timeout", type=float, default=None, dest="node_timeout",
+        help="seconds allowed per reasoning node (default 300, 900 for gemini-cli)",
     )
     _common(audit)
     audit.set_defaults(func=cmd_audit)
