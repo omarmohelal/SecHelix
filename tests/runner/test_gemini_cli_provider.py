@@ -103,10 +103,66 @@ class IsolationPolicyTests(unittest.TestCase):
         self.assertIs(value.value, False)
 
     def test_windows_npm_path_does_not_use_cmd_or_powershell_evaluation(self) -> None:
+        """A prompt is built from repository content and must never reach a shell."""
         source = inspect.getsource(gemini_cli._command).lower()
         self.assertNotIn("cmd /c", source)
         self.assertNotIn("-command", source)
-        self.assertIn("node_modules", source)
+        self.assertNotIn("shell=true", source)
+        # The shim is bypassed by invoking node on the package entry point.
+        self.assertIn("node", source)
+        resolver = inspect.getsource(gemini_cli._npm_entry_point).lower()
+        self.assertIn("node_modules", resolver)
+
+    def test_entry_point_is_read_from_package_metadata_not_assumed(self) -> None:
+        """Regression: a hardcoded dist/index.js was wrong for the published
+        package, whose real entry is bundle/gemini.js. Every Windows user on the
+        free path hit "could not be resolved safely" and failed at the first node."""
+        import json
+        import tempfile
+        from pathlib import Path
+
+        shim_dir = Path(tempfile.mkdtemp())
+        package = shim_dir / "node_modules" / "@google" / "gemini-cli"
+        (package / "bundle").mkdir(parents=True)
+        (package / "bundle" / "gemini.js").write_text("//", encoding="utf-8")
+        (package / "package.json").write_text(
+            json.dumps({"bin": {"gemini": "bundle/gemini.js"}}), encoding="utf-8"
+        )
+        entry = gemini_cli._npm_entry_point(shim_dir)
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry.name, "gemini.js")
+
+    def test_entry_point_cannot_escape_the_package_directory(self) -> None:
+        """A crafted package.json must not point node at an arbitrary file."""
+        import json
+        import tempfile
+        from pathlib import Path
+
+        shim_dir = Path(tempfile.mkdtemp())
+        package = shim_dir / "node_modules" / "@google" / "gemini-cli"
+        package.mkdir(parents=True)
+        (shim_dir / "evil.js").write_text("//", encoding="utf-8")
+        (package / "package.json").write_text(
+            json.dumps({"bin": {"gemini": "../../../evil.js"}}), encoding="utf-8"
+        )
+        self.assertIsNone(gemini_cli._npm_entry_point(shim_dir))
+
+    def test_missing_package_resolves_to_none_rather_than_guessing(self) -> None:
+        import tempfile
+        from pathlib import Path
+
+        self.assertIsNone(gemini_cli._npm_entry_point(Path(tempfile.mkdtemp())))
+
+    def test_folder_trust_is_disabled_only_inside_the_isolated_temp_dir(self) -> None:
+        """Gemini CLI exits 55 in an untrusted directory. Every invocation runs in
+        a fresh empty temp dir with no tools, extensions, MCP or context file, so
+        there is nothing for folder trust to protect against."""
+        settings = gemini_cli._LOCKED_SETTINGS
+        self.assertFalse(settings["security"]["folderTrust"]["enabled"])
+        self.assertEqual(settings["tools"]["core"], [])
+        self.assertFalse(settings["admin"]["mcp"]["enabled"])
+        source = inspect.getsource(gemini_cli.GeminiCliExecutor.invoke)
+        self.assertIn("TemporaryDirectory", source)
 
 
 class InvocationTests(unittest.TestCase):

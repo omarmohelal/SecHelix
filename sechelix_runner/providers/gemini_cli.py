@@ -41,6 +41,13 @@ _LOCKED_SETTINGS: dict[str, Any] = {
     "security": {
         "disableYoloMode": True,
         "disableAlwaysAllow": True,
+        # Folder trust protects against hostile project files influencing a
+        # session. There are none here: every invocation runs in a fresh empty
+        # temp directory with no tools, no extensions, no MCP and no context
+        # file, and all evidence travels inside the prompt. Leaving it on made
+        # the CLI exit 55 -- "not running in a trusted directory" -- and the free
+        # path failed at the first node for every user.
+        "folderTrust": {"enabled": False},
     },
     "admin": {
         "secureModeEnabled": True,
@@ -190,27 +197,27 @@ def _command(
 
     On Windows, npm commonly exposes ``gemini.cmd``. A batch shim would require
     ``cmd.exe`` parsing, which is an unacceptable boundary for prompts derived from
-    untrusted repository content. For the official npm layout we bypass the shim and
-    invoke its JavaScript entry point with ``node`` directly. If that exact layout is
-    unavailable, the adapter fails closed instead of falling back to a shell.
+    untrusted repository content. So the shim is bypassed and its JavaScript entry
+    point is invoked with ``node`` directly. If the entry cannot be resolved, the
+    adapter fails closed rather than falling back to a shell.
+
+    The entry point is read from the package's own ``package.json`` ``bin`` field
+    rather than assumed. A hardcoded ``dist/index.js`` was wrong for the published
+    package -- its real entry is ``bundle/gemini.js`` -- so every Windows user on
+    the free path hit "could not be resolved safely" and the run failed at the
+    first node.
     """
 
     resolved = shutil.which(binary) or binary
     suffix = os.path.splitext(resolved)[1].lower()
     if os.name == "nt" and suffix in {".cmd", ".bat"}:
         node = shutil.which("node")
-        entry = (
-            Path(resolved).parent
-            / "node_modules"
-            / "@google"
-            / "gemini-cli"
-            / "dist"
-            / "index.js"
-        )
-        if not node or not entry.is_file():
+        entry = _npm_entry_point(Path(resolved).parent)
+        if not node or entry is None:
             raise ProviderError(
-                "Gemini CLI resolved to an npm batch shim, but its official Node entry "
-                "point could not be resolved safely; reinstall @google/gemini-cli"
+                "Gemini CLI resolved to an npm batch shim and its Node entry point "
+                "could not be resolved from package.json; reinstall @google/gemini-cli "
+                "or run on a platform where the CLI is a native binary"
             )
         command = [node, str(entry), "-p", prompt, "--output-format", "json"]
     else:
@@ -218,6 +225,49 @@ def _command(
     if model:
         command += ["--model", model]
     return command, env
+
+
+def _npm_entry_point(shim_dir: Path) -> Path | None:
+    """Resolve the Gemini CLI JavaScript entry from its own package metadata.
+
+    Reading ``bin`` rather than assuming a path is what makes this survive a
+    package layout change; the previous hardcoded guess did not.
+
+    The resolved path is required to stay inside the package directory, so a
+    crafted ``package.json`` cannot point ``node`` at an arbitrary file.
+    """
+
+    package_dir = shim_dir / "node_modules" / "@google" / "gemini-cli"
+    manifest = package_dir / "package.json"
+    if not manifest.is_file():
+        return None
+    try:
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    declared = data.get("bin")
+    candidates: list[str] = []
+    if isinstance(declared, str):
+        candidates.append(declared)
+    elif isinstance(declared, dict):
+        preferred = declared.get("gemini")
+        if isinstance(preferred, str):
+            candidates.append(preferred)
+        candidates.extend(v for v in declared.values() if isinstance(v, str))
+    # Historic layouts, tried only after the declared entry.
+    candidates += ["bundle/gemini.js", "dist/index.js"]
+
+    root = package_dir.resolve()
+    for relative in candidates:
+        entry = (package_dir / relative).resolve()
+        try:
+            entry.relative_to(root)
+        except ValueError:
+            continue
+        if entry.is_file():
+            return entry
+    return None
 
 
 def _parse_envelope(stdout: str) -> dict[str, Any]:
