@@ -13,6 +13,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+from urllib.parse import urlparse
 from typing import Any, Mapping
 
 MEASURED = "MEASURED"
@@ -35,6 +36,9 @@ WORKFLOW_METRICS = (
     "regression_proof_accuracy",
     "release_gate_accuracy",
 )
+
+_MIN_BASIS_CHARS = 24
+_ATTESTATION_SCHEMES = frozenset({"https"})
 
 REQUIRED_PARTICIPANT_FIELDS = (
     "participant_id",
@@ -218,6 +222,72 @@ def _assessment_blockers(manifest: Mapping[str, Any], assessment: Mapping[str, A
     return blockers
 
 
+def _origin(url: str) -> str:
+    """Scheme-and-host of a URL, lowercased, for same-origin comparison."""
+    parsed = urlparse(url.strip())
+    return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}{parsed.path.rstrip('/').lower()}"
+
+
+def _owner_namespace(url: str) -> str:
+    """The account or organisation a source URL belongs to, or "" if undecidable."""
+    parsed = urlparse(url.strip())
+    parts = [segment for segment in parsed.path.split("/") if segment]
+    if not parsed.netloc or not parts:
+        return ""
+    return f"{parsed.netloc.lower()}/{parts[0].lower()}"
+
+
+def _independence_blockers(
+    manifest: Mapping[str, Any],
+    assessor: Mapping[str, Any],
+    blindness: Any,
+) -> list[str]:
+    """Independence cannot be verified here, so require it to be attributable.
+
+    A bare ``independent: true`` is a claim about a fact this harness has no way
+    to check. Flipping it costs one keystroke and, before this gate existed,
+    promoted a self-authored perfect score straight to publishable. So the claim
+    must instead be attributable: it has to name how independence was
+    established and point at an artifact a reader can open, and it must not come
+    from the account that publishes the participant.
+    """
+    blockers: list[str] = []
+    if assessor.get("independent") is not True:
+        return blockers
+
+    basis = assessor.get("independence_basis")
+    if not isinstance(basis, str) or len(basis.strip()) < _MIN_BASIS_CHARS:
+        blockers.append(
+            "assessor.independence_basis must state how independence was established"
+        )
+
+    attestation = assessor.get("attestation_url")
+    if not isinstance(attestation, str) or not attestation.strip():
+        blockers.append("assessor.attestation_url missing")
+    elif urlparse(attestation.strip()).scheme not in _ATTESTATION_SCHEMES:
+        blockers.append("assessor.attestation_url must be a resolvable https URL")
+    else:
+        participant = manifest.get("participant")
+        source = participant.get("source_url") if isinstance(participant, Mapping) else None
+        if isinstance(source, str) and source.strip():
+            owner = _owner_namespace(source)
+            if owner and _owner_namespace(attestation) == owner:
+                blockers.append(
+                    "assessor.attestation_url is published by the participant's own "
+                    "account, which cannot attest to its independence"
+                )
+            if _origin(attestation) == _origin(source):
+                blockers.append(
+                    "assessor.attestation_url points at the participant itself"
+                )
+
+    if isinstance(blindness, Mapping) and blindness.get("evaluator_independent") is not True:
+        blockers.append(
+            "assessor.independent contradicts blindness.evaluator_independent"
+        )
+    return blockers
+
+
 def _publication_blockers(manifest: Mapping[str, Any], assessment: Mapping[str, Any]) -> list[str]:
     blockers = _assessment_blockers(manifest, assessment)
     run = manifest.get("run")
@@ -247,8 +317,10 @@ def _publication_blockers(manifest: Mapping[str, Any], assessment: Mapping[str, 
     else:
         if assessor.get("independent") is not True:
             blockers.append("assessment is not marked independent")
-        if not isinstance(assessor.get("identity"), str) or not assessor.get("identity", "").strip():
+        identity = assessor.get("identity")
+        if not isinstance(identity, str) or not identity.strip():
             blockers.append("assessor identity missing")
+        blockers.extend(_independence_blockers(manifest, assessor, blindness))
 
     measured = [_rate(assessment, metric) for metric in WORKFLOW_METRICS]
     if any(value == NOT_MEASURED for value in measured):
