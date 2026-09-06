@@ -1,3 +1,4 @@
+import json
 import unittest
 
 from evals.arena import (
@@ -50,7 +51,12 @@ BLINDNESS = {
 
 ASSESSMENT = {
     "packet_digest": PACKET_DIGEST,
-    "assessor": {"identity": "independent-evaluator-1", "independent": True},
+    "assessor": {
+        "identity": "independent-evaluator-1",
+        "independent": True,
+        "independence_basis": "assessed by a reviewer unaffiliated with the participant",
+        "attestation_url": "https://example.test/evaluator-1/attestations/demo-agent",
+    },
     "observations": [
         {
             "case_id": "CASE-A",
@@ -75,6 +81,83 @@ ASSESSMENT = {
 
 
 class ArenaTests(unittest.TestCase):
+    def test_self_declared_independence_alone_never_measures(self) -> None:
+        """A perfect score plus two flipped booleans must not be publishable."""
+        assessment = json.loads(json.dumps(ASSESSMENT))
+        assessment["assessor"] = {
+            "identity": "the maintainer",
+            "independent": True,
+        }
+        record = finalize_manifest(
+            prepare_manifest(PACKET, PARTICIPANT),
+            run=RUN,
+            blindness=BLINDNESS,
+            assessment=assessment,
+        )
+        self.assertEqual(record["measurement_status"], NOT_MEASURED)
+        self.assertIn(
+            "assessor.attestation_url missing", record["publication"]["blockers"]
+        )
+
+    def test_attestation_from_the_participants_own_account_never_measures(self) -> None:
+        assessment = json.loads(json.dumps(ASSESSMENT))
+        assessment["assessor"]["attestation_url"] = (
+            "https://example.test/demo-agent/attestations/self"
+        )
+        record = finalize_manifest(
+            prepare_manifest(PACKET, PARTICIPANT),
+            run=RUN,
+            blindness=BLINDNESS,
+            assessment=assessment,
+        )
+        self.assertEqual(record["measurement_status"], NOT_MEASURED)
+        self.assertTrue(
+            any(
+                "participant's own account" in blocker
+                for blocker in record["publication"]["blockers"]
+            )
+        )
+
+    def test_non_https_attestation_never_measures(self) -> None:
+        assessment = json.loads(json.dumps(ASSESSMENT))
+        assessment["assessor"]["attestation_url"] = "file:///tmp/attestation.txt"
+        record = finalize_manifest(
+            prepare_manifest(PACKET, PARTICIPANT),
+            run=RUN,
+            blindness=BLINDNESS,
+            assessment=assessment,
+        )
+        self.assertEqual(record["measurement_status"], NOT_MEASURED)
+
+    def test_assessor_independence_must_agree_with_blindness_record(self) -> None:
+        blindness = dict(BLINDNESS, evaluator_independent=False)
+        record = finalize_manifest(
+            prepare_manifest(PACKET, PARTICIPANT),
+            run=RUN,
+            blindness=blindness,
+            assessment=ASSESSMENT,
+        )
+        self.assertEqual(record["measurement_status"], NOT_MEASURED)
+        self.assertIn(
+            "assessor.independent contradicts blindness.evaluator_independent",
+            record["publication"]["blockers"],
+        )
+
+    def test_a_declared_dependent_assessment_owes_no_attestation(self) -> None:
+        """Honestly self-assessed records stay unpublishable, not malformed."""
+        assessment = json.loads(json.dumps(ASSESSMENT))
+        assessment["assessor"] = {"identity": "the maintainer", "independent": False}
+        record = finalize_manifest(
+            prepare_manifest(PACKET, PARTICIPANT),
+            run=RUN,
+            blindness=dict(BLINDNESS, evaluator_independent=False),
+            assessment=assessment,
+        )
+        blockers = record["publication"]["blockers"]
+        self.assertEqual(record["measurement_status"], NOT_MEASURED)
+        self.assertNotIn("assessor.attestation_url missing", blockers)
+        self.assertIn("assessment is not marked independent", blockers)
+
     def test_digest_is_canonical(self) -> None:
         self.assertEqual(canonical_digest({"a": 1, "b": 2}), canonical_digest({"b": 2, "a": 1}))
 
