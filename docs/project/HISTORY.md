@@ -1,7 +1,7 @@
 # Project history
 
 A map of the commit history, so it reads as a sequence of decisions rather than
-a wall of 131 entries.
+a wall of 155 entries.
 
 The history is deliberately **not** squashed or rewritten. This project's claim
 is that evidence survives, and a rewritten history is the one artifact that
@@ -13,17 +13,17 @@ resolve.
 
 | | |
 |---|---|
-| Commits | 131 |
-| Span | 2026-08-31 → 2026-09-03 |
+| Commits | 155 |
+| Span | 2026-08-31 → 2026-09-06 |
 | Merge commits | 2 (PRs #1 and #5, before the squash-only policy) |
 | Everything since | squash-merged, one PR per commit |
-| Tags | `v3.2.0-alpha.1`, `v3.4.0-alpha.1`, `v3.4.0-alpha.2` |
+| Tags | `v3.2.0-alpha.1`, `v3.4.0-alpha.1`, `v3.4.0-alpha.2`, `v4.0.0-alpha.1` |
 
-Prefix distribution: `docs` 50, `feat` 25, `V4` 12, `chore` 7, `ci` 6, `site` 4,
-`release` 2, and one each of `eval`, `fix`, `test`.
+Prefix distribution: `docs` 56, `feat` 25, `V4` 9, `chore` 7, `community` 6,
+`ci` 6, `site` 4, and three each of `release`, `fix`, `agents`.
 
-**Fifty documentation commits against twenty-five feature commits is the ratio
-this project intends.** Most of them record what was measured, what was not, and
+**Fifty-six documentation commits against twenty-five feature commits is the
+ratio this project intends.** Most of them record what was measured, what was not, and
 what a number does not license — which is the product, not overhead around it.
 
 ## Phases
@@ -83,6 +83,35 @@ The runner stopped being an orchestrator with nothing to orchestrate: a
 provider-neutral reasoning executor, packaging for `pipx`, actual container
 execution with seven confinement probes, SARIF and HTML output, a GitHub Action,
 and an MCP adapter.
+
+### 8 — Release 4.0.0-alpha.1 and adoption (`375c00b` → `142190e`, 2026-09-03/06)
+
+The V4 runner tagged and published to PyPI, then the work that follows a release
+rather than precedes it: the `/try-sechelix` page, a GitHub Action, discovery
+baselines recorded against ChatGPT, Gemini and Google AI Mode, and directory
+submissions.
+
+The baselines are unflattering on purpose. SecHelix appeared in **0 of 4**
+ChatGPT answers and **0 of 6** Gemini answers to non-branded questions its own
+capabilities describe. `docs/research/discovery-mechanics-2026-09-06.md` records
+why: SkillMD's search does not index descriptions, so no listing rewrite could
+have helped, and narrow GitHub topics were the only metadata lever that moved.
+
+### 9 — The Arena run against itself (`5f7d27d`, 2026-09-06)
+
+The Arena harness, built in stage 7 and never run, was finally pointed at
+SecHelix. It found a defect in the harness rather than the participant: a
+self-authored perfect 1.000 across all six workflow metrics became a publishable
+`MEASURED` record by flipping two booleans, because independence was gated on a
+self-declaration the harness could not check.
+
+Independence is now attributable — a stated basis and an `https` attestation not
+published by the participant's own account. The research note is explicit that
+this does not make independence *verifiable*, and that a second account still
+defeats it.
+
+The full workflow therefore remains `NOT_MEASURED`, and can no longer be moved
+by this project alone.
 
 ## Reading conventions
 
