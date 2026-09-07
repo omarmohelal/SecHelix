@@ -1,85 +1,54 @@
 # Getting help
 
-## Start here
+Use the shortest path for what you need:
 
-| You want to | Go to |
+| You want to... | Go to |
 |---|---|
-| Install it | [README — Install](README.md#install-in-30-seconds) |
-| Run your first audit | [Quickstart](docs/QUICKSTART.md) |
-| Know whether your agent host is supported | [Compatibility](docs/reference/compatibility.md) |
-| Understand a status word | [Report contract](schemas/report-v1.schema.json) and the vocabularies below |
-| Report a **false positive** | [Open a false-positive issue](https://github.com/omarmohelal/SecHelix/issues/new?template=false-positive.yml) |
-| Report a bug | [Open a bug](https://github.com/omarmohelal/SecHelix/issues/new?template=bug.yml) |
-| Ask a question | [Discussions → Q&A](https://github.com/omarmohelal/SecHelix/discussions) |
-| Report a vulnerability **in SecHelix** | [SECURITY.md](SECURITY.md) — **not** a public issue |
+| Install or run SecHelix | [README](README.md) |
+| Copy a security-review workflow | [Command Cookbook](docs/COMMANDS.md) |
+| Use the optional runtime | [V4 Runtime Quickstart](docs/v4-quickstart.md) |
+| Check agent/client compatibility | [Compatibility](docs/reference/compatibility.md) |
+| Report a false positive | [False-positive issue](https://github.com/omarmohelal/SecHelix/issues/new?template=false-positive.yml) |
+| Report a normal bug | [Bug report](https://github.com/omarmohelal/SecHelix/issues/new?template=bug.yml) |
+| Ask a question | [GitHub Discussions](https://github.com/omarmohelal/SecHelix/discussions) |
+| Report a vulnerability in SecHelix | [SECURITY.md](SECURITY.md) |
 
-## Before you open anything
+## Before posting publicly
 
-**Never paste credentials, private source, customer data, or internal hostnames into a public
-thread.** Reports contain evidence, and evidence contains things you do not want indexed. Use the
-redacted JSON output, and strip paths that reveal internal structure.
+Do not paste credentials, private source code, customer data, internal hostnames, private evidence, or other sensitive material into an issue or Discussion.
 
-If the issue concerns a third party's system, complete responsible disclosure with them **first**.
+If the problem is a vulnerability in a third-party system, use that project's responsible-disclosure process instead of opening a public SecHelix issue about it.
 
-## The most useful thing you can report
+## Reporting a false positive
 
-A **false positive**. This project's entire premise is that a finding is a claim that must survive
-refutation, so a case where it accused something innocent is the most valuable bug report it can
-receive.
+False positives are especially useful because SecHelix is designed to verify candidates before treating them as findings.
 
-What makes one actionable:
+Please include:
 
-- the finding id and what it claimed;
-- the smallest reproduction you can share — a redacted synthetic snippet is fine, and often better
-  than real code;
-- why it is wrong: the compensating control, the unreachable path, the framework behaviour that
-  neutralises it;
-- which catalog hypothesis produced it, if you can tell.
+- what SecHelix claimed;
+- the smallest shareable reproduction;
+- why the claim is wrong or unreachable;
+- the compensating control, framework behavior, or missing attacker capability that refutes it;
+- the related finding or hypothesis ID when available.
 
-A confirmed false positive usually becomes a paired eval fixture — a vulnerable variant and a clean
-one that looks alarming but is protected by the real control. That is how the suite gets harder.
+A synthetic/redacted example is usually better than real private code.
 
-## Status vocabularies
+## Reporting a bug
 
-These are the words that carry meaning, and confusing them is the most common source of questions.
+Include:
 
-**Finding status** — `HYPOTHESIS`, `VERIFIED`, `LIKELY_BUT_UNPROVEN`, `FALSE_POSITIVE`,
-`DUPLICATE_ROOT_CAUSE`, `BLOCKED_BY_ENVIRONMENT`.
+- how you installed SecHelix;
+- the agent/client or CLI command you used;
+- the expected behavior;
+- the actual behavior;
+- a minimal reproduction when possible.
 
-**Applicability** — `APPLICABLE`, `NOT_APPLICABLE`, `UNKNOWN`, `BLOCKED`. `UNKNOWN` and `BLOCKED`
-are never converted into `NOT_APPLICABLE`: "we could not check" is not "this is fine".
+For CLI/runtime problems, `sechelix doctor --json` can provide useful environment information without requiring a full audit.
 
-**Release gate** — `PASS`, `PASS_WITH_KNOWN_RISK`, `BLOCKED`, `INCOMPLETE`. Missing required
-evidence yields `INCOMPLETE` and a non-zero exit, never a silent pass.
+## Security terminology
 
-**Compatibility** — `VERIFIED`, `DOCUMENTED`, `MODEL_COMPATIBLE`, `UNVERIFIED`, `NOT_SHIPPED`.
-Nothing is upgraded to `VERIFIED` on the strength of vendor documentation alone.
-
-## The benchmark question
-
-It comes up first, so, precisely: **the blind label suite is measured; the full workflow is not.**
-
-The first uncontaminated run was published on 2026-09-02 —
-[`evals/results/claude-sonnet-5-blind-2026-09-02.json`](evals/results/claude-sonnet-5-blind-2026-09-02.json):
-precision 0.950, detection recall 1.000, false-positive rate 0.053, on 38 paired fixtures covering 76
-cases. Each case was judged by a separate process that had never seen the repository, the fixtures,
-the labels or the pairings.
-
-**That is a label-only run** — one question per file, one label back. It did not exercise the
-independent verifier, the adapters, remediation, regression proof or the release gate, so
-`applicability_accuracy`, `regression_proof_rate` and `release_gate_accuracy` are still
-`NOT_MEASURED`. Do not read 0.950 as "SecHelix accuracy"; read
-[`docs/research/evaluation-report.md`](docs/research/evaluation-report.md) instead.
-
-If you want to produce the first real number, the whole procedure is
-[`evals/blind-packet/RUN.md`](evals/blind-packet/RUN.md). The result gets published whichever way it
-comes out.
-
-## What this project is not
-
-It is not a scanner and does not replace one — it consumes scanner output as evidence and treats
-every alert as a hypothesis. It is **alpha**: contracts and interfaces can still change.
+The important status vocabularies and report contracts are defined in the repository schemas and reference docs. If a run lacks required evidence, SecHelix is designed to fail closed rather than silently turn uncertainty into a clean result.
 
 ## Response expectations
 
-Single maintainer, best effort, no SLA. Security reports via `SECURITY.md` are read first.
+This is an open-source project maintained on a best-effort basis. There is no support SLA. Security reports sent through the process in [SECURITY.md](SECURITY.md) take priority.
