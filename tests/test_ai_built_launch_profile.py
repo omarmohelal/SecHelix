@@ -13,18 +13,15 @@ CATALOG = ROOT / "catalog" / "checks.json"
 
 
 def _launch_rows(text: str) -> list[str]:
-    """Return only the numbered launch-check rows, not numbered examples later."""
-    rows: list[str] = []
-    for line in text.splitlines():
-        if not re.match(r"^\| \d{2} \|", line):
-            continue
-        cells = line.split("|")
-        if len(cells) < 5:
-            continue
-        family_cell = cells[3]
-        if re.search(r"`[A-Z]+`", family_cell):
-            rows.append(line)
-    return rows
+    """Return numbered rows only from the launch-check section."""
+    section = text.split("## Launch checks", 1)[1].split(
+        "## Copy-paste launch audit prompt", 1
+    )[0]
+    return [
+        line
+        for line in section.splitlines()
+        if re.match(r"^\| \d{2} \|", line)
+    ]
 
 
 class AiBuiltLaunchProfileTests(unittest.TestCase):
