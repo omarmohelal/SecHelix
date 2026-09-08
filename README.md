@@ -59,6 +59,20 @@ Prioritize authentication, authorization, business logic, secrets, injection, SS
 Return evidence-backed findings and clearly mark anything unproven.
 ```
 
+### AI-built app launch audit
+
+Use this before launching an AI-generated, agent-generated, rapidly prototyped, or vibe-coded application:
+
+```text
+Use SecHelix's AI-Built App Launch Audit on this authorized application.
+Evaluate launch checks 01-36 from references/ai-built-app-launch.md.
+Do not mark PASS without exact code, configuration, policy, test, log, or safe runtime evidence.
+For every FAIL or security-relevant UNKNOWN, give the realistic failure mode, smallest root-cause fix, and exact safe verification step.
+After fixes, re-run the failed/unknown checks and produce the normal SecHelix release gate.
+```
+
+The launch profile covers practical pre-release failures around secrets, auth/authz, cross-user data, database/storage permissions, debug exposure, input validation, SQL/NoSQL injection, XSS/CSRF, uploads, traversal, SSRF, password reset, sessions/JWT, CORS, rate limiting, staging, default credentials, webhooks, payments/entitlements, IDOR/BOLA, sensitive logs, and production artifacts.
+
 ### Review a pull request
 
 ```text
@@ -81,6 +95,7 @@ More copy-paste workflows: **[Command Cookbook](docs/COMMANDS.md)**.
 |---|---|
 | Full repository review | `complete security audit` |
 | Quick first pass | `security triage` |
+| AI-built/vibe-coded app before launch | `AI-Built App Launch Audit` |
 | Broken access control | `authorization / IDOR / BOLA audit` |
 | Login and sessions | `authentication / session / OAuth audit` |
 | Input handling | `injection / XSS / SSRF / files audit` |
@@ -185,6 +200,7 @@ Depending on the workflow and available runtime, SecHelix can produce:
 Start with the practical docs and use the deeper material only when you need it:
 
 - **[Command Cookbook](docs/COMMANDS.md)** — copy-paste security workflows.
+- **[AI-Built App Launch Audit](references/ai-built-app-launch.md)** — evidence-gated pre-launch checks for AI-built/vibe-coded apps.
 - **[V4 Runtime Quickstart](docs/v4-quickstart.md)** — optional CLI/runtime usage.
 - **[CI Integration](docs/ci-integration.md)** — using SecHelix in CI.
 - **[Architecture](ARCHITECTURE.md)** — design and internals.
