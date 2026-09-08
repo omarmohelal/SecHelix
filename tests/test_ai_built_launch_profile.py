@@ -12,10 +12,25 @@ PORTABLE_PROFILE = ROOT / "skills" / "sechelix" / "references" / "ai-built-app-l
 CATALOG = ROOT / "catalog" / "checks.json"
 
 
+def _launch_rows(text: str) -> list[str]:
+    """Return only the numbered launch-check rows, not numbered examples later."""
+    rows: list[str] = []
+    for line in text.splitlines():
+        if not re.match(r"^\| \d{2} \|", line):
+            continue
+        cells = line.split("|")
+        if len(cells) < 5:
+            continue
+        family_cell = cells[3]
+        if re.search(r"`[A-Z]+`", family_cell):
+            rows.append(line)
+    return rows
+
+
 class AiBuiltLaunchProfileTests(unittest.TestCase):
     def test_profile_contains_exactly_checks_01_through_36(self) -> None:
-        text = PROFILE.read_text(encoding="utf-8")
-        ids = re.findall(r"^\| (\d{2}) \|", text, flags=re.MULTILINE)
+        rows = _launch_rows(PROFILE.read_text(encoding="utf-8"))
+        ids = [re.match(r"^\| (\d{2}) \|", row).group(1) for row in rows]
         self.assertEqual(ids, [f"{n:02d}" for n in range(1, 37)])
 
     def test_profile_uses_known_catalog_families(self) -> None:
@@ -23,7 +38,7 @@ class AiBuiltLaunchProfileTests(unittest.TestCase):
         catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
         known = {family["id"] for family in catalog["families"]}
 
-        rows = [line for line in text.splitlines() if re.match(r"^\| \d{2} \|", line)]
+        rows = _launch_rows(text)
         self.assertEqual(len(rows), 36)
         for row in rows:
             family_cell = row.split("|")[3]
