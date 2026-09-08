@@ -16,6 +16,7 @@ Then use one of the recipes below.
 |---|---|
 | Audit the whole repository | Full audit |
 | Get a quick first pass | Security triage |
+| Launch an AI-built / vibe-coded app safely | AI-Built App Launch Audit |
 | Check access control | Authorization / IDOR / BOLA |
 | Check login, sessions or OAuth | Authentication / sessions |
 | Trace dangerous input | Injection / XSS / SSRF / files |
@@ -45,6 +46,24 @@ Use SecHelix to triage this repository for security issues.
 Prioritize authentication, authorization, business logic, secrets, injection, SSRF, file handling, supply chain, dangerous configuration, and AI/MCP surfaces.
 Return evidence-backed findings and clearly mark anything unproven.
 ```
+
+## AI-Built App Launch Audit
+
+Use this when an application is close to launch and was produced quickly with AI/coding agents or rapid prototyping.
+
+```text
+Use SecHelix's AI-Built App Launch Audit on this authorized application.
+Start with STATIC evidence, then use LOCAL or authorized STAGING/PRODUCTION_SAFE verification only where it is safe and necessary.
+Evaluate launch checks 01-36 from references/ai-built-app-launch.md.
+For each relevant check return PASS, FAIL, UNKNOWN, NOT_APPLICABLE, or BLOCKED.
+Do not mark PASS without exact evidence from code, configuration, policy, test, log, or a safe runtime observation.
+For FAIL and security-relevant UNKNOWN results, give the realistic failure mode, the smallest root-cause fix, and an exact safe verification step.
+Prioritize auth, authorization, cross-user/tenant data, private data, payments/entitlements, admin access, secrets, webhooks, AI/tool authority, and spend-sensitive routes.
+Do not mutate production data or infrastructure during the audit.
+After fixes, re-run the failed/unknown checks and produce the normal SecHelix release gate.
+```
+
+The 36-check launch profile is documented in [`references/ai-built-app-launch.md`](../references/ai-built-app-launch.md). It is a practical minimum launch filter over the larger SecHelix catalog, not a replacement for the full audit.
 
 ## Authorization / IDOR / BOLA
 
