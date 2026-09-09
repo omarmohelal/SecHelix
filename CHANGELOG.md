@@ -2,6 +2,14 @@
 
 All notable SecHelix release changes are summarized here. Detailed release notes live in [`docs/releases/`](docs/releases/), and the Git history remains the authoritative development record.
 
+## Runner 0.3.0 - 2026-09-09
+
+- Added `server.json` and `.github/workflows/publish-mcp.yml` so the MCP adapter is registered at the official MCP Registry as `io.github.omarmohelal/sechelix`. Authentication is GitHub OIDC; no registry token is stored.
+- Carried an `mcp-name` ownership token in the published package description so the registry can verify that the PyPI project and the registry namespace are the same publisher.
+- The publish workflow refuses to run when `server.json`, `pyproject.toml` and the package entry disagree, or when the PyPI release it points at does not exist or lacks the ownership token. A registry entry naming a version nobody published is a dangling install instruction.
+- `tests/test_server_json.py` asserts the published listing matches the code: tool count, stdio transport, `sechelix mcp` remaining a real subcommand, no shell reachable from the adapter, no credentials required, and path confinement actually refusing `../..`, absolute paths and symlink-style escapes.
+- No runtime behaviour changed.
+
 ## Runner 0.2.0 - 2026-09-04
 
 - Added Gemini CLI as a second provider-neutral reasoning executor using the official headless JSON interface. The adapter launches each node in a fresh empty working directory, applies system-level no-tool/MCP/extension/skill settings, suppresses normal context-file discovery, and rejects any reported tool call.

@@ -166,7 +166,7 @@ sechelix doctor
 | `sechelix coverage` | Shows what previous runs did not examine |
 | `sechelix report` | Renders the latest saved run |
 | `sechelix replay <run_id>` | Replays a recorded run offline and checks consistency |
-| `sechelix mcp` | Serves the local MCP adapter over stdio |
+| `sechelix mcp .` | Serves the local MCP adapter over stdio |
 
 Example:
 
@@ -203,6 +203,18 @@ did not earn — configure a reasoning executor to get an actual review.
 
 Full reference: **[GitHub Action](docs/github-action.md)**.
 
+## MCP adapter
+
+```bash
+uvx sechelix mcp /path/to/the/repository
+```
+
+Seven read-only tools over a root you choose, no shell, no network. The root is
+the security boundary: point it at the repository under review, not at your home
+directory.
+
+Reference: **[MCP adapter](docs/mcp.md)**.
+
 ## Execution modes
 
 | Mode | Use it for |
@@ -233,6 +245,7 @@ Start with the practical docs and use the deeper material only when you need it:
 - **[AI-Built App Launch Audit](references/ai-built-app-launch.md)** — evidence-gated pre-launch checks for AI-built/vibe-coded apps.
 - **[V4 Runtime Quickstart](docs/v4-quickstart.md)** — optional CLI/runtime usage.
 - **[GitHub Action](docs/github-action.md)** — SecHelix in GitHub Actions.
+- **[MCP adapter](docs/mcp.md)** — the local MCP server surface.
 - **[CI Integration](docs/ci-integration.md)** — using SecHelix in CI.
 - **[Architecture](ARCHITECTURE.md)** — design and internals.
 - **[Evaluation](docs/EVALUATION.md)** — evaluation methodology and results.
