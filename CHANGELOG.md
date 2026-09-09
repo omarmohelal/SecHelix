@@ -2,6 +2,26 @@
 
 All notable SecHelix release changes are summarized here. Detailed release notes live in [`docs/releases/`](docs/releases/), and the Git history remains the authoritative development record.
 
+## [4.0.0-alpha.2] - 2026-09-09
+
+### Distribution
+
+- Moved the GitHub Action to the repository root so it is usable as `uses: omarmohelal/SecHelix@<tag>` and eligible for GitHub Marketplace. It reports `PASS`, `PASS_WITH_KNOWN_RISK`, `BLOCKED` or `INCOMPLETE`, decides `INCOMPLETE` before findings are examined, writes SARIF that says so explicitly rather than an empty results array, and passes every input through the environment instead of interpolating it into a shell.
+- Published the MCP adapter to the official MCP Registry as `io.github.omarmohelal/sechelix`, verified by GitHub OIDC and a PyPI ownership token, with a publish workflow that refuses a dangling or mismatched entry.
+- Added `examples/expense-api`: one reproducible 90-second demo of a real finding and a refuted false positive, driven by CI in the vulnerable, patched and reverted states so it cannot silently stop working.
+- Added a separate [SecHelix Challenge](https://github.com/omarmohelal/sechelix-challenge) repository with ten cases, three of them decoys, and reproducible scoring.
+
+### Security
+
+- Fixed two defects a SecHelix review of the new Action found before merge: the action uploaded the unredacted stdout projection of a run as a build artifact, routing around the redactor; and any output value could forge a second `$GITHUB_OUTPUT` entry, including an `outcome=PASS` that would win over a real `outcome=BLOCKED`. Both carry regression tests confirmed red first.
+- Filed the underlying CLI behaviour separately rather than changing a published `--json` contract inside a distribution release (#76).
+
+### Unchanged
+
+- No security semantics changed. The full SecHelix workflow remains `NOT_MEASURED`, and the 76-case blind-label result keeps its stated boundary.
+
+See [`docs/releases/4.0.0-alpha.2.md`](docs/releases/4.0.0-alpha.2.md) for the full notes.
+
 ## Runner 0.3.0 - 2026-09-09
 
 - Kept `sechelix_runner.RUNNER_VERSION`, `pyproject.toml`, `server.json` and its package entry in agreement, and added a test that fails when they drift. The PyPI publish gate caught the first drift and refused the release; the test makes it visible before the push instead of after it.
