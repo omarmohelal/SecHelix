@@ -194,7 +194,7 @@ Advanced runtime guide: **[V4 Runtime Quickstart](docs/v4-quickstart.md)**.
 ## GitHub Action
 
 ```yaml
-- uses: omarmohelal/SecHelix@v4.0.0-alpha.2
+- uses: omarmohelal/SecHelix@v4.0.0-alpha.3
   with:
     executor: none
 ```

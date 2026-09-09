@@ -44,13 +44,31 @@ class ManifestAgreementTests(unittest.TestCase):
     def test_release_notes_exist_for_this_version(self):
         self.assertTrue((ROOT / "docs" / "releases" / f"{self.agent['version']}.md").is_file())
 
-    def test_content_pointers_resolve(self):
-        """A manifest naming a directory that is not there installs nothing."""
-        for key in ("skills", "agents"):
-            target = self.agent.get(key)
-            if target:
-                with self.subTest(key=key):
-                    self.assertTrue((ROOT / target.strip("./")).is_dir(), target)
+    #: Every top-level key Agent Plugins v1.0.0 permits. The published schema
+    #: sets additionalProperties:false, so anything outside this set is a spec
+    #: violation rather than a harmless extra. Client-specific data belongs
+    #: under `extensions`, keyed by reverse-domain namespace.
+    AGENT_PLUGINS_V1_KEYS = frozenset({
+        "$schema", "name", "version", "description", "author",
+        "homepage", "repository", "license", "keywords", "extensions",
+    })
+
+    def test_the_manifest_carries_no_field_the_spec_rejects(self):
+        """Flagged by GitHub's awesome-copilot intake on a real submission.
+
+        The manifest declared `skills` and `agents` pointing at the two
+        directories. Discovery in v1.0.0 is by convention, not declaration, so
+        those fields bought nothing and failed schema validation.
+        """
+        extra = sorted(set(self.agent) - self.AGENT_PLUGINS_V1_KEYS)
+        self.assertEqual(extra, [], f"not part of Agent Plugins v1.0.0: {extra}")
+
+    def test_the_conventional_directories_are_where_discovery_looks(self):
+        """Removing the pointers only works if the convention holds."""
+        for directory in ("skills", "agents"):
+            with self.subTest(directory=directory):
+                self.assertTrue((ROOT / directory).is_dir())
+        self.assertTrue((ROOT / "skills" / "sechelix" / "SKILL.md").is_file())
 
     def test_the_root_manifest_does_not_reintroduce_the_packaging_bug(self):
         """A root SKILL.md packages the whole repository; plugin.json must not add one."""

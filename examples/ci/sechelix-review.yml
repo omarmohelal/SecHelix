@@ -29,7 +29,7 @@ jobs:
           persist-credentials: false
 
       - id: sechelix
-        uses: omarmohelal/SecHelix@v4.0.0-alpha.2
+        uses: omarmohelal/SecHelix@v4.0.0-alpha.3
         with:
           path: .
           depth: standard
