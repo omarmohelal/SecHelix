@@ -41,10 +41,28 @@ class ServerJsonTests(unittest.TestCase):
         self.assertLessEqual(len(self.server["description"]), 100)
         self.assertLessEqual(len(self.server["title"]), 100)
 
-    def test_version_agrees_with_pyproject(self):
+    def test_version_agrees_everywhere(self):
+        """Four places declare this version. All four must agree.
+
+        Caught in production by the PyPI publish workflow refusing a release
+        where pyproject.toml said 0.3.0 and RUNNER_VERSION still said 0.2.1.
+        The gate did its job; this makes the drift visible before the push
+        rather than after it.
+        """
         version = declared_python_version()
-        self.assertEqual(self.server["version"], version)
-        self.assertEqual(self.package["version"], version)
+        self.assertEqual(self.server["version"], version, "server.json")
+        self.assertEqual(self.package["version"], version, "server.json package entry")
+
+        from sechelix_runner import RUNNER_VERSION
+
+        self.assertEqual(RUNNER_VERSION, version, "sechelix_runner.RUNNER_VERSION")
+
+    def test_release_marker_agrees_when_it_asks_to_publish(self):
+        """runner-release.json triggers the publish; a stale version there is a
+        request to publish something that does not exist."""
+        marker = json.loads((ROOT / "runner-release.json").read_text(encoding="utf-8"))
+        if marker.get("publish") is True:
+            self.assertEqual(marker["version"], declared_python_version())
 
     def test_package_points_at_the_public_pypi_project(self):
         self.assertEqual(self.package["registryType"], "pypi")

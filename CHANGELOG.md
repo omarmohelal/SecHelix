@@ -4,6 +4,8 @@ All notable SecHelix release changes are summarized here. Detailed release notes
 
 ## Runner 0.3.0 - 2026-09-09
 
+- Kept `sechelix_runner.RUNNER_VERSION`, `pyproject.toml`, `server.json` and its package entry in agreement, and added a test that fails when they drift. The PyPI publish gate caught the first drift and refused the release; the test makes it visible before the push instead of after it.
+
 - Added `server.json` and `.github/workflows/publish-mcp.yml` so the MCP adapter is registered at the official MCP Registry as `io.github.omarmohelal/sechelix`. Authentication is GitHub OIDC; no registry token is stored.
 - Carried an `mcp-name` ownership token in the published package description so the registry can verify that the PyPI project and the registry namespace are the same publisher.
 - The publish workflow refuses to run when `server.json`, `pyproject.toml` and the package entry disagree, or when the PyPI release it points at does not exist or lacks the ownership token. A registry entry naming a version nobody published is a dangling install instruction.
