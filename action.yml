@@ -1,8 +1,10 @@
 name: "SecHelix security review"
-description: >-
-  Evidence-first security review for a repository or pull request. Reports
-  PASS, PASS_WITH_KNOWN_RISK, BLOCKED or INCOMPLETE, and never renders a run
-  that examined nothing as a clean result.
+# GitHub Marketplace rejects a description of 125 characters or more, so this
+# is the short form. The outcome vocabulary it used to spell out -- PASS,
+# PASS_WITH_KNOWN_RISK, BLOCKED, INCOMPLETE, and the rule that a run which
+# examined nothing is never rendered clean -- is unchanged behaviour and is
+# documented in docs/github-action.md.
+description: "Evidence-first AppSec review for repositories and pull requests, with verified findings and fail-closed outcomes."
 author: "SecHelix"
 
 branding:

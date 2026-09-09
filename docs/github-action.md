@@ -4,7 +4,7 @@ Run SecHelix in CI and get one word back: `PASS`, `PASS_WITH_KNOWN_RISK`,
 `BLOCKED` or `INCOMPLETE`.
 
 ```yaml
-- uses: omarmohelal/SecHelix@v4.0.0-alpha.3
+- uses: omarmohelal/SecHelix@v4.0.0-alpha.4
   with:
     executor: none
 ```
@@ -138,7 +138,7 @@ action and your plan.
 Pin a release tag:
 
 ```yaml
-uses: omarmohelal/SecHelix@v4.0.0-alpha.3
+uses: omarmohelal/SecHelix@v4.0.0-alpha.4
 ```
 
 The action installs SecHelix from its own checkout, so the tag you pin is exactly

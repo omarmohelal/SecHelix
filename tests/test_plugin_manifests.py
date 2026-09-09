@@ -8,12 +8,14 @@ release that advertises a version nobody can install.
 """
 
 import json
+import re
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CLAUDE = ROOT / ".claude-plugin" / "plugin.json"
 AGENT = ROOT / "plugin.json"
+ACTION = ROOT / "action.yml"
 
 
 class ManifestAgreementTests(unittest.TestCase):
@@ -73,6 +75,59 @@ class ManifestAgreementTests(unittest.TestCase):
     def test_the_root_manifest_does_not_reintroduce_the_packaging_bug(self):
         """A root SKILL.md packages the whole repository; plugin.json must not add one."""
         self.assertFalse((ROOT / "SKILL.md").exists())
+
+
+class ActionMarketplaceMetadata(unittest.TestCase):
+    """`action.yml` is a Marketplace listing, and Marketplace has hard limits.
+
+    Found by GitHub rejecting the listing: "Description must be less than 125
+    characters." The description was 188. Nothing about the action was wrong --
+    the metadata simply could not be published, and there is no way to discover
+    that from CI without asserting it.
+    """
+
+    #: GitHub Marketplace rejects a description of 125 characters or more.
+    MAX_DESCRIPTION = 125
+
+    @classmethod
+    def setUpClass(cls):
+        text = ACTION.read_text(encoding="utf-8")
+        # A tiny reader rather than a yaml dependency: the runner has none, and
+        # this test must not be the thing that introduces one.
+        match = re.search(r'^description:\s*"([^"]*)"', text, re.M)
+        assert match, "action.yml must declare a single-line quoted description"
+        cls.description = match.group(1)
+        cls.name = re.search(r'^name:\s*"([^"]*)"', text, re.M).group(1)
+        cls.text = text
+
+    def test_description_fits_the_marketplace_limit(self):
+        self.assertLess(
+            len(self.description), self.MAX_DESCRIPTION,
+            f"Marketplace rejects >= {self.MAX_DESCRIPTION} chars; "
+            f"description is {len(self.description)}",
+        )
+
+    def test_description_is_a_single_line(self):
+        """A folded scalar hides its true length from a reader counting lines."""
+        self.assertNotIn("\n", self.description)
+        self.assertEqual(self.description, self.description.strip())
+
+    def test_name_and_branding_are_present_and_valid(self):
+        """Marketplace requires a name, and only accepts a fixed colour set."""
+        self.assertTrue(self.name)
+        colour = re.search(r"^\s*color:\s*(\S+)", self.text, re.M).group(1)
+        self.assertIn(colour, {"white", "yellow", "blue", "green",
+                               "orange", "red", "purple", "gray-dark"})
+        # assertRegex does not take flags, and `^` without re.M only matches the
+        # start of the whole file — so search explicitly.
+        self.assertIsNotNone(re.search(r"^\s*icon:\s*\S+", self.text, re.M))
+
+    def test_the_dropped_detail_still_lives_in_the_docs(self):
+        """Shortening the description must not lose the semantics it carried."""
+        docs = (ROOT / "docs" / "github-action.md").read_text(encoding="utf-8")
+        for word in ("PASS_WITH_KNOWN_RISK", "BLOCKED", "INCOMPLETE"):
+            with self.subTest(word=word):
+                self.assertIn(word, docs)
 
 
 if __name__ == "__main__":

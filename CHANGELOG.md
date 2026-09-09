@@ -2,6 +2,14 @@
 
 All notable SecHelix release changes are summarized here. Detailed release notes live in [`docs/releases/`](docs/releases/), and the Git history remains the authoritative development record.
 
+## [4.0.0-alpha.4] - 2026-09-09
+
+- Shortened the `action.yml` description from 188 to 113 characters. GitHub Marketplace rejects a listing whose description is 125 characters or more, so the action could not be published; a folded YAML scalar hid the length from anyone counting lines rather than characters. **No behaviour changed** — inputs, outputs, steps and the fail-closed decision logic are exactly what `4.0.0-alpha.3` shipped.
+- Added `ActionMarketplaceMetadata` tests: the description must be under 125 characters and a single line, `branding.color` must be one of the eight colours Marketplace accepts, and the outcome vocabulary dropped from the description must still appear in `docs/github-action.md`. Confirmed red against the old 188-character string.
+- Moved the action pin in the README, `docs/github-action.md` and the example workflow to `v4.0.0-alpha.4`. The optional Python runner is unchanged at `0.3.0`.
+
+See [`docs/releases/4.0.0-alpha.4.md`](docs/releases/4.0.0-alpha.4.md) for the full notes.
+
 ## [4.0.0-alpha.3] - 2026-09-09
 
 - Removed the `skills` and `agents` top-level fields from `plugin.json`. Agent Plugins v1.0.0 sets `additionalProperties: false` and discovers both by directory convention, so the fields pointed at directories discovery already finds and failed schema validation. Flagged by GitHub's `awesome-copilot` intake on a real submission.
