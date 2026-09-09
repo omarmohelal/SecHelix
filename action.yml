@@ -153,6 +153,15 @@ runs:
         echo "run-id=$run_id" >> "$GITHUB_OUTPUT"
 
         if [ -n "$run_id" ]; then
+          # Replace the stdout projection with the runner's own persisted copy.
+          # `audit --json` prints the raw result; only storage.write_json runs it
+          # through the redactor, so uploading the stdout form as a build
+          # artifact would route around the redaction boundary and publish
+          # secret-shaped node values to anyone who can read the repository.
+          # `report --format json` reads the persisted, redacted run.json.
+          sechelix report "$run_id" --path "$SECHELIX_PATH" --format json > sechelix-run.redacted.json
+          mv sechelix-run.redacted.json sechelix-run.json
+
           sechelix report "$run_id" --path "$SECHELIX_PATH" --format sarif > sechelix.sarif
           sechelix report "$run_id" --path "$SECHELIX_PATH" --format markdown > sechelix-report.md
           echo "sarif-file=sechelix.sarif" >> "$GITHUB_OUTPUT"

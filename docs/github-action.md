@@ -118,6 +118,16 @@ action and your plan.
 - **No runtime dependencies.** SecHelix installs with an empty dependency list —
   a security tool that drags in a dependency tree has widened the attack surface
   of the thing it was installed to protect.
+- **The uploaded artifact is the redacted one.** `sechelix audit --json` prints
+  the raw result; only the runner's storage layer runs a result through the
+  redactor. The action therefore re-reads the persisted copy with
+  `sechelix report --format json` before uploading, so a secret-shaped value in
+  a node payload does not reach a build artifact that anyone with repository
+  read access can download.
+- **No value can forge a second step output.** `$GITHUB_OUTPUT` is
+  newline-delimited, so a value containing a newline can write a further key —
+  including `outcome=PASS` after a real `outcome=BLOCKED`. Every field is
+  flattened to one line before it is written.
 - **Nothing is logged that was not already public.** The action reads no secrets
   and echoes no environment.
 - Do not run this from `pull_request_target` with a fork-head checkout. That is

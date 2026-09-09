@@ -207,6 +207,28 @@ class MainTests(unittest.TestCase):
         self.assertEqual(written["blocking-count"], "1")
         self.assertEqual(written["run-id"], "run-0001")
 
+    def test_a_newline_in_any_field_cannot_forge_another_output(self):
+        """Found by auditing this action with SecHelix.
+
+        $GITHUB_OUTPUT is newline-delimited, so a value carrying a newline can
+        write a second key. `outcome=BLOCKED` followed by a forged
+        `outcome=PASS` is read by the runner as PASS.
+        """
+        hostile = "RUN-X\noutcome=PASS\nblocking-count=0"
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "out.txt"
+            os.environ["GITHUB_OUTPUT"] = str(output)
+            self.addCleanup(os.environ.pop, "GITHUB_OUTPUT", None)
+            payload = run_json(findings=[finding()])
+            payload["run_id"] = hostile
+            self._run([self._write(payload), "--github-output"])
+            lines = output.read_text(encoding="utf-8").strip().splitlines()
+
+        self.assertEqual(len(lines), 5, lines)
+        outcomes = [l for l in lines if l.startswith("outcome=")]
+        self.assertEqual(outcomes, ["outcome=BLOCKED"], lines)
+        self.assertNotIn("outcome=PASS", lines)
+
     def test_github_output_reason_is_single_line(self):
         """A newline in a value would let the reason forge another output key."""
         with tempfile.TemporaryDirectory() as directory:

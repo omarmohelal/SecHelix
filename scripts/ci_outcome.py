@@ -139,26 +139,34 @@ def decide(run: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _emit_github_output(decision: Mapping[str, Any]) -> None:
-    """Write step outputs, if we are inside a GitHub Actions step.
+def _one_line(value: Any) -> str:
+    """Flatten a value so it cannot forge a second ``$GITHUB_OUTPUT`` entry.
 
-    Values are written with a randomless heredoc-free form: every value here is
-    a single line by construction, so ``key=value`` is safe and cannot be used
-    to inject extra output keys.
+    ``key=value`` lines are newline-delimited, so a value containing a newline
+    can write an arbitrary further key -- ``outcome=PASS`` among them. ``run_id``
+    is already constrained by ``RUN_ID_PATTERN`` on the way in and cannot carry
+    one, but this makes the property hold for *every* field rather than for one
+    field by accident, including when this script is handed a run artifact
+    directly rather than one the action just produced.
     """
+    return " ".join(str(value).split())
+
+
+def _emit_github_output(decision: Mapping[str, Any]) -> None:
+    """Write step outputs, if we are inside a GitHub Actions step."""
     path = os.environ.get("GITHUB_OUTPUT")
     if not path:
         return
     pairs = {
         "outcome": decision["outcome"],
-        "reason": decision["reason"].replace("\n", " "),
+        "reason": decision["reason"],
         "run-id": decision["run_id"],
         "incomplete": "true" if decision["outcome"] == INCOMPLETE else "false",
         "blocking-count": str(len(decision["blocking_findings"])),
     }
     with open(path, "a", encoding="utf-8") as handle:
         for key, value in pairs.items():
-            handle.write(f"{key}={value}\n")
+            handle.write(f"{key}={_one_line(value)}\n")
 
 
 def main(argv: list[str] | None = None) -> int:
