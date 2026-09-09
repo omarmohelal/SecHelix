@@ -143,7 +143,19 @@ jobs:
           with urllib.request.urlopen(url, timeout=30) as response:
               payload = json.load(response)
 
-          names = [s.get("name") for s in payload.get("servers", [])]
-          if name not in names:
-              raise SystemExit(f"{name} not found in the registry after publishing; saw {names}")
-          print(f"LIVE: {name} {server['version']}")
+          # Each entry wraps the published document: {"server": {...}, "_meta": {...}}.
+          # Reading `name` off the wrapper yields None for every row, which is
+          # how this step failed on a publish that had actually succeeded.
+          entries = [e.get("server", {}) for e in payload.get("servers", [])]
+          match = next((e for e in entries if e.get("name") == name), None)
+          if match is None:
+              raise SystemExit(
+                  f"{name} not found in the registry after publishing; "
+                  f"saw {[e.get('name') for e in entries]}"
+              )
+          if match.get("version") != server["version"]:
+              raise SystemExit(
+                  f"registry has {name} at {match.get('version')!r}, "
+                  f"expected {server['version']!r}"
+              )
+          print(f"LIVE: {name} {match['version']}")
