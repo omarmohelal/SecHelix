@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>Security findings are claims. SecHelix verifies them before they become findings.</strong>
+  <strong>Most AI security tools try to find more. SecHelix tries to prove itself wrong.</strong>
 </p>
 
 <p align="center">
@@ -13,7 +13,12 @@
 
 # SecHelix
 
-SecHelix is an open-source **AppSec Agent Skill** for security-reviewing code you own or are authorized to test.
+Every candidate finding goes to an independent verifier whose only job is to **disprove it**. The
+report shows you what it refuted and why — and returns `INCOMPLETE` rather than a clean `PASS` when
+it could not actually check.
+
+Open source, Apache-2.0, for code you own or are authorized to test. Runs in Claude Code, Codex,
+Copilot and other Agent Skills-compatible agents; the Python runtime is optional.
 
 It helps a coding agent:
 
@@ -24,8 +29,6 @@ It helps a coding agent:
 - fix the root cause;
 - add regression proof and retest;
 - return a clear release decision.
-
-SecHelix is **not** a scanner that treats every alert as a vulnerability.
 
 ## See it work in 90 seconds
 
@@ -42,8 +45,8 @@ that every pattern matcher flags and that is not exploitable at all.
 Walkthrough, root cause, the two-line fix and the regression proof:
 **[examples/expense-api](examples/expense-api/README.md)**.
 
-Want to score a tool — or yourself — on ten cases where three are decoys?
-**[SecHelix Challenge](https://github.com/omarmohelal/sechelix-challenge)**.
+Or take the same test in your browser — ten cases, three of them decoys, no
+signup: **[Can you tell the real bug from the decoy?](https://omarmohelal.github.io/sechelix-challenge/)**
 
 ## Install
 
