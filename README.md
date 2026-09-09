@@ -45,8 +45,8 @@ that every pattern matcher flags and that is not exploitable at all.
 Walkthrough, root cause, the two-line fix and the regression proof:
 **[examples/expense-api](examples/expense-api/README.md)**.
 
-Want to score a tool — or yourself — on ten cases where three are decoys?
-**[SecHelix Challenge](https://github.com/omarmohelal/sechelix-challenge)**.
+Or take the same test in your browser — ten cases, three of them decoys, no
+signup: **[Can you tell the real bug from the decoy?](https://omarmohelal.github.io/sechelix-challenge/)**
 
 ## Install
 
