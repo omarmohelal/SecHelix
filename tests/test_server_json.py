@@ -143,5 +143,43 @@ class ServerJsonTests(unittest.TestCase):
             self.assertTrue(str(api._resolve("inside/dir")).startswith(str(api.root)))
 
 
+class ContainerImage(unittest.TestCase):
+    """The Dockerfile is a published install path, so its claims are checked.
+
+    Building the image needs a daemon and a network, so these are static checks
+    on what the file promises rather than a build. The build itself is exercised
+    by hand and recorded in the pull request that added it.
+    """
+
+    def setUp(self):
+        self.dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+
+    def test_base_image_is_pinned_by_digest(self):
+        """A floating tag means a rebuild can change the base without a diff."""
+        self.assertRegex(self.dockerfile, r"FROM python@sha256:[0-9a-f]{64}")
+        self.assertNotRegex(self.dockerfile, r"FROM python:[\w.-]+\s")
+
+    def test_the_pinned_package_version_matches_the_release(self):
+        match = re.search(r'SECHELIX_VERSION=([\d.]+)', self.dockerfile)
+        self.assertIsNotNone(match, "Dockerfile must pin a sechelix version")
+        self.assertEqual(match.group(1), declared_python_version())
+
+    def test_it_does_not_run_as_root(self):
+        self.assertIn("USER sechelix", self.dockerfile)
+        self.assertRegex(self.dockerfile, r"useradd .*--uid 10001")
+
+    def test_entrypoint_serves_mcp_over_the_confined_root(self):
+        self.assertIn('ENTRYPOINT ["sechelix", "mcp", "/workspace"]', self.dockerfile)
+
+    def test_it_does_not_promise_read_only_enforcement(self):
+        """Docker Desktop for Windows does not enforce `:ro` on bind mounts.
+
+        Measured, not assumed: a write to a `:ro` mount succeeded on 29.6.2.
+        The file must say so rather than presenting `:ro` as the boundary.
+        """
+        self.assertIn("enforced by the host's bind-mount implementation", self.dockerfile)
+        self.assertNotIn("it is mounted read-only", self.dockerfile)
+
+
 if __name__ == "__main__":
     unittest.main()

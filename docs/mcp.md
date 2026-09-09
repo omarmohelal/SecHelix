@@ -34,6 +34,21 @@ sechelix mcp .
 directory.** The root is the security boundary: every path any tool receives is
 resolved and refused if it lands outside. A wider root is a wider blast radius.
 
+### In a container
+
+```bash
+docker build -t sechelix .
+docker run --rm -i --network none -v "$PWD:/workspace" sechelix
+```
+
+Runs as uid 10001, installs exactly one package, and the base image is pinned by
+digest. Two things worth knowing before adding `:ro`: `sechelix_audit` writes a
+run workspace under the root, so a read-only mount leaves you the six read-only
+tools and a failing audit; and `:ro` is enforced by the host's bind-mount
+implementation rather than by the image — on Docker Desktop for Windows 29.6.2 a
+write to a `:ro` bind mount succeeded when this was tested. The enforced
+boundary is still the configured root.
+
 ## Tools
 
 | Tool | Reads | Writes |
