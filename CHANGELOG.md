@@ -2,6 +2,14 @@
 
 All notable SecHelix release changes are summarized here. Detailed release notes live in [`docs/releases/`](docs/releases/), and the Git history remains the authoritative development record.
 
+## [4.0.0-alpha.3] - 2026-09-09
+
+- Removed the `skills` and `agents` top-level fields from `plugin.json`. Agent Plugins v1.0.0 sets `additionalProperties: false` and discovers both by directory convention, so the fields pointed at directories discovery already finds and failed schema validation. Flagged by GitHub's `awesome-copilot` intake on a real submission.
+- Added tests asserting the manifest carries no key outside the v1.0.0 set, and that the conventional `skills/` and `agents/` directories are actually present — a pointer is only safe to remove while the convention it pointed at holds.
+- Moved the action pin in the README, `docs/github-action.md` and the example workflow to `v4.0.0-alpha.3`. The optional Python runner is unchanged at `0.3.0`.
+
+See [`docs/releases/4.0.0-alpha.3.md`](docs/releases/4.0.0-alpha.3.md) for the full notes.
+
 ## [4.0.0-alpha.2] - 2026-09-09
 
 ### Distribution
