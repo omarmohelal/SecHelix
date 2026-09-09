@@ -1,0 +1,250 @@
+name: "SecHelix security review"
+description: >-
+  Evidence-first security review for a repository or pull request. Reports
+  PASS, PASS_WITH_KNOWN_RISK, BLOCKED or INCOMPLETE, and never renders a run
+  that examined nothing as a clean result.
+author: "SecHelix"
+
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  path:
+    description: "Directory to audit, relative to the workspace."
+    required: false
+    default: "."
+  depth:
+    description: "quick | standard | thorough."
+    required: false
+    default: "standard"
+  executor:
+    description: >-
+      Reasoning executor. 'none' (default) orchestrates the graph without
+      analysing code and needs no credentials -- it will report INCOMPLETE, which
+      is the honest result for a run that examined nothing. 'claude-code' and
+      'gemini-cli' require a provider CLI you install and authenticate yourself.
+    required: false
+    default: "none"
+  model:
+    description: "Provider model override. Ignored when executor is 'none'."
+    required: false
+    default: ""
+  max-cost-usd:
+    description: "Hard spend ceiling. Ignored when executor is 'none'."
+    required: false
+    default: ""
+  node-timeout:
+    description: "Seconds allowed per reasoning node."
+    required: false
+    default: ""
+  fail-on:
+    description: >-
+      When to fail the step: 'blocked' (default) fails only on a verified
+      blocking finding; 'incomplete' also fails when the run examined nothing;
+      'never' always succeeds and leaves the decision to the outcome output.
+    required: false
+    default: "blocked"
+  upload-sarif:
+    description: >-
+      Upload SARIF to GitHub code scanning. Requires 'security-events: write'
+      and GitHub Advanced Security on private repositories. Set false to keep
+      the SARIF as a plain artifact only.
+    required: false
+    default: "true"
+  sarif-category:
+    description: "Code scanning category for this run."
+    required: false
+    default: "sechelix"
+  upload-artifact:
+    description: "Upload the run directory, SARIF and Markdown report as a build artifact."
+    required: false
+    default: "true"
+  artifact-name:
+    description: "Name of the uploaded artifact."
+    required: false
+    default: "sechelix-report"
+  python-version:
+    description: "Python used to run SecHelix."
+    required: false
+    default: "3.12"
+
+outputs:
+  outcome:
+    description: "PASS, PASS_WITH_KNOWN_RISK, BLOCKED or INCOMPLETE."
+    value: ${{ steps.decide.outputs.outcome }}
+  reason:
+    description: "One sentence explaining the outcome."
+    value: ${{ steps.decide.outputs.reason }}
+  run-id:
+    description: "The recorded run id."
+    value: ${{ steps.decide.outputs.run-id }}
+  incomplete:
+    description: "true when mandatory nodes did not deliver."
+    value: ${{ steps.decide.outputs.incomplete }}
+  blocking-count:
+    description: "Number of open verified findings at CRITICAL or HIGH severity."
+    value: ${{ steps.decide.outputs.blocking-count }}
+  sarif-file:
+    description: "Path to the generated SARIF file."
+    value: ${{ steps.audit.outputs.sarif-file }}
+  report-file:
+    description: "Path to the generated Markdown report."
+    value: ${{ steps.audit.outputs.report-file }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install SecHelix
+      shell: bash
+      # Installed from the action's own checkout, so a consumer pinning
+      # `@v4.0.0` gets exactly the code that tag contains rather than whatever
+      # a floating release resolves to today. The runner has no dependencies.
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        set -euo pipefail
+        python -m pip install --quiet --disable-pip-version-check "$ACTION_PATH"
+        sechelix --version
+
+    - name: Audit
+      id: audit
+      shell: bash
+      # Every input crosses into the shell as an environment variable and is
+      # then quoted. Interpolating ${{ inputs.* }} directly into a run block
+      # would let a workflow input close the command and start another one.
+      env:
+        SECHELIX_PATH: ${{ inputs.path }}
+        SECHELIX_DEPTH: ${{ inputs.depth }}
+        SECHELIX_EXECUTOR: ${{ inputs.executor }}
+        SECHELIX_MODEL: ${{ inputs.model }}
+        SECHELIX_MAX_COST: ${{ inputs.max-cost-usd }}
+        SECHELIX_NODE_TIMEOUT: ${{ inputs.node-timeout }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        set -uo pipefail
+
+        args=(audit "$SECHELIX_PATH" --depth "$SECHELIX_DEPTH" --executor "$SECHELIX_EXECUTOR")
+        [ -n "$SECHELIX_MODEL" ] && args+=(--model "$SECHELIX_MODEL")
+        [ -n "$SECHELIX_MAX_COST" ] && args+=(--max-cost "$SECHELIX_MAX_COST")
+        [ -n "$SECHELIX_NODE_TIMEOUT" ] && args+=(--node-timeout "$SECHELIX_NODE_TIMEOUT")
+
+        # Exit 1 means "not clean", which is a result, not a crash. Only 2 and 3
+        # are usage and internal errors, and those must stop the job.
+        set +e
+        sechelix "${args[@]}" --json > sechelix-run.json
+        code=$?
+        set -e
+        if [ "$code" -ge 2 ]; then
+          echo "::error::sechelix audit failed with exit code $code"
+          cat sechelix-run.json >&2 || true
+          exit "$code"
+        fi
+
+        run_id=$(python -c 'import json,sys;print(json.load(open(sys.argv[1]))["run_id"])' sechelix-run.json)
+        echo "run-id=$run_id" >> "$GITHUB_OUTPUT"
+
+        sechelix report "$run_id" --path "$SECHELIX_PATH" --format sarif > sechelix.sarif
+        sechelix report "$run_id" --path "$SECHELIX_PATH" --format markdown > sechelix-report.md
+        echo "sarif-file=sechelix.sarif" >> "$GITHUB_OUTPUT"
+        echo "report-file=sechelix-report.md" >> "$GITHUB_OUTPUT"
+
+    - name: Decide outcome
+      id: decide
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        set -uo pipefail
+        python "$ACTION_PATH/scripts/ci_outcome.py" sechelix-run.json --github-output
+        # The decision is reported through outputs and the summary. Whether it
+        # fails the job is settled once, by fail-on, in the last step.
+        exit 0
+
+    - name: Summary
+      shell: bash
+      env:
+        OUTCOME: ${{ steps.decide.outputs.outcome }}
+        REASON: ${{ steps.decide.outputs.reason }}
+        RUN_ID: ${{ steps.decide.outputs.run-id }}
+        BLOCKING: ${{ steps.decide.outputs.blocking-count }}
+        EXECUTOR: ${{ inputs.executor }}
+      run: |
+        set -euo pipefail
+        {
+          echo "### SecHelix — $OUTCOME"
+          echo
+          echo "$REASON"
+          echo
+          echo "| | |"
+          echo "|---|---|"
+          echo "| Run | \`$RUN_ID\` |"
+          echo "| Executor | \`$EXECUTOR\` |"
+          echo "| Open blocking findings | $BLOCKING |"
+          if [ "$OUTCOME" = "INCOMPLETE" ]; then
+            echo
+            echo "> INCOMPLETE is not a failing grade and not a passing one."
+            echo "> Nothing was examined, so nothing was established."
+            if [ "$EXECUTOR" = "none" ]; then
+              echo ">"
+              echo "> \`executor: none\` cannot analyse code by design. Configure a"
+              echo "> reasoning executor to get a review rather than an orchestration."
+            fi
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Upload SARIF to code scanning
+      if: inputs.upload-sarif == 'true'
+      continue-on-error: true
+      uses: github/codeql-action/upload-sarif@4e94bd11f71e507f7f87df81788dff88d1dacbfb # v3.29.0
+      with:
+        sarif_file: sechelix.sarif
+        category: ${{ inputs.sarif-category }}
+
+    - name: Upload report artifact
+      if: inputs.upload-artifact == 'true'
+      continue-on-error: true
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: |
+          sechelix-run.json
+          sechelix.sarif
+          sechelix-report.md
+        if-no-files-found: warn
+        retention-days: 7
+
+    - name: Enforce policy
+      shell: bash
+      env:
+        OUTCOME: ${{ steps.decide.outputs.outcome }}
+        REASON: ${{ steps.decide.outputs.reason }}
+        FAIL_ON: ${{ inputs.fail-on }}
+      run: |
+        set -euo pipefail
+        case "$FAIL_ON" in
+          never) exit 0 ;;
+          blocked|incomplete) ;;
+          *) echo "::error::fail-on must be never, blocked or incomplete (got '$FAIL_ON')"; exit 2 ;;
+        esac
+
+        if [ "$OUTCOME" = "BLOCKED" ]; then
+          echo "::error::SecHelix BLOCKED — $REASON"
+          exit 1
+        fi
+        if [ "$OUTCOME" = "INCOMPLETE" ] && [ "$FAIL_ON" = "incomplete" ]; then
+          echo "::error::SecHelix INCOMPLETE — $REASON"
+          exit 1
+        fi
+        # INCOMPLETE under the default fail-on:blocked is surfaced, not failed.
+        # A run that could not analyse anything is not evidence against the code,
+        # and turning it into a red X trains people to ignore the red X.
+        if [ "$OUTCOME" = "INCOMPLETE" ]; then
+          echo "::warning::SecHelix INCOMPLETE — $REASON"
+        fi
+        exit 0

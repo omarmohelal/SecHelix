@@ -173,6 +173,21 @@ sechelix audit --help
 
 Advanced runtime guide: **[V4 Runtime Quickstart](docs/v4-quickstart.md)**.
 
+## GitHub Action
+
+```yaml
+- uses: omarmohelal/SecHelix@v4.0.0-alpha.2
+  with:
+    executor: none
+```
+
+Outputs `PASS`, `PASS_WITH_KNOWN_RISK`, `BLOCKED` or `INCOMPLETE`, writes SARIF
+for code scanning, and uploads the run as an artifact. The default
+`executor: none` deliberately reports `INCOMPLETE` rather than a green check it
+did not earn — configure a reasoning executor to get an actual review.
+
+Full reference: **[GitHub Action](docs/github-action.md)**.
+
 ## Execution modes
 
 | Mode | Use it for |
@@ -202,6 +217,7 @@ Start with the practical docs and use the deeper material only when you need it:
 - **[Command Cookbook](docs/COMMANDS.md)** — copy-paste security workflows.
 - **[AI-Built App Launch Audit](references/ai-built-app-launch.md)** — evidence-gated pre-launch checks for AI-built/vibe-coded apps.
 - **[V4 Runtime Quickstart](docs/v4-quickstart.md)** — optional CLI/runtime usage.
+- **[GitHub Action](docs/github-action.md)** — SecHelix in GitHub Actions.
 - **[CI Integration](docs/ci-integration.md)** — using SecHelix in CI.
 - **[Architecture](ARCHITECTURE.md)** — design and internals.
 - **[Evaluation](docs/EVALUATION.md)** — evaluation methodology and results.

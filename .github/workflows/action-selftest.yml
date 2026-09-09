@@ -1,0 +1,153 @@
+name: Action self-test
+
+# The action is a shipped product surface, so it is tested the way a consumer
+# uses it: `uses: ./`, on a real target, asserting the outcome word rather than
+# just "the step did not crash".
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "action.yml"
+      - "scripts/ci_outcome.py"
+      - "sechelix_runner/**"
+      - "sechelix_core/**"
+      - ".github/workflows/action-selftest.yml"
+  pull_request:
+    paths:
+      - "action.yml"
+      - "scripts/ci_outcome.py"
+      - "sechelix_runner/**"
+      - "sechelix_core/**"
+      - ".github/workflows/action-selftest.yml"
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  incomplete-is-reported-honestly:
+    name: executor none reports INCOMPLETE and does not fail the job
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - id: review
+        uses: ./
+        with:
+          path: examples/demo-app
+          depth: quick
+          executor: none
+          upload-sarif: false
+          upload-artifact: false
+
+      - name: Assert the honest outcome
+        env:
+          OUTCOME: ${{ steps.review.outputs.outcome }}
+          INCOMPLETE: ${{ steps.review.outputs.incomplete }}
+          RUN_ID: ${{ steps.review.outputs.run-id }}
+        run: |
+          set -euo pipefail
+          echo "outcome=$OUTCOME incomplete=$INCOMPLETE run-id=$RUN_ID"
+          # The whole point: no executor means nothing was analysed, and the
+          # action must say so rather than reporting a clean review.
+          [ "$OUTCOME" = "INCOMPLETE" ] || { echo "::error::expected INCOMPLETE, got $OUTCOME"; exit 1; }
+          [ "$INCOMPLETE" = "true" ] || { echo "::error::incomplete output should be true"; exit 1; }
+          [ -n "$RUN_ID" ] || { echo "::error::run-id was empty"; exit 1; }
+
+      - name: Artifacts exist and SARIF is valid
+        run: |
+          set -euo pipefail
+          test -s sechelix.sarif
+          test -s sechelix-report.md
+          python - <<'PY'
+          import json
+          sarif = json.load(open("sechelix.sarif", encoding="utf-8"))
+          assert sarif["version"] == "2.1.0", sarif["version"]
+          results = sarif["runs"][0]["results"]
+          # An empty results array in a code-scanning UI reads as "clean".
+          # An incomplete run must never produce one.
+          assert results, "incomplete run produced an empty SARIF results array"
+          assert any(r["ruleId"] == "sechelix/run-incomplete" for r in results), results
+          print("SARIF reports the incomplete run explicitly")
+          PY
+
+  fail-on-incomplete-actually-fails:
+    name: fail-on incomplete turns the same run red
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - id: review
+        continue-on-error: true
+        uses: ./
+        with:
+          path: examples/demo-app
+          depth: quick
+          executor: none
+          fail-on: incomplete
+          upload-sarif: false
+          upload-artifact: false
+
+      - name: Assert the step failed
+        env:
+          RESULT: ${{ steps.review.outcome }}
+        run: |
+          set -euo pipefail
+          [ "$RESULT" = "failure" ] || { echo "::error::fail-on:incomplete should have failed the step, got $RESULT"; exit 1; }
+          echo "fail-closed path confirmed"
+
+  inputs-cannot-inject-commands:
+    name: a hostile input is data, not a command
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - id: review
+        continue-on-error: true
+        uses: ./
+        with:
+          # If this string reached a shell unquoted it would create the file.
+          path: '.; touch /tmp/sechelix-injected #'
+          depth: quick
+          executor: none
+          fail-on: never
+          upload-sarif: false
+          upload-artifact: false
+
+      - name: Assert nothing executed
+        run: |
+          set -euo pipefail
+          if [ -e /tmp/sechelix-injected ]; then
+            echo "::error::input reached a shell as a command"
+            exit 1
+          fi
+          echo "hostile input stayed data"
+
+  gate-vocabulary-tests:
+    name: outcome mapping unit tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+      - run: python -m unittest tests.test_ci_outcome -v
