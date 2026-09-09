@@ -40,6 +40,14 @@ Changelog = "https://github.com/omarmohelal/SecHelix/blob/main/CHANGELOG.md"
 [project.scripts]
 sechelix = "sechelix_runner.cli:main"
 
+[tool.pytest.ini_options]
+# examples/ ships a security regression test that is red on purpose: it is
+# written against the demo's vulnerability so that it is red before the fix and
+# green after, which is the only thing that makes it evidence. It is driven
+# deliberately, in both states, by tests/test_demo_expense_api.py. Collecting it
+# as an ordinary test would turn a designed demonstration into a broken suite.
+norecursedirs = ["examples", "dist", ".git", "*.egg-info", "node_modules"]
+
 [tool.hatch.build.targets.wheel]
 # The runner plus the contracts it consumes.
 #

@@ -1,0 +1,23 @@
+diff --git a/examples/expense-api/app.py b/examples/expense-api/app.py
+--- a/examples/expense-api/app.py
++++ b/examples/expense-api/app.py
+@@ -87,8 +87,18 @@ class Handler(BaseHTTPRequestHandler):
+             except auth.Forbidden as exc:
+                 return self._send(403, {"error": str(exc)})
+ 
++            # Scope the lookup itself. Fetching the row and *then* comparing
++            # org_id would work too, but it leaves a moment where a row the
++            # caller may not see exists in a local variable, and every future
++            # edit to this handler has to remember the comparison. A row from
++            # another tenant is never loaded at all.
++            #
++            # 404 rather than 403 for a receipt in another org: answering 403
++            # would confirm the id exists, which is an existence oracle over
++            # every other tenant's receipt ids.
+             row = self.store.execute(
+-                "SELECT * FROM receipt WHERE id = ?", (receipt_id,)
++                "SELECT * FROM receipt WHERE id = ? AND org_id = ?",
++                (receipt_id, person["org_id"]),
+             ).fetchone()
+             if row is None:
+                 return self._send(404, {"error": "no such receipt"})

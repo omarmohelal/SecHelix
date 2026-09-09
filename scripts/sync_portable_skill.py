@@ -27,6 +27,14 @@ DIRECTORIES = (
 EXCLUDED_PARTS = {"__pycache__", "tests"}
 EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
 
+#: Paths that are repository teaching material rather than skill runtime
+#: resources. The portable bundle is what an agent loads to do a review; a
+#: runnable demo application is read by people, not by the skill, and mirroring
+#: it would roughly double the bundle for something no review step ever opens.
+EXCLUDED_TREES = (
+    Path("examples/expense-api"),
+)
+
 SCRIPT_FILES = (
     "applicability.py",
     "attack_surface.py",
@@ -38,6 +46,8 @@ SCRIPT_FILES = (
 
 def include(path: Path) -> bool:
     relative = path.relative_to(ROOT)
+    if any(relative.is_relative_to(tree) for tree in EXCLUDED_TREES):
+        return False
     return (
         path.is_file()
         and not EXCLUDED_PARTS.intersection(relative.parts)
