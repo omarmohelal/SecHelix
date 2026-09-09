@@ -1,0 +1,47 @@
+# Copy this into .github/workflows/ in the repository you want reviewed.
+#
+# As written it runs with `executor: none`, which orchestrates the review graph
+# without analysing code and therefore reports INCOMPLETE. That is deliberate:
+# it lets you confirm the wiring, the artifact and the code-scanning upload
+# before any provider credential is involved. Set an executor when you are
+# ready for an actual review.
+
+name: SecHelix security review
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+# Deny by default; the job re-grants only what it needs.
+permissions: {}
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Only needed while upload-sarif is true. Drop it and set
+      # `upload-sarif: false` to keep the SARIF as a plain build artifact.
+      security-events: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - id: sechelix
+        uses: omarmohelal/SecHelix@v4.0.0-alpha.2
+        with:
+          path: .
+          depth: standard
+          executor: none
+          # blocked  — fail only on an open verified CRITICAL/HIGH finding (default)
+          # incomplete — also fail when the run examined nothing
+          # never    — never fail; read steps.sechelix.outputs.outcome yourself
+          fail-on: blocked
+
+      - name: Show the decision
+        if: always()
+        env:
+          OUTCOME: ${{ steps.sechelix.outputs.outcome }}
+          REASON: ${{ steps.sechelix.outputs.reason }}
+        run: echo "$OUTCOME — $REASON"
