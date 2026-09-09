@@ -42,6 +42,9 @@ that every pattern matcher flags and that is not exploitable at all.
 Walkthrough, root cause, the two-line fix and the regression proof:
 **[examples/expense-api](examples/expense-api/README.md)**.
 
+Want to score a tool — or yourself — on ten cases where three are decoys?
+**[SecHelix Challenge](https://github.com/omarmohelal/sechelix-challenge)**.
+
 ## Install
 
 Recommended for Agent Skills-compatible coding agents:
