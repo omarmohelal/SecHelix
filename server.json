@@ -1,0 +1,56 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.omarmohelal/sechelix",
+  "title": "SecHelix",
+  "description": "Evidence-first security review of authorized repositories. Read-only, root-confined, no shell.",
+  "version": "0.3.0",
+  "websiteUrl": "https://sechelix.com",
+  "repository": {
+    "url": "https://github.com/omarmohelal/SecHelix",
+    "source": "github",
+    "id": "1352535495"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "sechelix",
+      "version": "0.3.0",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp",
+          "valueHint": "subcommand",
+          "description": "Serve the SecHelix MCP adapter over stdio."
+        },
+        {
+          "type": "positional",
+          "valueHint": "root",
+          "default": ".",
+          "format": "filepath",
+          "isRequired": false,
+          "description": "Directory the server is confined to. Every path argument any tool receives is resolved and refused if it lands outside this root, so set it to the repository you want reviewed rather than to a parent directory."
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "com.github": {
+        "serverDisplayName": "SecHelix"
+      },
+      "io.sechelix": {
+        "toolCount": 7,
+        "writesOutsideRoot": false,
+        "shellAccess": false,
+        "networkAccess": "none",
+        "credentialsRequired": false,
+        "note": "Only sechelix_audit writes anything, and only a run workspace under the configured root. There is no run_command tool and no argument that reaches a shell."
+      }
+    }
+  }
+}

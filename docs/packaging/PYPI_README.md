@@ -1,5 +1,7 @@
 # sechelix
 
+<!-- mcp-name: io.github.omarmohelal/sechelix -->
+
 Optional execution runtime for the **SecHelix AppSec Agent Skill**.
 
 The Agent Skill is the product and works without this package. Install `sechelix`

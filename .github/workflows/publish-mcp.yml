@@ -1,0 +1,149 @@
+name: Publish MCP server to the official registry
+
+# Registers the SecHelix MCP adapter at registry.modelcontextprotocol.io, which
+# several MCP directories (Glama among them) re-publish from.
+#
+# Authentication is GitHub OIDC, so there is no token to store, no token to
+# leak, and nothing a repository writer can exfiltrate from a job log. The
+# namespace `io.github.omarmohelal` is granted by the OIDC claim itself.
+#
+# This publishes *metadata only*. The package it points at is the PyPI release
+# produced by publish-pypi.yml, which is a separate, approval-gated workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_version:
+        description: 'Exact server.json version to publish (for example 0.3.0)'
+        required: true
+        type: string
+  push:
+    tags: ["v*"]
+
+permissions: {}
+
+concurrency:
+  group: mcp-registry-publish-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish server.json
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      id-token: write   # OIDC token used to prove the io.github.omarmohelal namespace
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.12'
+
+      - name: Refuse a mismatched or unverifiable release
+        env:
+          CONFIRM_VERSION: ${{ inputs.confirm_version }}
+          EVENT_NAME: ${{ github.event_name }}
+        shell: python
+        run: |
+          import json
+          import os
+          import re
+          import urllib.request
+          from pathlib import Path
+
+          server = json.loads(Path("server.json").read_text(encoding="utf-8"))
+          version = server["version"]
+          name = server["name"]
+
+          confirm = os.environ.get("CONFIRM_VERSION") or ""
+          if os.environ["EVENT_NAME"] == "workflow_dispatch" and confirm != version:
+              raise SystemExit(f"confirm_version {confirm!r} != server.json version {version!r}")
+
+          # server.json, pyproject.toml and the package entry must agree. A
+          # registry entry pointing at a version that was never published is a
+          # dangling install instruction, which is worse than no entry.
+          pyproject = Path("pyproject.toml").read_text(encoding="utf-8")
+          declared = re.search(r'^version\s*=\s*"([^"]+)"', pyproject, re.M).group(1)
+          if declared != version:
+              raise SystemExit(f"pyproject version {declared!r} != server.json version {version!r}")
+
+          package = server["packages"][0]
+          if package["version"] != version:
+              raise SystemExit(f"package version {package['version']!r} != server.json version {version!r}")
+
+          # The PyPI release must already exist, and its description must carry
+          # the ownership token the registry checks. Verifying it here turns a
+          # confusing registry-side rejection into a readable CI failure.
+          url = f"https://pypi.org/pypi/{package['identifier']}/{version}/json"
+          try:
+              with urllib.request.urlopen(url, timeout=30) as response:
+                  metadata = json.load(response)
+          except Exception as exc:
+              raise SystemExit(f"PyPI {package['identifier']} {version} is not published yet: {exc}")
+
+          description = metadata["info"].get("description") or ""
+          token = f"mcp-name: {name}"
+          if token not in description:
+              raise SystemExit(
+                  f"PyPI description for {package['identifier']} {version} does not contain "
+                  f"{token!r}; the registry cannot verify package ownership"
+              )
+
+          print(f"OK: {name} {version} matches a published PyPI release carrying the ownership token")
+
+      # RESIDUAL RISK, accepted and stated rather than hidden.
+      #
+      # This downloads a binary from a floating `latest` release and runs it in
+      # a job that holds an OIDC token for the io.github.omarmohelal namespace.
+      # Pinning a release would be the usual answer and is deliberately not done
+      # here: the registry rejects an out-of-date publisher with "invalid
+      # audience", and the documented remedy is to re-run this install step, so
+      # a pin converts a supply-chain control into a workflow that breaks
+      # silently on the registry's schedule.
+      #
+      # What bounds the exposure: the source is the modelcontextprotocol
+      # organisation itself, the token is scoped to this one registry namespace
+      # and grants nothing in this repository, and the job holds no other
+      # secret. Revisit if the project starts publishing checksums for a stable
+      # channel.
+      - name: Install mcp-publisher
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" \
+            | tar xz mcp-publisher
+          ./mcp-publisher --version || true
+
+      - name: Authenticate with GitHub OIDC
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish
+        run: ./mcp-publisher publish
+
+      - name: Confirm the entry is live
+        shell: python
+        run: |
+          import json
+          import urllib.parse
+          import urllib.request
+          from pathlib import Path
+
+          server = json.loads(Path("server.json").read_text(encoding="utf-8"))
+          name = server["name"]
+          url = (
+              "https://registry.modelcontextprotocol.io/v0/servers?search="
+              + urllib.parse.quote(name)
+          )
+          with urllib.request.urlopen(url, timeout=30) as response:
+              payload = json.load(response)
+
+          names = [s.get("name") for s in payload.get("servers", [])]
+          if name not in names:
+              raise SystemExit(f"{name} not found in the registry after publishing; saw {names}")
+          print(f"LIVE: {name} {server['version']}")
