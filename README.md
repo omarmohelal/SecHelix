@@ -27,6 +27,21 @@ It helps a coding agent:
 
 SecHelix is **not** a scanner that treats every alert as a vulnerability.
 
+## See it work in 90 seconds
+
+```bash
+git clone https://github.com/omarmohelal/SecHelix && cd SecHelix
+python examples/expense-api/prove.py
+```
+
+A small multi-tenant API with two candidate issues. One is a real cross-tenant
+read that a scanner walks past, because the endpoint *does* have an
+authorization check — it just checks the wrong thing. The other is f-string SQL
+that every pattern matcher flags and that is not exploitable at all.
+
+Walkthrough, root cause, the two-line fix and the regression proof:
+**[examples/expense-api](examples/expense-api/README.md)**.
+
 ## Install
 
 Recommended for Agent Skills-compatible coding agents:
