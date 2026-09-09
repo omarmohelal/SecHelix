@@ -146,13 +146,20 @@ runs:
           exit "$code"
         fi
 
-        run_id=$(python -c 'import json,sys;print(json.load(open(sys.argv[1]))["run_id"])' sechelix-run.json)
+        # A run id we cannot read is not a reason to abort: the decide step
+        # reads the artifact itself and reports INCOMPLETE for one it cannot
+        # parse. Aborting here would replace that explanation with a bare red X.
+        run_id=$(python -c 'import json,sys;print(json.load(open(sys.argv[1]))["run_id"])'           sechelix-run.json 2>/dev/null || true)
         echo "run-id=$run_id" >> "$GITHUB_OUTPUT"
 
-        sechelix report "$run_id" --path "$SECHELIX_PATH" --format sarif > sechelix.sarif
-        sechelix report "$run_id" --path "$SECHELIX_PATH" --format markdown > sechelix-report.md
-        echo "sarif-file=sechelix.sarif" >> "$GITHUB_OUTPUT"
-        echo "report-file=sechelix-report.md" >> "$GITHUB_OUTPUT"
+        if [ -n "$run_id" ]; then
+          sechelix report "$run_id" --path "$SECHELIX_PATH" --format sarif > sechelix.sarif
+          sechelix report "$run_id" --path "$SECHELIX_PATH" --format markdown > sechelix-report.md
+          echo "sarif-file=sechelix.sarif" >> "$GITHUB_OUTPUT"
+          echo "report-file=sechelix-report.md" >> "$GITHUB_OUTPUT"
+        else
+          echo "::warning::no run id in sechelix-run.json; skipping report rendering"
+        fi
 
     - name: Decide outcome
       id: decide
@@ -161,9 +168,19 @@ runs:
         ACTION_PATH: ${{ github.action_path }}
       run: |
         set -uo pipefail
+        # GitHub runs composite steps with `bash -e`, so a non-zero exit here
+        # would abort the action before the summary and the artifacts. The
+        # script exits 0/1/2 to mirror security_gate.py, and 1 and 2 are
+        # results rather than failures: whether they fail the job is settled
+        # once, by fail-on, in the last step.
+        set +e
         python "$ACTION_PATH/scripts/ci_outcome.py" sechelix-run.json --github-output
-        # The decision is reported through outputs and the summary. Whether it
-        # fails the job is settled once, by fail-on, in the last step.
+        code=$?
+        set -e
+        if [ "$code" -gt 2 ]; then
+          echo "::error::ci_outcome.py exited $code, which is not a decision"
+          exit "$code"
+        fi
         exit 0
 
     - name: Summary
@@ -199,7 +216,7 @@ runs:
         } >> "$GITHUB_STEP_SUMMARY"
 
     - name: Upload SARIF to code scanning
-      if: inputs.upload-sarif == 'true'
+      if: inputs.upload-sarif == 'true' && steps.audit.outputs.sarif-file != ''
       continue-on-error: true
       uses: github/codeql-action/upload-sarif@4e94bd11f71e507f7f87df81788dff88d1dacbfb # v3.29.0
       with:
