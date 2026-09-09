@@ -97,6 +97,21 @@ jobs:
 
           print(f"OK: {name} {version} matches a published PyPI release carrying the ownership token")
 
+      # RESIDUAL RISK, accepted and stated rather than hidden.
+      #
+      # This downloads a binary from a floating `latest` release and runs it in
+      # a job that holds an OIDC token for the io.github.omarmohelal namespace.
+      # Pinning a release would be the usual answer and is deliberately not done
+      # here: the registry rejects an out-of-date publisher with "invalid
+      # audience", and the documented remedy is to re-run this install step, so
+      # a pin converts a supply-chain control into a workflow that breaks
+      # silently on the registry's schedule.
+      #
+      # What bounds the exposure: the source is the modelcontextprotocol
+      # organisation itself, the token is scoped to this one registry namespace
+      # and grants nothing in this repository, and the job holds no other
+      # secret. Revisit if the project starts publishing checksums for a stable
+      # channel.
       - name: Install mcp-publisher
         run: |
           set -euo pipefail
