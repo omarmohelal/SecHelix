@@ -1,6 +1,6 @@
 ---
 name: sechelix
-description: Run SecHelix evidence-first application-security audits on authorized repositories and environments. Use for codebase, API, web, auth/authz, business-logic, payment, race-condition, supply-chain, AI/MCP, cloud, and release-security review.
+description: Run SecHelix evidence-first application-security audits on authorized repositories and environments. Use for codebase, API, web, auth/authz, business-logic, payment, race-condition, supply-chain, AI/MCP, cloud, and release-security review. Also use for requested SEO audits and safe codebase cleanup via the canonical quality workflows.
 ---
 
 # SecHelix for Claude Code

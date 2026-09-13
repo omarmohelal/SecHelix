@@ -1,12 +1,22 @@
 ---
 name: sechelix
-description: Evidence-first application-security audit workflow for authorized repositories and environments. Use when reviewing a codebase, pull request, API, web application, AI-generated code, agent or MCP integration, cloud configuration, authorization (BOLA, IDOR, BFLA), business logic, payments, race conditions, secrets, supply chain, or release readiness for security weaknesses. Maps trust boundaries, selects applicable checks, runs parallel specialist review, independently verifies every material finding and refutes false positives, fixes root causes, and requires regression proof before reporting High or Critical issues.
+description: Evidence-first application-security audit workflow for authorized repositories and environments. Use when reviewing a codebase, pull request, API, web application, AI-generated code, agent or MCP integration, cloud configuration, authorization (BOLA, IDOR, BFLA), business logic, payments, race conditions, secrets, supply chain, or release readiness for security weaknesses. Also supports explicitly requested technical SEO audits and evidence-backed codebase cleanup. Maps trust boundaries, selects applicable checks, runs parallel specialist review, independently verifies every material finding and refutes false positives, fixes root causes, and requires regression proof before reporting High or Critical issues.
 license: Apache-2.0
 ---
 
 # SecHelix
 
 SecHelix is a portable AppSec review workflow for **authorized** systems. Treat every scanner/model output as a hypothesis until evidence supports it.
+
+## Optional quality workflows
+
+For explicitly requested SEO or maintainability work, route before the security phases:
+
+- **SEO Audit**: read `references/seo-audit.md` for the 20-check coverage matrix, safe fixes, runtime evidence and backlink planning.
+- **Codebase Cleanup**: read `references/codebase-cleanup.md` for eight review categories, consumer/refutation evidence, impact/risk estimates and staged cleanup.
+- If both are requested, follow the combined ordering in the cleanup reference. Audit-only requests produce reports; implementation requests proceed with evidenced reversible fixes within scope.
+
+These are agent-guided workflows, not new CLI subcommands. Produce quality reports separately from security findings; they do not expand the 546 security hypotheses or grant a security PASS. Run the security phases below when a security audit is also requested or a change needs security verification.
 
 ## Non-negotiable rules
 

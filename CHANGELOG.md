@@ -2,6 +2,15 @@
 
 All notable SecHelix release changes are summarized here. Detailed release notes live in [`docs/releases/`](docs/releases/), and the Git history remains the authoritative development record.
 
+## [4.0.0-alpha.5] - 2026-09-13
+
+- Added agent-guided SEO Audit and Codebase Cleanup workflows, with evidence-backed findings, risk/impact estimates, staged remediation and verification.
+- Added audit-only and combined audit/fix/verify prompts to the command cookbook and routed discovery adapters through the canonical Skill.
+- Preserved security catalog/gate semantics and the optional runner at 0.3.0; no new CLI scanner commands.
+- Corrected the canonical Skill path in AGENTS.md and synchronized the portable distribution.
+
+See [release notes](docs/releases/4.0.0-alpha.5.md).
+
 ## [4.0.0-alpha.4] - 2026-09-09
 
 - Shortened the `action.yml` description from 188 to 113 characters. GitHub Marketplace rejects a listing whose description is 125 characters or more, so the action could not be published; a folded YAML scalar hid the length from anyone counting lines rather than characters. **No behaviour changed** — inputs, outputs, steps and the fail-closed decision logic are exactly what `4.0.0-alpha.3` shipped.

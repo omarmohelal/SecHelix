@@ -1,6 +1,6 @@
 ---
 name: sechelix
-description: Portable evidence-first application-security audit workflow for authorized systems. Use to review codebases, APIs, web apps, auth/authz, business logic, races, payments, supply chain, AI/MCP integrations, cloud/config, and releases.
+description: Portable evidence-first application-security audit workflow for authorized systems. Use to review codebases, APIs, web apps, auth/authz, business logic, races, payments, supply chain, AI/MCP integrations, cloud/config, and releases. Also use for requested SEO audits and safe codebase cleanup via the canonical quality workflows.
 ---
 
 # SecHelix generic Agent Skills adapter
