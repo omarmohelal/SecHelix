@@ -80,6 +80,15 @@ Prioritize authentication, authorization, business logic, secrets, injection, SS
 Return evidence-backed findings and clearly mark anything unproven.
 ```
 
+### SEO and codebase cleanup
+
+Two optional agent-guided quality workflows complement the security audit:
+
+- **[SEO Audit](references/seo-audit.md)**: 20 checks covering indexability, metadata, images, performance, links, structured data, mobile behavior and Search Console, plus a backlink plan.
+- **[Codebase Cleanup](references/codebase-cleanup.md)**: eight categories with consumer evidence, removal impact, deletion risks and a staged plan.
+
+Use the [audit-only and audit/fix/verify prompts](docs/COMMANDS.md#seo-audit). These workflows preserve intentional noindex and require evidence before deletion. They produce separate quality reports; they are not new CLI scanners or a security certification.
+
 ### AI-built app launch audit
 
 Use this before launching an AI-generated, agent-generated, rapidly prototyped, or vibe-coded application:
@@ -197,7 +206,7 @@ Advanced runtime guide: **[V4 Runtime Quickstart](docs/v4-quickstart.md)**.
 ## GitHub Action
 
 ```yaml
-- uses: omarmohelal/SecHelix@v4.0.0-alpha.4
+- uses: omarmohelal/SecHelix@v4.0.0-alpha.5
   with:
     executor: none
 ```

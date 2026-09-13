@@ -6,14 +6,14 @@ SecHelix is a portable, evidence-first AppSec skill/methodology for authorized c
 
 ## Canonical truth
 
-- `SKILL.md` owns the methodology.
+- `skills/sechelix/SKILL.md` owns the methodology.
 - `catalog/checks.json` owns the coverage model.
 - vendor adapters must stay thin.
 - public product copy must not invent security claims that are not backed by repository evidence/evals.
 
 ## Before changing security semantics
 
-1. read `SKILL.md`;
+1. read `skills/sechelix/SKILL.md`;
 2. read `ARCHITECTURE.md`;
 3. read the relevant reference docs;
 4. preserve authorized-use and independent-verification requirements;

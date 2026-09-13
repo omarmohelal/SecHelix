@@ -15,6 +15,9 @@ Then use one of the recipes below.
 | You want to... | Use |
 |---|---|
 | Audit the whole repository | Full audit |
+| Review technical SEO and indexing | SEO Audit |
+| Find dead code and maintenance debt | Codebase Cleanup |
+| Apply safe SEO and cleanup fixes | SEO + cleanup: audit, fix, verify |
 | Get a quick first pass | Security triage |
 | Launch an AI-built / vibe-coded app safely | AI-Built App Launch Audit |
 | Check access control | Authorization / IDOR / BOLA |
@@ -64,6 +67,56 @@ After fixes, re-run the failed/unknown checks and produce the normal SecHelix re
 ```
 
 The 36-check launch profile is documented in [`references/ai-built-app-launch.md`](../references/ai-built-app-launch.md). It is a practical minimum launch filter over the larger SecHelix catalog, not a replacement for the full audit.
+
+## SEO Audit
+
+```text
+Use SecHelix SEO Audit with references/seo-audit.md on this authorized website.
+Inventory public routes, locales, intended indexability and deployment configuration.
+Audit all SEO-01 through SEO-20 checks, with exact source/runtime evidence and
+PASS/FAIL/UNKNOWN/NOT_APPLICABLE/BLOCKED for each. Report sampled versus total coverage.
+Give a prioritized fix plan with impact, risks and before/after verification.
+Preserve intentional noindex; coordinate slug changes with redirects and canonical/sitemap links.
+Distinguish lab performance from field Core Web Vitals. Never claim Search Console
+verification, indexing or ranking improvements without evidence. Include a legitimate
+backlink strategy; do not send outreach or publish external submissions.
+This is audit-only: report the plan before changing application files.
+```
+
+## Codebase Cleanup
+
+```text
+Use SecHelix Codebase Cleanup with references/codebase-cleanup.md.
+Analyze the entire accessible codebase for all eight categories: dead code,
+duplicate logic, unused UI, excessive complexity, legacy code, redundant DB/API
+work, disconnected files and technical debt. Declare exclusions and inaccessible consumers.
+For every issue give paths, evidence, why it provides no value, estimated removal
+impact, deletion risks, recommended steps, priority and verification/rollback plan.
+Refute non-use by checking dynamic/framework discovery, exports, flags, external
+callers, jobs, deployment, migrations and tests. Mark CONFIRMED/UNKNOWN/KEEP/BLOCKED.
+Be aggressive but safe: zero search matches is not deletion proof.
+This is audit-only; do not delete or refactor application files yet.
+```
+
+## SEO + cleanup: audit, fix, verify
+
+```text
+Use SecHelix's SEO Audit and Codebase Cleanup references on this authorized project.
+First inventory routes, assets, entrypoints, consumers and baseline checks; produce
+an evidence-backed prioritized plan covering all 20 SEO checks and eight cleanup categories.
+Then implement confirmed, reversible fixes in dependency-ordered commits without
+repeated confirmation. Preserve intended functionality, private-page exclusions,
+security controls, data, migrations, supported contracts and rollback paths.
+Check dynamic/external consumers before deletion; leave uncertain removals in the backlog.
+Measure relevant before/after results, run affected tests and required repository gates,
+and recheck public routes plus sensitive flows affected by shared code changes.
+Deliver the issue matrix, actual savings, completed fixes, remaining blockers and
+backlink plan. Keep quality outcomes separate from the security release gate.
+Do not publish/deploy, change external services or send outreach unless that action
+is already explicitly authorized. Do not invent unavailable runtime or Search Console evidence.
+```
+
+These recipes run through the coding agent using the installed Skill. They do not add `sechelix seo` or `sechelix cleanup` CLI commands.
 
 ## Authorization / IDOR / BOLA
 
