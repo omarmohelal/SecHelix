@@ -43,11 +43,19 @@ FORBIDDEN = (
 #: Generous on purpose — the goal is to stop transcripts, not to enforce brevity.
 MAX_BODY_LINES = 25
 
+#: Dependency bots write their upstream release notes into the commit body. That
+#: text is generated, not a development diary, and the repository squash-merges
+#: with a blank body, so it never reaches `main`. Only the length rule is waived
+#: for these authors; forbidden trailers are still checked for everyone.
+DEPENDENCY_BOT_EMAILS = frozenset({
+    "49699333+dependabot[bot]@users.noreply.github.com",
+})
 
-def commits_since(ref: str) -> list[tuple[str, str]]:
-    """Return (sha, full message) for each commit after ref, oldest first."""
+
+def commits_since(ref: str) -> list[tuple[str, str, str]]:
+    """Return (sha, author email, full message) for each commit after ref, oldest first."""
     result = subprocess.run(
-        ["git", "-C", str(ROOT), "log", "--format=%H%x00%B%x1e", f"{ref}..HEAD"],
+        ["git", "-C", str(ROOT), "log", "--format=%H%x00%ae%x00%B%x1e", f"{ref}..HEAD"],
         capture_output=True, text=True,
     )
     if result.returncode != 0:
@@ -57,12 +65,12 @@ def commits_since(ref: str) -> list[tuple[str, str]]:
     for chunk in result.stdout.split("\x1e"):
         if "\x00" not in chunk:
             continue
-        sha, message = chunk.split("\x00", 1)
-        entries.append((sha.strip(), message.strip()))
+        sha, email, message = chunk.split("\x00", 2)
+        entries.append((sha.strip(), email.strip(), message.strip()))
     return list(reversed(entries))
 
 
-def check_message(sha: str, message: str) -> list[str]:
+def check_message(sha: str, message: str, author_email: str = "") -> list[str]:
     problems = []
     for label, pattern in FORBIDDEN:
         if pattern.search(message):
@@ -70,7 +78,7 @@ def check_message(sha: str, message: str) -> list[str]:
 
     body = message.split("\n", 1)[1].strip() if "\n" in message else ""
     lines = [l for l in body.splitlines() if l.strip()]
-    if len(lines) > MAX_BODY_LINES:
+    if len(lines) > MAX_BODY_LINES and author_email.lower() not in DEPENDENCY_BOT_EMAILS:
         problems.append(
             f"{sha[:12]}: body is {len(lines)} lines; a public commit body should be a "
             f"summary, not a development diary (limit {MAX_BODY_LINES})"
@@ -90,8 +98,8 @@ def main(argv=None) -> int:
         return 0
 
     problems = []
-    for sha, message in entries:
-        problems.extend(check_message(sha, message))
+    for sha, email, message in entries:
+        problems.extend(check_message(sha, message, email))
 
     if problems:
         print("Commit hygiene check FAILED")
