@@ -1,0 +1,22 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "sechelix-lite",
+  "description": "Application-security review skill for codebases and pull requests you are authorized to assess. Maps trust boundaries, keeps issues as hypotheses until evidenced, runs a separate pass that tries to refute material findings, and ends with a release verdict.",
+  "version": "4.0.0-alpha.5",
+  "author": {
+    "name": "Omar",
+    "url": "https://github.com/omarmohelal"
+  },
+  "repository": "https://github.com/omarmohelal/SecHelix",
+  "license": "Apache-2.0",
+  "keywords": [
+    "security",
+    "appsec",
+    "security-review",
+    "code-review",
+    "authorization",
+    "business-logic",
+    "supply-chain",
+    "ai-security"
+  ]
+}
