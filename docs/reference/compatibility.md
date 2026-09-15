@@ -28,6 +28,7 @@ Every row below uses one of these values. A path is never upgraded because docum
 | Claude Code — project skill | `.claude/skills/sechelix/SKILL.md` | `DOCUMENTED` | Claude Code documents project-local `.claude/skills/`; a dedicated project-skill loading observation is not recorded here. |
 | OpenAI Codex | `.agents/skills/sechelix/` (+ portable bundle) | `DOCUMENTED` | Repository-local `.agents/skills/` is the documented repository discovery path used by SecHelix. Native Codex loading was not observed here. |
 | Codex convenience mirror | `.codex/skills/sechelix/` | `NOT_SHIPPED` | SecHelix deliberately does not ship this repo-local mirror. Do not document it as a supported repository path. |
+| GitHub Copilot CLI — curated plugin | `distributions/awesome-copilot/` (`sechelix-lite`) | `VERIFIED` | Cold-installed with Copilot CLI 1.0.83 from a GitHub-sourced marketplace entry; the CLI reported one skill installed and copied exactly the seven package files. A Copilot session using the skill was not recorded. |
 | GitHub Copilot / VS Code agents | `.github/skills/sechelix/` | `DOCUMENTED` | GitHub documents repository skill directories including `.github/skills`; native loading was not observed here. |
 | Generic Agent Skills clients | `.agents/skills/sechelix/` or `skills/sechelix/` | `MODEL_COMPATIBLE` | Open-format bundle; verify the chosen client's loader before claiming native support. |
 | Z.AI / GLM via Claude Code | install as a Claude skill/plugin | `DOCUMENTED` | Claude Code remains the host and supplies the loader. |
@@ -40,7 +41,8 @@ The following claims have direct project evidence:
 1. **Portable isolation.** The portable bundle runs outside the parent repository; validators, release gate, renderer, Gold Pack validation, and knowledge validation do not require the development checkout.
 2. **Agent Skills CLI cold install.** Installation into an empty project completes successfully and installs the intended portable skill rather than the old whole-repository package.
 3. **Claude plugin validation/install.** The plugin manifest validates and the separate SecHelix marketplace has been cold-added and installed successfully.
-4. **No repo-local `.codex/skills/` claim.** The public package uses `.agents/skills/sechelix/` for the documented Codex repository path instead of presenting an unverified mirror as native support.
+4. **Curated Copilot plugin install.** `distributions/awesome-copilot/` installs through the Copilot CLI plugin marketplace flow with no file from outside the plugin root; `scripts/validate_distribution.py` repeats the copy-install check in CI.
+5. **No repo-local `.codex/skills/` claim.** The public package uses `.agents/skills/sechelix/` for the documented Codex repository path instead of presenting an unverified mirror as native support.
 
 These are packaging/host claims, not security-performance claims. The blind label suite has one uncontaminated run; full-workflow security performance remains `NOT_MEASURED`.
 
