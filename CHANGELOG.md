@@ -2,6 +2,17 @@
 
 All notable SecHelix release changes are summarized here. Detailed release notes live in [`docs/releases/`](docs/releases/), and the Git history remains the authoritative development record.
 
+## [4.0.0-alpha.6] - 2026-09-15
+
+- Added `distributions/awesome-copilot/`, a curated runtime-free Agent Plugin with one skill, `sechelix-lite`: a 197-line `SKILL.md` and five references for evidence-first AppSec review with independent verification. It carries no SEO or cleanup workflow, catalog, runtime or product copy. The full skill is unchanged.
+- Added `scripts/validate_distribution.py` to CI. It enforces the edition's line, file and byte budgets, Agent Plugins v1.0.0 manifest rules, release-version match, runtime independence, schema vocabularies, scope and secret checks, and a copy-install. Mutation tests cover each gate.
+- Trimmed the canonical `SKILL.md` from 483 to 433 lines by moving runtime resource lists and commands to `references/runtime.md`; no methodology rule was removed. It also corrected a stale "fifteen" schema count (the tree has 22), and `check_doc_consistency.py` now checks that file.
+- `sync_portable_skill.py` now prunes stale files. The portable bundle drops a stale `agents/README.md`, the deliberately vulnerable demo app and derived report renderings: 175 to 160 files.
+- README: added what SecHelix does not claim, and moved the optional SEO/cleanup workflows out of the security usage path.
+- CI: the commit-hygiene body-length rule no longer applies to Dependabot's generated release notes (#88); CodeQL and deploy-pages actions bumped (#87).
+
+See [release notes](docs/releases/4.0.0-alpha.6.md).
+
 ## [4.0.0-alpha.5] - 2026-09-13
 
 - Added agent-guided SEO Audit and Codebase Cleanup workflows, with evidence-backed findings, risk/impact estimates, staged remediation and verification.
