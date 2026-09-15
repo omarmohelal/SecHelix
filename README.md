@@ -232,9 +232,9 @@ Full reference: **[GitHub Action](docs/github-action.md)**.
 uvx sechelix mcp /path/to/the/repository
 ```
 
-Seven read-only tools over a root you choose, no shell, no network. The root is
-the security boundary: point it at the repository under review, not at your home
-directory.
+Seven tools over a root you choose, no shell, no network. Six only read; `sechelix_audit` writes
+only a run workspace inside that root. The root is the security boundary: point it at the
+repository under review, not at your home directory.
 
 Reference: **[MCP adapter](docs/mcp.md)**.
 
