@@ -114,6 +114,11 @@ def canonical_vocabulary(root: Path = ROOT) -> set[str]:
     return terms
 
 
+def _normalized_size(path: Path) -> int:
+    """Byte size with LF line endings, so a Windows checkout measures the same as CI."""
+    return len(path.read_bytes().replace(bytes([13, 10]), bytes([10])))
+
+
 def package_files(package: Path) -> list[Path]:
     return sorted(path for path in package.rglob("*") if path.is_file())
 
@@ -236,7 +241,7 @@ def check_content(package: Path) -> list[str]:
         for match in OUT_OF_SCOPE.finditer(text):
             problems.append(f"{relative}: out-of-scope workflow text {match.group(0)!r}")
         problems.extend(scan_text(path.relative_to(package), text))
-    total = sum(path.stat().st_size for path in package_files(package))
+    total = sum(_normalized_size(path) for path in package_files(package))
     if total > MAX_PACKAGE_BYTES:
         problems.append(f"package is {total} bytes; the budget is {MAX_PACKAGE_BYTES}")
     return problems
@@ -283,7 +288,7 @@ def summary(package: Path = PACKAGE) -> str:
     skill_md = discovered_skills(package)[0]
     support = [p for p in package_files(skill_md.parent) if p != skill_md]
     lines = len(skill_md.read_text(encoding="utf-8").splitlines())
-    total = sum(p.stat().st_size for p in package_files(package))
+    total = sum(_normalized_size(p) for p in package_files(package))
     return (
         f"{skill_md.parent.name}: SKILL.md {lines}/{MAX_SKILL_LINES} lines, "
         f"{len(support)}/{MAX_SUPPORT_FILES} supporting files, {total}/{MAX_PACKAGE_BYTES} bytes"
