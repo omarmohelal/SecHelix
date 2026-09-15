@@ -72,3 +72,5 @@ At commit `457fe83` the package passed GitHub's own awesome-copilot intake tooli
 Agent Plugins v1.0.0 spec compliance, `vally lint` (spec compliance and valid references), and
 version match. A cold install with Copilot CLI 1.0.83 from a GitHub-sourced marketplace entry
 reported one skill installed and copied exactly the seven package files.
+
+Submission state for this and every other channel: [STATUS.md](STATUS.md).
