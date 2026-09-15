@@ -58,6 +58,10 @@ npx skills@latest add omarmohelal/SecHelix --skill sechelix
 
 Then open the repository you want to review in your coding agent.
 
+A compact edition, `sechelix-lite`, is a single runtime-free review skill (about 200 lines plus
+five references) for skill directories and hosts where a small context footprint matters. See
+**[docs/distribution/awesome-copilot.md](docs/distribution/awesome-copilot.md)**.
+
 ## Use it
 
 ### Full security audit
@@ -79,15 +83,6 @@ Use SecHelix to triage this repository for security issues.
 Prioritize authentication, authorization, business logic, secrets, injection, SSRF, file handling, supply chain, dangerous configuration, and AI/MCP surfaces.
 Return evidence-backed findings and clearly mark anything unproven.
 ```
-
-### SEO and codebase cleanup
-
-Two optional agent-guided quality workflows complement the security audit:
-
-- **[SEO Audit](references/seo-audit.md)**: 20 checks covering indexability, metadata, images, performance, links, structured data, mobile behavior and Search Console, plus a backlink plan.
-- **[Codebase Cleanup](references/codebase-cleanup.md)**: eight categories with consumer evidence, removal impact, deletion risks and a staged plan.
-
-Use the [audit-only and audit/fix/verify prompts](docs/COMMANDS.md#seo-audit). These workflows preserve intentional noindex and require evidence before deletion. They produce separate quality reports; they are not new CLI scanners or a security certification.
 
 ### AI-built app launch audit
 
@@ -157,6 +152,19 @@ A scanner match or model suspicion is treated as a **candidate**, not automatica
 
 A strong finding should show the affected surface, attacker control or security boundary involved, reachability, impact, root cause, safe evidence, the fix, and regression/retest status.
 
+## What SecHelix does not claim
+
+- **It is not a certification.** `PASS` means the release-gate rules found no unresolved blocking
+  condition in what was reviewed, not that the software has no vulnerabilities.
+- **Detection rates for the full workflow are `NOT_MEASURED`.** The one published blind-label run
+  measures a narrower labelling task; [docs/EVALUATION.md](docs/EVALUATION.md) states its limits.
+- **The model still does the reasoning.** SecHelix structures the review and refuses to report
+  unproven claims; it does not make a model see a bug it cannot reason about.
+- **Host support varies.** Installation is verified for the Claude Code plugin, the Agent Skills
+  CLI, the portable bundle and the curated Copilot CLI plugin; other hosts are documented paths
+  ([compatibility](docs/reference/compatibility.md)).
+- **Authorized targets only.** It is not an internet scanner and ships no exploit payloads.
+
 ## Optional CLI runtime
 
 The Agent Skill works without the Python runtime. The runtime is optional and adds stored runs, coverage tracking, replayable evidence, reports, CI-friendly exit codes, and an MCP adapter.
@@ -206,7 +214,7 @@ Advanced runtime guide: **[V4 Runtime Quickstart](docs/v4-quickstart.md)**.
 ## GitHub Action
 
 ```yaml
-- uses: omarmohelal/SecHelix@v4.0.0-alpha.5
+- uses: omarmohelal/SecHelix@v4.0.0-alpha.6
   with:
     executor: none
 ```
@@ -265,6 +273,7 @@ Start with the practical docs and use the deeper material only when you need it:
 - **[Architecture](ARCHITECTURE.md)** — design and internals.
 - **[Evaluation](docs/EVALUATION.md)** — evaluation methodology and results.
 - **[Extensions](docs/EXTENSIONS.md)** — extending the framework.
+- **[SEO Audit](references/seo-audit.md)** and **[Codebase Cleanup](references/codebase-cleanup.md)** — optional, explicitly requested quality workflows with their own reports ([prompts](docs/COMMANDS.md#seo-audit)); not part of the security verdict.
 - **[Security Policy](SECURITY.md)** — safe use and vulnerability reporting.
 - **[Contributing](CONTRIBUTING.md)** — contributing to SecHelix.
 

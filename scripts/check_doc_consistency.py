@@ -43,6 +43,13 @@ EXCLUDED_PREFIXES = (
     "node_modules/",
 )
 
+#: The portable SKILL.md is authored in place, not copied, so the `skills/`
+#: exclusion must not hide it. It stated "fifteen" schemas beside 22 for three
+#: releases because nothing checked it.
+AUTHORED_UNDER_EXCLUDED_PREFIX = frozenset({
+    "skills/sechelix/SKILL.md",
+})
+
 
 def _tracked(pattern: str) -> list[str]:
     """Files git knows about, matching a pathspec.
@@ -159,7 +166,9 @@ def tracked_docs() -> list[Path]:
         if not raw:
             continue
         rel = raw.decode("utf-8")
-        if rel in EXCLUDED or rel.startswith(EXCLUDED_PREFIXES):
+        if rel in EXCLUDED or (
+            rel.startswith(EXCLUDED_PREFIXES) and rel not in AUTHORED_UNDER_EXCLUDED_PREFIX
+        ):
             continue
         paths.append(ROOT / rel)
     return paths

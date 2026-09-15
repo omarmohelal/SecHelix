@@ -97,6 +97,12 @@ class GroundTruthTests(unittest.TestCase):
             self.assertIn(key, facts)
             self.assertGreater(facts[key], 0)
 
+    def test_the_authored_portable_skill_is_checked(self):
+        """skills/ is excluded as a generated copy, but its SKILL.md is authored in place."""
+        checked = {path.relative_to(checker.ROOT).as_posix() for path in checker.tracked_docs()}
+        self.assertIn("skills/sechelix/SKILL.md", checked)
+        self.assertNotIn("skills/sechelix/references/methodology.md", checked)
+
     def test_the_catalog_invariant_holds(self):
         facts = checker.ground_truth()
         self.assertEqual(facts["families"], 21)

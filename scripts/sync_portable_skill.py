@@ -33,7 +33,17 @@ EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
 #: it would roughly double the bundle for something no review step ever opens.
 EXCLUDED_TREES = (
     Path("examples/expense-api"),
+    # Deliberately vulnerable teaching code for the Action self-test. Shipping it
+    # inside an installed skill would put known-vulnerable source on every user's
+    # machine for no review step that reads it.
+    Path("examples/demo-app"),
+    # Renderings derived from examples/report.example.json, which does ship. The
+    # renderer reproduces them on demand.
+    Path("examples/reports"),
 )
+
+#: Authored in place in the bundle, never copied from a canonical source.
+AUTHORED_IN_PLACE = frozenset({"SKILL.md"})
 
 SCRIPT_FILES = (
     "applicability.py",
@@ -85,9 +95,31 @@ def sync() -> list[Path]:
     return copied
 
 
+def prune(copied: list[Path]) -> list[Path]:
+    """Delete bundle files that no canonical source produces any more.
+
+    Without this, a file removed or excluded upstream lives on in every install,
+    and the drift check cannot see it because the stale copy is still tracked.
+    """
+    keep = {path.resolve() for path in copied}
+    keep.update((DEST / name).resolve() for name in AUTHORED_IN_PLACE)
+    removed = []
+    for path in sorted(DEST.rglob("*"), reverse=True):
+        if path.is_file() and path.resolve() not in keep:
+            path.unlink()
+            removed.append(path)
+        elif path.is_dir() and not any(path.iterdir()):
+            path.rmdir()
+    return removed
+
+
 def main() -> int:
     copied = sync()
-    print(f"OK: synchronized {len(copied)} files into {DEST.relative_to(ROOT)}")
+    removed = prune(copied)
+    print(
+        f"OK: synchronized {len(copied)} files into {DEST.relative_to(ROOT)}"
+        + (f"; pruned {len(removed)} stale file(s)" if removed else "")
+    )
     return 0
 
 
