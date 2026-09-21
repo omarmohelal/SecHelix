@@ -108,33 +108,34 @@ class CvePairHarnessTests(unittest.TestCase):
 
     def test_found_in_vulnerable_and_silent_in_patched_is_a_pass(self):
         report = self.score(self._exports([self.MATCH], []))
-        self.assertEqual(report["counts"]["PAIR_PASS"], 1)
-        self.assertEqual(report["cases"][0]["outcome"], "PAIR_PASS")
+        self.assertEqual(report["adjudications"]["strict"]["counts"]["PAIR_PASS"], 1)
+        self.assertEqual(report["cases"][0]["outcomes"]["strict"]["outcome"], "PAIR_PASS")
 
     def test_claiming_it_in_both_states_is_not_a_pass(self):
         report = self.score(self._exports([self.MATCH], [dict(self.MATCH)]))
-        self.assertEqual(report["cases"][0]["outcome"], "PAIR_PARTIAL")
+        self.assertEqual(report["cases"][0]["outcomes"]["strict"]["outcome"], "PAIR_PARTIAL")
 
     def test_missing_it_is_a_miss_even_with_plenty_of_other_findings(self):
         noise = [{"file": "app/orders.py", "line": 11, "class": "code smell",
                   "claim": "this function has no docstring"}]
         report = self.score(self._exports(noise, []))
-        self.assertEqual(report["cases"][0]["outcome"], "PAIR_MISS")
-        self.assertEqual(report["cases"][0]["other_findings_vulnerable"], 1)
+        self.assertEqual(report["cases"][0]["outcomes"]["strict"]["outcome"], "PAIR_MISS")
+        self.assertEqual(report["cases"][0]["findings_vulnerable"], 1)
 
     def test_the_right_class_in_the_wrong_file_does_not_count(self):
         elsewhere = [dict(self.MATCH, file="app/users.py")]
-        self.assertEqual(self.score(self._exports(elsewhere, []))["cases"][0]["outcome"],
+        self.assertEqual(self.score(self._exports(elsewhere, []))["cases"][0]["outcomes"]["strict"]["outcome"],
                          "PAIR_MISS")
 
     def test_the_right_file_far_from_the_fix_does_not_count(self):
         far = [dict(self.MATCH, line=500)]
-        self.assertEqual(self.score(self._exports(far, []))["cases"][0]["outcome"], "PAIR_MISS")
+        self.assertEqual(self.score(self._exports(far, []))["cases"][0]["outcomes"]["strict"]["outcome"],
+                         "PAIR_MISS")
 
     def test_the_right_place_with_an_unrelated_class_does_not_count(self):
         wrong_class = [{"file": "app/orders.py", "line": 11, "class": "hardcoded secret",
                         "claim": "a credential appears to be embedded here"}]
-        self.assertEqual(self.score(self._exports(wrong_class, []))["cases"][0]["outcome"],
+        self.assertEqual(self.score(self._exports(wrong_class, []))["cases"][0]["outcomes"]["strict"]["outcome"],
                          "PAIR_MISS")
 
     # -- what the result may claim --------------------------------------------------
@@ -151,9 +152,45 @@ class CvePairHarnessTests(unittest.TestCase):
                       "release_gate_accuracy"):
             self.assertEqual(report[field], "NOT_MEASURED")
 
+    # -- the two adjudications -------------------------------------------------------
+
+    FAR = {"file": "app/orders.py", "line": 400, "class": "broken access control",
+           "title": "the handler this guard fails to protect",
+           "claim": "the create path is never authorized"}
+
+    def test_a_far_finding_is_a_candidate_not_a_match(self):
+        """The defect and its patch are not always in the same place (case-01)."""
+        report = self.score(self._exports([self.FAR], []))
+        self.assertEqual(report["cases"][0]["outcomes"]["strict"]["outcome"], "PAIR_MISS")
+        candidates = report["cases"][0]["candidates"]
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0]["same_defect"], "NOT_ADJUDICATED")
+
+    def test_an_unjudged_candidate_is_never_credited(self):
+        report = self.score(self._exports([self.FAR], []))
+        self.assertEqual(report["cases"][0]["outcomes"]["adjudicated"]["outcome"], "PAIR_MISS")
+
+    def test_a_candidate_judged_the_same_defect_counts_only_in_the_second_number(self):
+        manual = self.workdir / "manual.json"
+        manual.write_text(json.dumps({"judgements": {
+            "acme-idor|app/orders.py|400": {"same_defect": True, "reason": "names the same guard"}
+        }}), encoding="utf-8")
+        output = self.workdir / "result.json"
+        report = cve_pairs.score(self.manifest, self.workdir,
+                                 self.predictions(self._exports([self.FAR], [])), output, manual)
+        self.assertEqual(report["cases"][0]["outcomes"]["strict"]["outcome"], "PAIR_MISS")
+        self.assertEqual(report["cases"][0]["outcomes"]["adjudicated"]["outcome"], "PAIR_PASS")
+        self.assertEqual(report["headline"]["adjudication"], "strict")
+        self.assertEqual(report["headline"]["pair_pass"], "0/1")
+
+    def test_the_second_number_is_always_marked_post_hoc(self):
+        report = self.score(self._exports([self.MATCH], []))
+        self.assertTrue(report["adjudications"]["strict"]["pre_registered"])
+        self.assertFalse(report["adjudications"]["adjudicated"]["pre_registered"])
+
     def test_rates_are_reported_with_their_denominator(self):
         report = self.score(self._exports([self.MATCH], []))
-        self.assertEqual(report["pair_pass_rate"], "1/1")
+        self.assertEqual(report["adjudications"]["strict"]["pair_pass"], "1/1")
         self.assertTrue(report["limitations"])
         self.assertEqual(len(report["predictions_sha256"]), 64)
 

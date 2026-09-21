@@ -91,30 +91,34 @@ def fetch(manifest: dict, workdir: Path) -> None:
     """Materialize both states of every case from pinned commits.
 
     Explicit by design: this clones third-party code, so it is never a side effect of another
-    command, and every checkout is verified against the SHA the manifest pinned.
+    command, and every checkout is verified against the SHA the manifest pinned. The clone is
+    blobless and sparse - these are real projects, and only the reviewed scope is needed.
     """
     raw = workdir / "raw"
     for case in manifest["cases"]:
         repo_dir = raw / case["id"] / "repo"
+        cone = sorted({s if "." not in Path(s).name else str(Path(s).parent).replace("\\", "/")
+                       for s in case["scope"]})
         if not repo_dir.exists():
             repo_dir.parent.mkdir(parents=True, exist_ok=True)
-            subprocess.run(
-                ["git", "clone", "--quiet", f"https://github.com/{case['repo']}.git", str(repo_dir)],
-                check=True,
-            )
+            subprocess.run(["git", "clone", "--quiet", "--filter=blob:none", "--no-checkout",
+                            f"https://github.com/{case['repo']}.git", str(repo_dir)], check=True)
+            subprocess.run(["git", "-C", str(repo_dir), "sparse-checkout", "init", "--cone"],
+                           check=True)
+            subprocess.run(["git", "-C", str(repo_dir), "sparse-checkout", "set", *cone], check=True)
+
         for state, commit in (("v", case["vulnerable_commit"]), ("f", case["fix_commit"])):
             target = raw / case["id"] / state
             if target.exists():
                 shutil.rmtree(target)
-            subprocess.run(["git", "-C", str(repo_dir), "checkout", "--quiet", commit], check=True)
-            resolved = subprocess.run(
-                ["git", "-C", str(repo_dir), "rev-parse", "HEAD"],
-                check=True, capture_output=True, text=True,
-            ).stdout.strip()
+            subprocess.run(["git", "-C", str(repo_dir), "checkout", "--quiet", "--detach", commit],
+                           check=True)
+            resolved = subprocess.run(["git", "-C", str(repo_dir), "rev-parse", "HEAD"],
+                                      check=True, capture_output=True, text=True).stdout.strip()
             if resolved != commit:
                 raise SystemExit(f"{case['id']}: expected {commit}, checked out {resolved}")
             shutil.copytree(repo_dir, target, ignore=shutil.ignore_patterns(".git"))
-        print(f"fetched {case['id']} ({case['repo']})")
+        print(f"fetched {case['id']} ({case['repo']}) scope={cone}")
 
 
 def _copy_scope(source: Path, destination: Path, scope: list[str]) -> None:
@@ -172,35 +176,64 @@ def prepare(manifest: dict, workdir: Path, seed: int) -> dict:
     return {"index": index, "key": key}
 
 
-def _matches(finding: dict, case: dict) -> bool:
-    """Does this finding name the defect the advisory describes?
+def _same_defect_class(finding: dict, case: dict) -> bool:
+    """Does the finding name the class of defect the advisory describes?
 
-    Three independent conditions, all required: the right file, the right neighbourhood, and a
-    class the manifest accepted **before** the run. Ambiguity resolves against SecHelix: a
-    finding that cannot satisfy all three is `other`, not a near miss.
+    The aliases come from the manifest and were fixed before any review ran; adjudication may
+    not add to them afterwards.
     """
-    path = str(finding.get("file", "")).replace("\\", "/").lstrip("./")
-    if not any(path.endswith(target) or target.endswith(path) for target in case["fix_files"]):
-        return False
-
-    line = finding.get("line")
-    in_window = False
-    if isinstance(line, int):
-        for start, end in case.get("fix_lines", []):
-            if start - LINE_WINDOW <= line <= end + LINE_WINDOW:
-                in_window = True
-                break
-    if not in_window and not case.get("fix_lines"):
-        in_window = True  # whole-file fixes carry no hunk range
-
     text = " ".join(str(finding.get(field, "")) for field in
                     ("class", "cwe", "title", "claim", "root_cause")).lower()
-    classified = any(alias.lower() in text for alias in case["accept_classes"])
-    return in_window and classified
+    return any(alias.lower() in text for alias in case["accept_classes"])
 
 
-def score(manifest: dict, workdir: Path, predictions_path: Path, output: Path) -> dict:
-    key = json.loads((workdir / "key.json").read_text(encoding="utf-8"))["key"]
+def _same_file(finding: dict, case: dict) -> bool:
+    path = str(finding.get("file", "")).replace("\\", "/").lstrip("./")
+    return any(path.endswith(target) or target.endswith(path) for target in case["fix_files"])
+
+
+def _in_window(finding: dict, case: dict) -> bool:
+    if not case.get("fix_lines"):
+        return True  # a whole-file fix carries no hunk range
+    line = finding.get("line")
+    if not isinstance(line, int):
+        return False
+    return any(start - LINE_WINDOW <= line <= end + LINE_WINDOW
+               for start, end in case["fix_lines"])
+
+
+def matches_strict(finding: dict, case: dict) -> bool:
+    """Pre-registered rule: right file, right neighbourhood, accepted class.
+
+    Ambiguity resolves against SecHelix: a finding that cannot satisfy all three is `other`.
+    """
+    return (_same_file(finding, case) and _same_defect_class(finding, case)
+            and _in_window(finding, case))
+
+
+def is_candidate(finding: dict, case: dict) -> bool:
+    """Right file and accepted class, but outside the patched neighbourhood.
+
+    These exist because a defect and its patch are not always in the same place. In case-01 the
+    fix changed a `before_action` declaration at the top of a controller while the review named
+    the action seventy lines below that the declaration fails to protect: one defect, two
+    locations. They are also exactly how a *different* defect in the same file looks, which is
+    why they are never credited automatically. Each is judged by hand and the judgement, with
+    its reason, is published beside the result.
+    """
+    return (_same_file(finding, case) and _same_defect_class(finding, case)
+            and not _in_window(finding, case))
+
+
+def _judgement_key(case_id: str, finding: dict) -> str:
+    path = str(finding.get("file", "")).replace("\\", "/").lstrip("./")
+    return f"{case_id}|{path}|{finding.get('line')}"
+
+
+def score(manifest: dict, workdir: Path, predictions_path: Path, output: Path,
+          manual_path: Path | None = None) -> dict:
+    sealed = json.loads((workdir / "key.json").read_text(encoding="utf-8"))
+    key, seed = sealed["key"], sealed["seed"]
     index = json.loads((workdir / "cases-index.json").read_text(encoding="utf-8"))["cases"]
     predictions_bytes = predictions_path.read_bytes()
     predictions = json.loads(predictions_bytes.decode("utf-8"))
@@ -210,52 +243,104 @@ def score(manifest: dict, workdir: Path, predictions_path: Path, output: Path) -
     if missing:
         raise SystemExit(f"predictions are incomplete; missing {missing}")
 
+    manual = {}
+    if manual_path is not None:
+        manual = json.loads(manual_path.read_text(encoding="utf-8"))["judgements"]
+
     cases = {case["id"]: case for case in manifest["cases"]}
-    results, counts = [], {"PAIR_PASS": 0, "PAIR_PARTIAL": 0, "PAIR_MISS": 0}
+    results = []
+    blank = {"PAIR_PASS": 0, "PAIR_PARTIAL": 0, "PAIR_MISS": 0}
+    counts = {"strict": dict(blank), "adjudicated": dict(blank)}
 
     for entry in key:
         case = cases[entry["case_id"]]
-        sides = {}
+        findings = {}
         for letter in "ab":
-            findings = by_export[f"{entry['export_prefix']}-{letter}"].get("findings", [])
             state = "v" if letter == entry["vulnerable_letter"] else "f"
-            sides[state] = {
-                "matched": [f for f in findings if _matches(f, case)],
-                "other": [f for f in findings if not _matches(f, case)],
+            findings[state] = by_export[f"{entry['export_prefix']}-{letter}"].get("findings", [])
+
+        record = {
+            "case_id": case["id"], "cve": case.get("cve"), "repo": case["repo"],
+            "class": case.get("class"), "language": case.get("language"),
+            "findings_vulnerable": len(findings["v"]), "findings_patched": len(findings["f"]),
+            "outcomes": {}, "candidates": [],
+        }
+
+        strict = {state: [f for f in findings[state] if matches_strict(f, case)]
+                  for state in ("v", "f")}
+        confirmed = {state: list(strict[state]) for state in ("v", "f")}
+        for state in ("v", "f"):
+            for finding in findings[state]:
+                if not is_candidate(finding, case):
+                    continue
+                judgement = manual.get(_judgement_key(case["id"], finding), {})
+                same = bool(judgement.get("same_defect"))
+                record["candidates"].append({
+                    "state": "vulnerable" if state == "v" else "patched",
+                    "file": finding.get("file"), "line": finding.get("line"),
+                    "title": finding.get("title"),
+                    "same_defect": same if judgement else "NOT_ADJUDICATED",
+                    "reason": judgement.get(
+                        "reason", "no judgement recorded; counted as not the same defect"),
+                })
+                if same:
+                    confirmed[state].append(finding)
+
+        for name, matched in (("strict", strict), ("adjudicated", confirmed)):
+            outcome = ("PAIR_PASS" if matched["v"] and not matched["f"] else
+                       "PAIR_PARTIAL" if matched["v"] else "PAIR_MISS")
+            counts[name][outcome] += 1
+            record["outcomes"][name] = {
+                "outcome": outcome,
+                "detected_in_vulnerable": bool(matched["v"]),
+                "claimed_in_patched": bool(matched["f"]),
+                "matched_findings": matched["v"],
             }
-        detected = bool(sides["v"]["matched"])
-        rejected = not sides["f"]["matched"]
-        outcome = "PAIR_PASS" if detected and rejected else (
-            "PAIR_PARTIAL" if detected else "PAIR_MISS")
-        counts[outcome] += 1
-        results.append({
-            "case_id": case["id"],
-            "cve": case.get("cve"),
-            "repo": case["repo"],
-            "class": case.get("class"),
-            "outcome": outcome,
-            "detected_in_vulnerable": detected,
-            "claimed_in_patched": not rejected,
-            "matched_findings": sides["v"]["matched"],
-            "other_findings_vulnerable": len(sides["v"]["other"]),
-            "other_findings_patched": len(sides["f"]["other"]),
-        })
+        results.append(record)
 
     total = len(results)
     report = {
-        "schema_version": "1.0",
+        "schema_version": "2.0",
         "result_kind": "CVE_PAIR_RUN",
         "is_sechelix_result": True,
         "pairs": total,
-        "counts": counts,
-        "detection_rate": f"{counts['PAIR_PASS'] + counts['PAIR_PARTIAL']}/{total}",
-        "pair_pass_rate": f"{counts['PAIR_PASS']}/{total}",
+        "headline": {
+            "adjudication": "strict",
+            "pair_pass": f"{counts['strict']['PAIR_PASS']}/{total}",
+            "detected": f"{counts['strict']['PAIR_PASS'] + counts['strict']['PAIR_PARTIAL']}/{total}",
+        },
+        "adjudications": {
+            "strict": {
+                "pre_registered": True,
+                "rule": "same file, within a changed hunk +/-25 lines, class accepted before the run",
+                "counts": counts["strict"],
+                "pair_pass": f"{counts['strict']['PAIR_PASS']}/{total}",
+                "detected": f"{counts['strict']['PAIR_PASS'] + counts['strict']['PAIR_PARTIAL']}/{total}",
+            },
+            "adjudicated": {
+                "pre_registered": False,
+                "rule": ("strict matches plus candidates outside the line window that were judged by "
+                         "hand to describe the same defective control; every judgement and its reason "
+                         "is in cases[].candidates. Added after case-01, where the fix changed a "
+                         "declaration and the review named the action it fails to protect. Unjudged "
+                         "candidates count as not the same defect."),
+                "counts": counts["adjudicated"],
+                "pair_pass": f"{counts['adjudicated']['PAIR_PASS']}/{total}",
+                "detected": f"{counts['adjudicated']['PAIR_PASS'] + counts['adjudicated']['PAIR_PARTIAL']}/{total}",
+                "manual_judgements": len(manual),
+            },
+        },
         "precision": "NOT_MEASURED",
         "false_positive_rate": "NOT_MEASURED",
         "applicability_accuracy": "NOT_MEASURED",
         "release_gate_accuracy": "NOT_MEASURED",
+        "unadjudicated_findings_note": (
+            "Findings outside the known defect are counted, never classified. In real software the "
+            "other defects are unknown, so they are neither false positives nor confirmed issues, and "
+            "silence in the patched tree is not evidence that it is clean."
+        ),
         "predictions_sha256": _digest_bytes(predictions_bytes),
-        "seed": json.loads((workdir / "key.json").read_text(encoding="utf-8"))["seed"],
+        "seed": seed,
         "runner": predictions.get("runner"),
         "model": predictions.get("model"),
         "agent_host": predictions.get("agent_host"),
@@ -263,9 +348,13 @@ def score(manifest: dict, workdir: Path, predictions_path: Path, output: Path) -
         "cases": results,
     }
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    print(f"{counts['PAIR_PASS']}/{total} PAIR_PASS, "
-          f"{counts['PAIR_PARTIAL']} partial, {counts['PAIR_MISS']} miss -> {output}")
+    output.write_text(json.dumps(report, indent=2) + chr(10), encoding="utf-8")
+    for name in ("strict", "adjudicated"):
+        counted = counts[name]
+        label = "pre-registered" if name == "strict" else "post-hoc, disclosed"
+        print(f"{name:12} ({label}): {counted['PAIR_PASS']}/{total} pass, "
+              f"{counted['PAIR_PARTIAL']} partial, {counted['PAIR_MISS']} miss")
+    print(f"-> {output}")
     return report
 
 
@@ -281,6 +370,8 @@ def main(argv=None) -> int:
         if name == "score":
             child.add_argument("--predictions", type=Path, required=True)
             child.add_argument("--output", type=Path, required=True)
+            child.add_argument("--manual", type=Path, default=None,
+                               help="hand judgements for candidates outside the line window")
     args = parser.parse_args(argv)
 
     manifest = load_manifest(args.manifest)
@@ -290,7 +381,7 @@ def main(argv=None) -> int:
     elif args.command == "prepare":
         prepare(manifest, args.workdir, args.seed)
     else:
-        score(manifest, args.workdir, args.predictions, args.output)
+        score(manifest, args.workdir, args.predictions, args.output, args.manual)
     return 0
 
 
