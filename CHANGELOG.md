@@ -2,6 +2,11 @@
 
 All notable SecHelix release changes are summarized here. Detailed release notes live in [`docs/releases/`](docs/releases/), and the Git history remains the authoritative development record.
 
+## [Unreleased]
+
+- First measurement on real code: `evals/cve_pairs.py` reviewed the vulnerable and patched trees of 12 public CVEs blind. SecHelix found **2 of 12** known defects under the pre-registered rule and 3 with disclosed hand adjudication; **no finding it marked `VERIFIED` was a known defect**, and 10 of the 14 `VERIFIED` findings were in patched trees. Published as measured in [`docs/research/cve-pairs-2026-09-21.md`](docs/research/cve-pairs-2026-09-21.md), with the manifest, every adjudication and the scored result. Findings about other projects that do not match a published CVE are counted but withheld.
+- README: the non-claims section now states that result, and corrects "refuses to report unproven claims" — unproven claims are labelled, not dropped (92 of 106 in that run).
+
 ## [4.0.0-alpha.7] - 2026-09-21
 
 - The installed skill now ships instructions and data only. `sechelix_core`, the scanner adapters, the report renderer and six scripts are no longer copied into `skills/sechelix/`: 52 Python files that no review step executes, and executable surface that every install-time security audit has to judge. The bundle drops from 160 files / 2.0 MB to 102 files / 1.46 MB with zero executable files.

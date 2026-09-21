@@ -83,6 +83,14 @@ Recommended minimum:
 
 Each case should be non-trivial enough that a keyword match alone cannot solve it.
 
+## Paired real-CVE measurement
+
+`evals/cve_pairs.py` reviews the vulnerable and patched trees of public CVEs blind, and scores
+whether the known defect is named in one and not the other. The first run (2026-09-21, 12 cases)
+found 2 cleanly under the pre-registered rule and 3 with hand adjudication; no finding marked
+`VERIFIED` was a known defect. See `docs/research/cve-pairs-2026-09-21.md`. It cannot measure
+precision, and says so.
+
 ## Real-repository case studies
 
 Real repositories are separate from synthetic benchmark scores. A public case study must include:
