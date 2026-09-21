@@ -1,8 +1,20 @@
-# Repository runtime resources
+# Runtime resources
 
-Read this only when the SecHelix repository runtime (the Python modules and scripts shipped
-beside `SKILL.md`) is available. The workflow in `SKILL.md` does not depend on it; the runtime
-turns its rules into executable contracts, validators and gates.
+The workflow in `SKILL.md` never requires code. The installed skill is instructions and data:
+the catalog, the schemas, the specialist profiles, the packs and these references. Executable
+helpers are optional, and they come from two places.
+
+**`python -m pip install sechelix`** installs the `sechelix` CLI (`doctor`, `audit`, `runs`,
+`coverage`, `replay`, `report`, `mcp`) and makes the helper modules below importable. `pipx` and
+`uv tool` install the CLI but keep the modules inside their own environment, so use `pip` in the
+environment you are working in when you intend to import `sechelix_core`.
+
+**The source repository** (`git clone https://github.com/omarmohelal/SecHelix`) additionally
+holds the release-gate script, the report renderer, the scanner adapters and the validators.
+They are not in the wheel.
+
+Read the rest of this file only when one of those is available. If neither is, run the workflow
+from the instructions and the contracts alone: every phase in `SKILL.md` is executable by hand.
 
 ## Versioned contracts
 
@@ -20,6 +32,8 @@ turns its rules into executable contracts, validators and gates.
 
 ## Resource map
 
+In the installed skill (data only):
+
 - `references/methodology.md`: evidence and verification philosophy.
 - `references/tooling.md`: scanner and tool adapter guidance.
 - `references/sources.md`: standards and source references.
@@ -31,19 +45,24 @@ turns its rules into executable contracts, validators and gates.
 - `catalog/checks.json`: structured hypothesis catalog.
 - `agents/`: specialist reviewer profiles.
 - `schemas/`: versioned scope, evidence, finding and report contracts.
-- `adapters/`: normalized Semgrep, CodeQL/SARIF, OSV, Gitleaks, Trivy, npm/pnpm audit,
-  Playwright, ZAP and Nuclei evidence adapters.
-- `reports/`: canonical Markdown/JSON/SARIF/HTML report renderer.
+- `gold-packs/`: reusable check packs.
 - `policies/`: public release-gate policy examples; keep real organization policy packs private.
 - `examples/`: scope and report examples.
+
+In a repository clone only:
+
 - `scripts/security_gate.py`: report and release gate.
 - `scripts/applicability.py`: deterministic applicability decision helper.
 - `scripts/attack_surface.py`: attack-surface and Mermaid graph helper.
-- `scripts/validate_catalog.py`: catalog validation.
-- `scripts/validate_knowledge.py`: knowledge-source, graph, card and research validation.
-- `scripts/validate_gold_packs.py`: Gold Pack provenance, safety and calibration validation.
+- `scripts/validate_catalog.py`, `scripts/validate_knowledge.py`,
+  `scripts/validate_gold_packs.py`: catalog, knowledge and Gold Pack validation.
+- `adapters/`: normalized Semgrep, CodeQL/SARIF, OSV, Gitleaks, Trivy, npm/pnpm audit,
+  Playwright, ZAP and Nuclei evidence adapters.
+- `reports/`: canonical Markdown/JSON/SARIF/HTML report renderer.
 
 ## Helper modules
+
+Importable after `python -m pip install sechelix`, and from a repository clone.
 
 | Module | Use |
 |---|---|
@@ -55,6 +74,17 @@ turns its rules into executable contracts, validators and gates.
 | `sechelix_core.revision` | binds a report to the revision it inspected |
 
 ## Typical commands
+
+From the installed package:
+
+```bash
+sechelix doctor                       # which components and executors are available
+sechelix audit . --executor claude-code
+sechelix report --format markdown
+sechelix mcp /path/to/the/repository  # read-only MCP adapter over one root
+```
+
+From a repository clone:
 
 ```bash
 python scripts/attack_surface.py --help

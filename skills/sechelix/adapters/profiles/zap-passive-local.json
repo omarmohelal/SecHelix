@@ -1,8 +1,0 @@
-{
-  "engine": "zap",
-  "mode": "local",
-  "scan_type": "baseline-passive",
-  "target_policy": "loopback-only",
-  "active_scan": false,
-  "authentication": false
-}

@@ -56,7 +56,9 @@ Recommended for Agent Skills-compatible coding agents:
 npx skills@latest add omarmohelal/SecHelix --skill sechelix
 ```
 
-Then open the repository you want to review in your coding agent.
+Then open the repository you want to review in your coding agent. The skill installs
+instructions and data only — no executable code. The optional runtime below is a separate,
+explicit install.
 
 A compact edition, `sechelix-lite`, is a single runtime-free review skill (about 200 lines plus
 five references) for skill directories and hosts where a small context footprint matters. See

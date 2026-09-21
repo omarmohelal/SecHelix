@@ -22,7 +22,7 @@ Every row below uses one of these values. A path is never upgraded because docum
 
 | Environment | Integration | Status | Notes |
 |---|---|---|---|
-| Portable bundle | `skills/sechelix/` copied anywhere | `VERIFIED` | Exercised from a copy outside the repository with no parent-checkout dependency. |
+| Portable bundle | `skills/sechelix/` copied anywhere | `VERIFIED` | Instructions and data only, exercised from a copy outside the repository with no parent-checkout dependency. Executable helpers come from `pip install sechelix` or a repository clone. |
 | Agent Skills CLI installer | `npx skills@latest add … --skill sechelix` | `VERIFIED` | Cold-installed into an empty project and exercised after the V3 packaging fix. |
 | Claude Code — plugin | `.claude-plugin/plugin.json` | `VERIFIED` | Plugin validation and a cold marketplace/plugin installation were exercised. |
 | Claude Code — project skill | `.claude/skills/sechelix/SKILL.md` | `DOCUMENTED` | Claude Code documents project-local `.claude/skills/`; a dedicated project-skill loading observation is not recorded here. |
@@ -38,7 +38,7 @@ Every row below uses one of these values. A path is never upgraded because docum
 
 The following claims have direct project evidence:
 
-1. **Portable isolation.** The portable bundle runs outside the parent repository; validators, release gate, renderer, Gold Pack validation, and knowledge validation do not require the development checkout.
+1. **Portable isolation.** The portable bundle resolves every reference inside the installed directory, outside the parent repository. Since 4.0.0-alpha.7 it ships no executable code: the release gate, renderer, adapters and validators run from a repository clone, and the `sechelix_core` helpers `SKILL.md` names are importable after `pip install sechelix`. Both are exercised in CI from the repository.
 2. **Agent Skills CLI cold install.** Installation into an empty project completes successfully and installs the intended portable skill rather than the old whole-repository package.
 3. **Claude plugin validation/install.** The plugin manifest validates and the separate SecHelix marketplace has been cold-added and installed successfully.
 4. **Curated Copilot plugin install.** `distributions/awesome-copilot/` installs through the Copilot CLI plugin marketplace flow with no file from outside the plugin root; `scripts/validate_distribution.py` repeats the copy-install check in CI.

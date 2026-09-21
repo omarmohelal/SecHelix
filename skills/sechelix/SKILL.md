@@ -45,8 +45,12 @@ requires the operator. Trust resolution fails closed. Enforce with
 
 ## Runtime contracts
 
-When the repository runtime is available, read `references/runtime.md` and use its versioned
-schemas, catalog, helpers and gates rather than inventing parallel report shapes. Applicability
+This skill ships instructions and data only: no code. Optional helpers come from
+`python -m pip install sechelix` (the `sechelix` CLI and the `sechelix_core` modules named below)
+or from a repository clone (release gate, report renderer, scanner adapters, validators). When
+either is available, read `references/runtime.md` and use its versioned schemas, catalog, helpers
+and gates rather than inventing parallel report shapes. When neither is, run every phase by hand
+against the contracts in `schemas/`; nothing here requires the runtime. Applicability
 has exactly four outcomes: `APPLICABLE`, `NOT_APPLICABLE`, `UNKNOWN`, and `BLOCKED`. Release gates
 fail closed to `INCOMPLETE` for malformed or missing evidence.
 
@@ -425,8 +429,8 @@ Load references on demand, not up front:
 
 - `references/methodology.md`: evidence and verification philosophy.
 - `references/knowledge-engine.md`: source trust, rights and live research (Phase 2.5).
-- `references/runtime.md`: schemas, catalog, adapters, reports, policies, helper modules and
-  commands, when the repository runtime is present.
+- `references/runtime.md`: how to reach the optional runtime helpers, and the schemas, catalog,
+  policies and commands they expose.
 - `agents/`: specialist reviewer profiles for the Phase 3 lanes; `agents/independent-verifier.md`
   for Phase 11.
 

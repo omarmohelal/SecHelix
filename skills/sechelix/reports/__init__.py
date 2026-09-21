@@ -1,1 +1,0 @@
-"""SecHelix report rendering package."""

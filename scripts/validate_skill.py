@@ -18,28 +18,36 @@ ADAPTERS = (
     ".github/skills/sechelix/SKILL.md",
 )
 
+#: What an agent must find in an installed skill to run the workflow. All of it is
+#: instructions or data; the bundle ships no executable code (see EXECUTABLE_SUFFIXES).
 PORTABLE_REQUIRED = (
     "README.md",
     "catalog/checks.json",
     "catalog/hypothesis-ids.txt",
     "agents/independent-verifier.md",
+    "references/methodology.md",
+    "references/runtime.md",
     "schemas/scope-v1.schema.json",
     "schemas/report-v1.schema.json",
     "schemas/source-registry-v1.schema.json",
     "schemas/knowledge-graph-v1.schema.json",
     "schemas/lesson-card-v1.schema.json",
     "schemas/research-packet-v1.schema.json",
-    "sechelix_core/applicability.py",
-    "sechelix_core/knowledge.py",
-    "adapters/cli.py",
-    "reports/report_renderer.py",
-    "scripts/security_gate.py",
-    "scripts/validate_knowledge.py",
+    "schemas/finding-v1.schema.json",
+    "gold-packs/SEC-AUTHZ-IDOR-001/pack.json",
     "policies/default.json",
     "knowledge/source-registry.json",
     "knowledge/graph/relationships.json",
     "knowledge/lesson-cards/CWE-918.json",
 )
+
+#: An installed skill is read, never executed. Code in the bundle is weight no review step
+#: runs and executable surface every install-time audit has to judge: the skills.sh Socket
+#: verdict shown on every `npx skills add` was produced from files like these.
+EXECUTABLE_SUFFIXES = frozenset({
+    ".py", ".pyc", ".pyo", ".pyw", ".sh", ".bash", ".zsh", ".ps1", ".bat", ".cmd",
+    ".js", ".mjs", ".cjs", ".ts", ".rb", ".pl", ".php", ".exe", ".dll", ".so",
+})
 
 
 def validate_skill_file(path: Path) -> list[str]:
@@ -80,7 +88,17 @@ def main() -> int:
         errors.append("portable skill must not depend on repository-parent paths")
     for relative in PORTABLE_REQUIRED:
         if not (portable / relative).is_file():
-            errors.append(f"portable skill missing runtime resource: {relative}")
+            errors.append(f"portable skill missing required resource: {relative}")
+    executable = sorted(
+        path.relative_to(portable).as_posix()
+        for path in portable.rglob("*")
+        if path.is_file() and path.suffix.lower() in EXECUTABLE_SUFFIXES
+    )
+    if executable:
+        errors.append(
+            "the installed skill must ship no executable code; found "
+            f"{len(executable)}: {executable[:5]}"
+        )
     if errors:
         print("SecHelix skill INVALID")
         for error in errors:
