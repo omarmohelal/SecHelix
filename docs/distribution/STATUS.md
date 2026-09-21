@@ -2,7 +2,7 @@
 # Distribution status
 
 The one tracker for where SecHelix can be installed or found. Every row was checked against the
-live listing or pull request, not against earlier notes. **Checked: 2026-09-15.** A row is only as
+live listing or pull request, not against earlier notes. **Checked: 2026-09-21.** A row is only as
 current as that date; re-check before acting on it.
 
 Columns: **Auto** = automation permitted by the target's rules. **Owner** = the repository owner
@@ -12,11 +12,11 @@ must act personally (login, OAuth, CAPTCHA, or a rule requiring a human submitte
 
 | Platform | Listing / submission | Mechanism | Status | Last meaningful event | Blocker | Next action | Auto | Owner |
 |---|---|---|---|---|---|---|---|---|
-| GitHub releases | [v4.0.0-alpha.6](https://github.com/omarmohelal/SecHelix/releases/tag/v4.0.0-alpha.6) | `version-release` workflow | LIVE, marked latest | 2026-09-15 release | none | none | yes | no |
-| Agent Skills CLI / skills.sh | [skills.sh/omarmohelal/sechelix](https://skills.sh/omarmohelal/sechelix) | install telemetry | LIVE | listed 2026-09-01 | Socket audit shown is of pre-packaging-fix commit `c3d17b2` (vulnerable eval fixtures were then in the package) | none; the listing re-audits from installs | n/a | no |
-| GitHub CLI `gh skill` | `gh skill install omarmohelal/SecHelix sechelix` or `sechelix-lite` | repository convention | LIVE | both verified 2026-09-15 at `v4.0.0-alpha.6` | none | none | n/a | no |
-| Claude Code plugin marketplace | [omarmohelal/sechelix-marketplace](https://github.com/omarmohelal/sechelix-marketplace) | own marketplace repo | LIVE, version synced to 4.0.0-alpha.6 | [PR #3](https://github.com/omarmohelal/sechelix-marketplace/pull/3) merged 2026-09-15 | none | bump with each release | yes | no |
-| GitHub Marketplace (Action) | [sechelix-security-review](https://github.com/marketplace/actions/sechelix-security-review) | release checkbox | LIVE | page renders `@v4.0.0-alpha.6` | none | none | no | yes, for listing a new release |
+| GitHub releases | [v4.0.0-alpha.7](https://github.com/omarmohelal/SecHelix/releases/tag/v4.0.0-alpha.7) | `version-release` workflow | LIVE, marked latest | 2026-09-21 release | none | none | yes | no |
+| Agent Skills CLI / skills.sh | [skills.sh/omarmohelal/sechelix](https://skills.sh/omarmohelal/sechelix) | install telemetry | LIVE, audits green | re-analysed 2026-09-21: Gen safe, Socket **safe, 0 alerts** (score 90), Snyk low. The 2026-09-01 record that showed Socket critical with 12 alerts, from the eval fixtures the package carried at first ingest, is gone | none | none | n/a | no |
+| GitHub CLI `gh skill` | `gh skill install omarmohelal/SecHelix sechelix` or `sechelix-lite` | repository convention | LIVE | both verified 2026-09-15; `sechelix` re-verified 2026-09-21 at `v4.0.0-alpha.7` (102 files, no executable code) | none | none | n/a | no |
+| Claude Code plugin marketplace | [omarmohelal/sechelix-marketplace](https://github.com/omarmohelal/sechelix-marketplace) | own marketplace repo | LIVE, version synced to 4.0.0-alpha.7 | [PR #4](https://github.com/omarmohelal/sechelix-marketplace/pull/4) merged 2026-09-21 | none | bump with each release | yes | no |
+| GitHub Marketplace (Action) | [sechelix-security-review](https://github.com/marketplace/actions/sechelix-security-review) | release checkbox | LIVE | README pin moved to `@v4.0.0-alpha.7` on 2026-09-21 | none | none | no | yes, for listing a new release |
 | PyPI (runner) | [sechelix](https://pypi.org/project/sechelix/) | trusted publishing | LIVE at 0.3.0 | runner unchanged since 0.3.0 | none | publish on the next runner change | yes | no |
 | Official MCP Registry | `io.github.omarmohelal/sechelix` | `publish-mcp` workflow | LIVE at 0.3.0, `active` | published 2026-09-09 | none; 0.3.0 is the current runner version | publish with the next runner release | yes | no |
 
