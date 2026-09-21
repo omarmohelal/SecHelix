@@ -7,6 +7,7 @@ from scripts.check_local_links import check_file
 from scripts.check_no_secrets import scan_text
 from scripts.check_private_site_leakage import find_violations
 from scripts.sync_portable_skill import DEST as PORTABLE_SKILL
+from scripts.validate_skill import EXECUTABLE_SUFFIXES
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,13 +47,35 @@ class RepositoryCheckTests(unittest.TestCase):
             "schemas/report-v1.schema.json",
             "schemas/gold-check-pack-v1.schema.json",
             "gold-packs/SEC-AUTHZ-IDOR-001/pack.json",
-            "adapters/cli.py",
-            "reports/report_renderer.py",
-            "scripts/security_gate.py",
-            "scripts/validate_gold_packs.py",
-            "sechelix_core/variant_hunter.py",
+            "knowledge/source-registry.json",
+            "policies/default.json",
+            "references/runtime.md",
         ):
             self.assertTrue((PORTABLE_SKILL / path).is_file(), path)
+
+    def test_the_installed_skill_ships_no_executable_code(self):
+        """An installed skill is read, never run.
+
+        52 Python files used to ship with it. They executed nothing during a review, and
+        they are the surface the skills.sh install-time audit judges: its Socket verdict
+        was produced from the eval fixtures the package carried at first ingest.
+        """
+        found = sorted(
+            path.relative_to(PORTABLE_SKILL).as_posix()
+            for path in PORTABLE_SKILL.rglob("*")
+            if path.is_file() and path.suffix.lower() in EXECUTABLE_SUFFIXES
+        )
+        self.assertEqual(found, [])
+
+    def test_the_skill_still_reaches_its_optional_helpers(self):
+        """Removing the code must not orphan the instructions that call it."""
+        runtime = (PORTABLE_SKILL / "references" / "runtime.md").read_text(encoding="utf-8")
+        self.assertIn("pip install sechelix", runtime)
+        self.assertIn("github.com/omarmohelal/SecHelix", runtime)
+        skill = (PORTABLE_SKILL / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("references/runtime.md", skill)
+        for module in ("untrusted_repo", "attack_chains", "revision"):
+            self.assertIn(f"sechelix_core.{module}", skill)
 
 
 if __name__ == "__main__":

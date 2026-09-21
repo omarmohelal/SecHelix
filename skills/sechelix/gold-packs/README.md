@@ -124,7 +124,7 @@ python scripts/validate_gold_packs.py
 python -m unittest tests.test_gold_packs -v
 ```
 
-The validator ([`scripts/validate_gold_packs.py`](../scripts/validate_gold_packs.py))
+The validator (`scripts/validate_gold_packs.py`, in a repository clone)
 checks the schema plus the semantic rules: known provenance, resolvable catalog
 and fixture IDs, honest calibration, non-destructive defaults, and mandatory
 independent verification.

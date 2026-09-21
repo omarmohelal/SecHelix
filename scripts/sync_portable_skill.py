@@ -1,5 +1,21 @@
 #!/usr/bin/env python3
-"""Build the self-contained Agent Skills distribution from canonical sources."""
+"""Build the Agent Skills distribution from canonical sources.
+
+The installed skill is instructions and data: the workflow, the reference material, the
+specialist profiles, the hypothesis catalog, the contracts, the packs and the examples an
+agent reads while reviewing. It ships no executable code.
+
+Executable helpers are distributed where they are actually installable:
+
+- `python -m pip install sechelix` provides the `sechelix` CLI and the importable
+  `sechelix_core` helpers that SKILL.md calls;
+- the source repository provides the release gate, the report renderer, the scanner
+  adapters and the validators.
+
+Shipping them inside the skill instead put 52 Python files on every user's machine for no
+review step that executes them, and handed every install-time security audit an executable
+surface to judge. `scripts/validate_skill.py` fails if code returns to the bundle.
+"""
 
 from __future__ import annotations
 
@@ -11,7 +27,6 @@ ROOT = Path(__file__).resolve().parents[1]
 DEST = ROOT / "skills" / "sechelix"
 
 DIRECTORIES = (
-    "adapters",
     "agents",
     "catalog",
     "examples",
@@ -19,9 +34,7 @@ DIRECTORIES = (
     "knowledge",
     "policies",
     "references",
-    "reports",
     "schemas",
-    "sechelix_core",
 )
 
 EXCLUDED_PARTS = {"__pycache__", "tests"}
@@ -44,15 +57,6 @@ EXCLUDED_TREES = (
 
 #: Authored in place in the bundle, never copied from a canonical source.
 AUTHORED_IN_PLACE = frozenset({"SKILL.md"})
-
-SCRIPT_FILES = (
-    "applicability.py",
-    "attack_surface.py",
-    "security_gate.py",
-    "validate_contract.py",
-    "validate_knowledge.py",
-    "validate_gold_packs.py",
-)
 
 def include(path: Path) -> bool:
     relative = path.relative_to(ROOT)
@@ -85,12 +89,6 @@ def sync() -> list[Path]:
             destination = DEST / source.relative_to(ROOT)
             copy_file(source, destination)
             copied.append(destination)
-
-    for name in SCRIPT_FILES:
-        source = ROOT / "scripts" / name
-        destination = DEST / "scripts" / name
-        copy_file(source, destination)
-        copied.append(destination)
 
     return copied
 

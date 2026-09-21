@@ -2,6 +2,14 @@
 
 All notable SecHelix release changes are summarized here. Detailed release notes live in [`docs/releases/`](docs/releases/), and the Git history remains the authoritative development record.
 
+## [4.0.0-alpha.7] - 2026-09-21
+
+- The installed skill now ships instructions and data only. `sechelix_core`, the scanner adapters, the report renderer and six scripts are no longer copied into `skills/sechelix/`: 52 Python files that no review step executes, and executable surface that every install-time security audit has to judge. The bundle drops from 160 files / 2.0 MB to 102 files / 1.46 MB with zero executable files.
+- The optional helpers are unchanged and stay where they are installable: `python -m pip install sechelix` for the CLI and the `sechelix_core` modules `SKILL.md` names, and a repository clone for the release gate, renderer, adapters and validators. `references/runtime.md` and `SKILL.md` now state which source provides what, and that the workflow requires neither.
+- `scripts/validate_skill.py` fails if any executable file returns to the bundle, with a regression test beside it. The "portable isolation" claim in the compatibility matrix is restated to match what now ships.
+
+See [release notes](docs/releases/4.0.0-alpha.7.md).
+
 ## [4.0.0-alpha.6] - 2026-09-15
 
 - Added `distributions/awesome-copilot/`, a curated runtime-free Agent Plugin with one skill, `sechelix-lite`: a 197-line `SKILL.md` and five references for evidence-first AppSec review with independent verification. It carries no SEO or cleanup workflow, catalog, runtime or product copy. The full skill is unchanged.
