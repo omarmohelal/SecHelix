@@ -158,10 +158,14 @@ A strong finding should show the affected surface, attacker control or security 
 
 - **It is not a certification.** `PASS` means the release-gate rules found no unresolved blocking
   condition in what was reviewed, not that the software has no vulnerabilities.
-- **Detection rates for the full workflow are `NOT_MEASURED`.** The one published blind-label run
-  measures a narrower labelling task; [docs/EVALUATION.md](docs/EVALUATION.md) states its limits.
-- **The model still does the reasoning.** SecHelix structures the review and refuses to report
-  unproven claims; it does not make a model see a bug it cannot reason about.
+- **On real code it found 2 of 12 known CVEs.** A blinded run against the vulnerable and patched
+  trees of 12 recent CVEs found 2 cleanly under the pre-registered rule, 3 with hand
+  adjudication, and no finding it marked `VERIFIED` was one of the known defects
+  ([report](docs/research/cve-pairs-2026-09-21.md)). Precision is `NOT_MEASURED`.
+- **The model still does the reasoning.** SecHelix structures the review and labels unproven
+  claims as unproven rather than dropping them: in that run 92 of 106 findings were marked
+  `LIKELY_BUT_UNPROVEN` or `HYPOTHESIS`. It does not make a model see a bug it cannot reason
+  about.
 - **Host support varies.** Installation is verified for the Claude Code plugin, the Agent Skills
   CLI, the portable bundle and the curated Copilot CLI plugin; other hosts are documented paths
   ([compatibility](docs/reference/compatibility.md)).

@@ -6,6 +6,9 @@ rejecting clean siblings. No model or scanner is called by the repository.
 
 Current published results: the blind label suite is **MEASURED** —
 `results/claude-sonnet-5-blind-2026-09-02.json`, the first uncontaminated run.
+The **paired real-CVE measurement** is `results/cve-pairs-2026-09-21.json`: 2 of 12
+known defects found under the pre-registered rule, 3 with hand adjudication
+(`cve-pairs/README.md`, `docs/research/cve-pairs-2026-09-21.md`).
 The **full workflow remains NOT_MEASURED**: `applicability_accuracy`,
 `regression_proof_rate` and `release_gate_accuracy` are label-only scoring's
 blind spot and keep the literal string, recorded in `results/not-measured.json`.

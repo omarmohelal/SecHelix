@@ -197,3 +197,68 @@ class CvePairHarnessTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+ROOT = Path(__file__).resolve().parents[1]
+PUBLISHED = ROOT / "evals" / "results" / "cve-pairs-2026-09-21.json"
+MANIFEST = ROOT / "evals" / "cve-pairs" / "manifest.json"
+JUDGEMENTS = ROOT / "evals" / "cve-pairs" / "judgements-2026-09-21.json"
+
+
+class PublishedCvePairResultTests(unittest.TestCase):
+    """The committed result must stay consistent, conservative and non-disclosing."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.result = json.loads(PUBLISHED.read_text(encoding="utf-8"))
+        cls.manifest = cve_pairs.load_manifest(MANIFEST)
+        cls.judgements = json.loads(JUDGEMENTS.read_text(encoding="utf-8"))["judgements"]
+
+    def test_the_manifest_pins_every_case_to_full_shas(self):
+        self.assertEqual(len(self.manifest["cases"]), self.result["pairs"])
+        for case in self.manifest["cases"]:
+            for field in ("vulnerable_commit", "fix_commit"):
+                self.assertRegex(case[field], r"^[0-9a-f]{40}$", case["id"])
+
+    def test_the_headline_is_the_pre_registered_rule(self):
+        self.assertEqual(self.result["headline"]["adjudication"], "strict")
+        self.assertTrue(self.result["adjudications"]["strict"]["pre_registered"])
+        self.assertFalse(self.result["adjudications"]["adjudicated"]["pre_registered"])
+
+    def test_the_counts_add_up_to_the_cases(self):
+        for name, block in self.result["adjudications"].items():
+            self.assertEqual(sum(block["counts"].values()), self.result["pairs"], name)
+            outcomes = [c["outcomes"][name]["outcome"] for c in self.result["cases"]]
+            for outcome, count in block["counts"].items():
+                self.assertEqual(outcomes.count(outcome), count, (name, outcome))
+
+    def test_what_cannot_be_measured_says_so(self):
+        for field in ("precision", "false_positive_rate", "applicability_accuracy",
+                      "release_gate_accuracy"):
+            self.assertEqual(self.result[field], "NOT_MEASURED")
+
+    def test_possible_undisclosed_issues_are_not_published(self):
+        """Only candidates that are the case's own public, fixed CVE carry detail."""
+        for case in self.result["cases"]:
+            for candidate in case["candidates"]:
+                public = candidate["same_defect"] is True and candidate["state"] == "vulnerable"
+                if public:
+                    self.assertIn("file", candidate)
+                else:
+                    self.assertEqual(candidate.get("detail"), "WITHHELD")
+                    for field in ("file", "line", "title", "claim"):
+                        self.assertNotIn(field, candidate)
+        for judgement in self.judgements:
+            if not (judgement["same_defect"] is True and judgement["state"] == "vulnerable"):
+                self.assertNotIn("file", judgement)
+                self.assertNotIn("line", judgement)
+
+    def test_the_withheld_artifacts_are_pinned_by_digest(self):
+        digests = self.result["withheld"]["private_artifacts_sha256"]
+        self.assertEqual(set(digests), {"predictions.json", "result.json", "manual.json"})
+        for value in digests.values():
+            self.assertRegex(value, r"^[0-9a-f]{64}$")
+        self.assertEqual(digests["predictions.json"], self.result["predictions_sha256"])
+
+    def test_the_limitations_are_stated(self):
+        self.assertGreaterEqual(len(self.result["limitations"]), 5)
