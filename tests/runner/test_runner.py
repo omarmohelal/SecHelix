@@ -149,6 +149,53 @@ class ContextIsolationTests(unittest.TestCase):
         self.assertIn("omitted_optional", result.context_views["authz"])
 
 
+class EvidencePromotionTests(unittest.TestCase):
+    def test_specialist_candidate_reaches_downstream_verifier(self) -> None:
+        thin_world = world()
+        thin_world.pop("candidates")
+
+        candidate = {
+            "claim": "cross-account read",
+            "location": "GET /orders/{id}",
+            "why": "owner boundary was not observed",
+        }
+        executor = MockExecutor(
+            {
+                "authz": NodeOutcome(
+                    status=NodeStatus.SUCCEEDED,
+                    output={"candidates": [candidate]},
+                )
+            }
+        )
+        result = runner(executor=executor).run(pipeline(), thin_world)
+
+        self.assertIs(result.records["verify"].status, NodeStatus.SUCCEEDED)
+        self.assertIn("candidates", result.context_views["verify"]["source_ids"])
+
+    def test_promotion_does_not_mutate_caller_world(self) -> None:
+        original = world()
+        original.pop("candidates")
+        before = dict(original)
+        executor = MockExecutor(
+            {
+                "authz": NodeOutcome(
+                    status=NodeStatus.SUCCEEDED,
+                    output={
+                        "candidates": [
+                            {
+                                "claim": "c",
+                                "location": "l",
+                                "why": "w",
+                            }
+                        ]
+                    },
+                )
+            }
+        )
+        runner(executor=executor).run(pipeline(), original)
+        self.assertEqual(original, before)
+
+
 class ExecutorContractTests(unittest.TestCase):
     def test_executor_exception_fails_the_node_without_killing_the_run(self) -> None:
         class Exploding:
