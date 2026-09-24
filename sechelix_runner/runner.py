@@ -173,6 +173,8 @@ class Runner:
         # Keep caller-owned context immutable while allowing evidence produced by
         # one node to become input to a downstream node in the same run.
         run_world = dict(world)
+        if "node_records" not in run_world:
+            run_world["_sechelix_manage_node_records"] = True
         builder = self._context_builder_factory(run_world)
         result = RunResult(
             run_id=run_id,
@@ -351,10 +353,12 @@ class Runner:
             # candidate is not automatically a VERIFIED finding.
             world["verified_candidates"] = list(candidates)
 
-        world["node_records"] = [
-            record.to_dict()
-            for _node_id, record in sorted(result.records.items())
-        ]
+        if world.get("_sechelix_manage_node_records") is True:
+            world["node_records"] = [
+                record.to_dict()
+                for _node_id, record in sorted(result.records.items())
+            ]
+
     def _execute(self, result, node_id, node, view, reserved_cost) -> NodeRecord:
         record = NodeRecord(
             run_id=result.run_id,
