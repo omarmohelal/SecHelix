@@ -67,7 +67,7 @@ norecursedirs = ["examples", "dist", ".git", "*.egg-info", "node_modules"]
 #
 # The Agent Skill itself is still absent: it is distributed through the skills
 # ecosystem and is deliberately not a Python package.
-packages = ["sechelix_runner", "sechelix_core"]
+packages = ["sechelix_runner", "sechelix_core", "adapters"]
 artifacts = ["schemas/*.json", "catalog/*.json", "catalog/*.txt"]
 
 [tool.hatch.build.targets.wheel.force-include]
@@ -82,6 +82,7 @@ catalog = "sechelix_runner/_bundled/catalog"
 include = [
     "/sechelix_runner",
     "/sechelix_core",
+    "/adapters",
     "/schemas",
     "/catalog",
     "/tests/runner",
