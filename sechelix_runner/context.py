@@ -77,7 +77,7 @@ ROLE_CONTEXT: dict[NodeRole, dict[str, tuple[str, ...]]] = {
     },
     NodeRole.RUNTIME_VERIFICATION: {
         "required": ("runtime_traces",),
-        "optional": ("http_captures", "browser_evidence"),
+        "optional": ("candidates", "http_captures", "browser_evidence"),
     },
     NodeRole.VARIANT_HUNTER: {
         "required": ("confirmed_findings", "file_index"),
