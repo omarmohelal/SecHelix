@@ -34,6 +34,7 @@ dependencies = []
 
 [project.optional-dependencies]
 web = ["playwright>=1.55,<2"]
+service = ["dnspython>=2.7,<3"]
 
 [project.urls]
 Homepage = "https://sechelix.com"
@@ -44,6 +45,7 @@ Changelog = "https://github.com/omarmohelal/SecHelix/blob/main/CHANGELOG.md"
 [project.scripts]
 sechelix = "sechelix_runner.cli:main"
 sechelix-pentest = "sechelix_runner.pentest_cli:main"
+sechelix-pentest-service = "sechelix_runner.pentest_service:main"
 
 [tool.pytest.ini_options]
 # examples/ ships a security regression test that is red on purpose: it is
