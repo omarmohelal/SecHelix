@@ -156,11 +156,17 @@ def digest_source(payload: dict[str, Any]) -> str:
 class ContextBuilder:
     """Projects a whole-target ``world`` into per-role views."""
 
-    def __init__(self, world: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        world: dict[str, Any],
+        *,
+        role_context: dict[NodeRole, dict[str, tuple[str, ...]]] | None = None,
+    ) -> None:
         self._world = world
+        self._role_context = role_context or ROLE_CONTEXT
 
     def build(self, node_id: str, role: NodeRole) -> ContextView:
-        spec = ROLE_CONTEXT.get(role, {"required": (), "optional": ()})
+        spec = self._role_context.get(role, {"required": (), "optional": ()})
         payload: dict[str, Any] = {}
         sources: list[str] = []
         missing: list[str] = []
