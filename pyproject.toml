@@ -44,6 +44,7 @@ Changelog = "https://github.com/omarmohelal/SecHelix/blob/main/CHANGELOG.md"
 [project.scripts]
 sechelix = "sechelix_runner.cli:main"
 sechelix-pentest = "sechelix_runner.pentest_cli:main"
+sechelix-pentest-worker = "sechelix_runner.pentest_service:main"
 
 [tool.pytest.ini_options]
 # examples/ ships a security regression test that is red on purpose: it is
