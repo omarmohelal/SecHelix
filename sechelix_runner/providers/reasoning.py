@@ -70,6 +70,11 @@ _ROLE_TASK: dict[NodeRole, str] = {
     NodeRole.INJECTION_DATAFLOW: "Trace attacker-controlled sources to dangerous sinks.",
     NodeRole.API_PROTOCOL: "Examine API surface, protocol handling and middleware.",
     NodeRole.BROWSER: "Examine client-side boundaries, DOM sinks and origins.",
+    NodeRole.RUNTIME_VERIFICATION: (
+        "Reproduce candidate claims against the supplied authorized runtime evidence; "
+        "prefer refutation, record blockers, and do not infer exploitability from a "
+        "status code alone."
+    ),
     NodeRole.FILES_PARSERS: "Examine file handling, parsers, uploads and path construction.",
     NodeRole.SUPPLY_CHAIN: "Examine dependencies, lockfiles and install-time inputs.",
     NodeRole.CLOUD_CONFIGURATION: "Examine configuration, CI and deployment inputs.",

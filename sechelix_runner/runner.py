@@ -153,12 +153,14 @@ class Runner:
         target_commit: str = "UNKNOWN",
         scope_id: str = "UNKNOWN",
         node_cost_estimates: dict[str, float] | None = None,
+        context_builder_factory: Any = ContextBuilder,
     ) -> None:
         self.executor = executor
         self.budget = budget or BudgetGovernor(BudgetLimits())
         self.target_commit = target_commit
         self.scope_id = scope_id
         self._estimates = dict(node_cost_estimates or {})
+        self._context_builder_factory = context_builder_factory
 
     def run(
         self,
@@ -168,7 +170,12 @@ class Runner:
         run_id: str | None = None,
     ) -> RunResult:
         run_id = run_id or new_run_id()
-        builder = ContextBuilder(world)
+        # Keep caller-owned context immutable while allowing evidence produced by
+        # one node to become input to a downstream node in the same run.
+        run_world = dict(world)
+        if "node_records" not in run_world:
+            run_world["_sechelix_manage_node_records"] = True
+        builder = self._context_builder_factory(run_world)
         result = RunResult(
             run_id=run_id,
             target_commit=self.target_commit,
@@ -263,6 +270,12 @@ class Runner:
             done.add(node_id)
             if record.satisfied:
                 satisfied.add(node_id)
+                self._promote_output(
+                    run_world,
+                    node,
+                    result.outputs.get(node_id, {}),
+                    result,
+                )
             result.routing.append(
                 RoutingDecision(node_id, node.role.value, True, node.reason or "applicable")
             )
@@ -272,6 +285,79 @@ class Runner:
         return result
 
     # -- internals -----------------------------------------------------------
+
+    def _promote_output(
+        self,
+        world: dict[str, Any],
+        node,
+        output: dict[str, Any],
+        result: RunResult,
+    ) -> None:
+        """Expose explicit node products to downstream least-context views.
+
+        The runner keeps model conversations isolated. Durable JSON output is
+        the only hand-off: specialist candidates can reach the verifier without
+        sharing hidden state or requiring them to exist before the run starts.
+        """
+
+        outputs = world.get("node_outputs")
+        if not isinstance(outputs, dict):
+            outputs = {}
+            world["node_outputs"] = outputs
+        outputs[node.node_id] = output
+
+        candidates = output.get("candidates") if isinstance(output, dict) else None
+        if (
+            isinstance(candidates, list)
+            and node.role
+            not in {NodeRole.INDEPENDENT_VERIFIER, NodeRole.RELEASE_GATE}
+        ):
+            current = world.get("candidates")
+            if current is None:
+                current_list: list[Any] = []
+            elif isinstance(current, list):
+                current_list = list(current)
+            else:
+                current_list = []
+
+            seen = {digest(item) for item in current_list}
+            for candidate in candidates:
+                if not isinstance(candidate, dict):
+                    continue
+                identity = digest(candidate)
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                current_list.append(candidate)
+            world["candidates"] = current_list
+
+        if node.role is NodeRole.RUNTIME_VERIFICATION:
+            evidence = world.get("evidence")
+            if evidence is None:
+                evidence_items: list[Any] = []
+            elif isinstance(evidence, list):
+                evidence_items = list(evidence)
+            else:
+                evidence_items = [evidence]
+            evidence_items.append(
+                {
+                    "source": node.node_id,
+                    "role": node.role.value,
+                    "output": output,
+                }
+            )
+            world["evidence"] = evidence_items
+
+        if node.role is NodeRole.INDEPENDENT_VERIFIER and isinstance(candidates, list):
+            # Keep this distinct from formal report-v1 findings. A verifier
+            # candidate is not automatically a VERIFIED finding.
+            world["verified_candidates"] = list(candidates)
+
+        if world.get("_sechelix_manage_node_records") is True:
+            world["node_records"] = [
+                record.to_dict()
+                for _node_id, record in sorted(result.records.items())
+            ]
 
     def _execute(self, result, node_id, node, view, reserved_cost) -> NodeRecord:
         record = NodeRecord(

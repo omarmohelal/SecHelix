@@ -52,7 +52,10 @@ class PackageMetadataTests(unittest.TestCase):
         """Without these, `doctor` reports core_contracts=False on every install
         and 'the runner consumes the contracts' is true only for git clones."""
         text = pyproject_text()
-        self.assertIn('packages = ["sechelix_runner", "sechelix_core"]', text)
+        self.assertIn(
+            'packages = ["sechelix_runner", "sechelix_core", "adapters"]',
+            text,
+        )
         self.assertIn("schemas", text)
         self.assertIn("catalog", text)
 
@@ -72,7 +75,13 @@ class PackageMetadataTests(unittest.TestCase):
         )
         self.assertIsNotNone(sdist, "sdist include list not declared")
         body = sdist.group(1)
-        for required in ("/sechelix_runner", "/sechelix_core", "/schemas", "/catalog"):
+        for required in (
+            "/sechelix_runner",
+            "/sechelix_core",
+            "/adapters",
+            "/schemas",
+            "/catalog",
+        ):
             self.assertIn(f'"{required}"', body, f"sdist omits wheel input {required}")
 
     def test_the_agent_skill_is_not_packaged(self) -> None:

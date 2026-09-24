@@ -26,10 +26,14 @@ classifiers = [
     "Topic :: Software Development :: Quality Assurance",
 ]
 
-# Intentionally empty. The runner uses the standard library only, and a test
+# Intentionally empty. The base runner uses the standard library only, and a test
 # asserts it: a security tool that drags in a dependency tree has widened the
-# attack surface of the thing it was installed to protect.
+# attack surface of the thing it was installed to protect. Live browser testing
+# is explicit and opt-in through the "web" extra below.
 dependencies = []
+
+[project.optional-dependencies]
+web = ["playwright>=1.55,<2"]
 
 [project.urls]
 Homepage = "https://sechelix.com"
@@ -39,6 +43,7 @@ Changelog = "https://github.com/omarmohelal/SecHelix/blob/main/CHANGELOG.md"
 
 [project.scripts]
 sechelix = "sechelix_runner.cli:main"
+sechelix-pentest = "sechelix_runner.pentest_cli:main"
 
 [tool.pytest.ini_options]
 # examples/ ships a security regression test that is red on purpose: it is
@@ -54,7 +59,7 @@ norecursedirs = ["examples", "dist", ".git", "*.egg-info", "node_modules"]
 # sechelix_core and schemas/ are NOT a second copy of the methodology -- they are
 # the single definition of finding, evidence, verification and the release
 # decision. Shipping the runner without them would make "the runner owns no
-# definitions" true only for people who cloned the repository, and `doctor`
+# definitions" true only for people who cloned the repository, and doctor
 # would report core_contracts=False on every pip install.
 #
 # catalog/ ships because compliance.py maps evidence onto the control mappings
@@ -62,7 +67,7 @@ norecursedirs = ["examples", "dist", ".git", "*.egg-info", "node_modules"]
 #
 # The Agent Skill itself is still absent: it is distributed through the skills
 # ecosystem and is deliberately not a Python package.
-packages = ["sechelix_runner", "sechelix_core"]
+packages = ["sechelix_runner", "sechelix_core", "adapters"]
 artifacts = ["schemas/*.json", "catalog/*.json", "catalog/*.txt"]
 
 [tool.hatch.build.targets.wheel.force-include]
@@ -77,6 +82,7 @@ catalog = "sechelix_runner/_bundled/catalog"
 include = [
     "/sechelix_runner",
     "/sechelix_core",
+    "/adapters",
     "/schemas",
     "/catalog",
     "/tests/runner",
