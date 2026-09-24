@@ -153,12 +153,14 @@ class Runner:
         target_commit: str = "UNKNOWN",
         scope_id: str = "UNKNOWN",
         node_cost_estimates: dict[str, float] | None = None,
+        context_builder_factory: Any = ContextBuilder,
     ) -> None:
         self.executor = executor
         self.budget = budget or BudgetGovernor(BudgetLimits())
         self.target_commit = target_commit
         self.scope_id = scope_id
         self._estimates = dict(node_cost_estimates or {})
+        self._context_builder_factory = context_builder_factory
 
     def run(
         self,
@@ -171,7 +173,7 @@ class Runner:
         # Keep caller-owned context immutable while allowing evidence produced by
         # one node to become input to a downstream node in the same run.
         run_world = dict(world)
-        builder = ContextBuilder(run_world)
+        builder = self._context_builder_factory(run_world)
         result = RunResult(
             run_id=run_id,
             target_commit=self.target_commit,
