@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
   "id": "SEC-SESSION-TOKEN-001",
-  "version": "0.1.0",
-  "title": "Session and token authority across issuance, verification, and revocation",
+  "version": "0.2.0",
+  "title": "Session, token, and asserted-identity authority across verification and revocation",
   "lifecycle": "REFERENCE",
   "threat_model": {
     "actor": "Any caller who can present, plant, or forge a session identifier or bearer token, including a legitimate holder of an expired or revoked one",
@@ -12,7 +12,14 @@
     "impact": "A caller obtains or retains a session they were never granted or that was explicitly revoked, with the scopes attached to it"
   },
   "applicability": {
-    "capability_tags": ["sessions", "cookies", "tokens", "bearer_tokens", "token_revocation"],
+    "capability_tags": [
+      "sessions",
+      "cookies",
+      "tokens",
+      "bearer_tokens",
+      "token_revocation",
+      "device_identity"
+    ],
     "rule": "ANY_CAPABILITY_PRESENT",
     "required_evidence": [
       "The application issues a session identifier or token that a later request presents to establish identity",
@@ -22,7 +29,9 @@
   "framework_fingerprints": [
     {
       "framework": "jwt-verification",
-      "versions": ["any"],
+      "versions": [
+        "any"
+      ],
       "signals": [
         "The algorithm is read from the token header rather than pinned by the verifier",
         "One key map serves both symmetric and asymmetric verification, so a public key can be reached as a MAC secret",
@@ -31,8 +40,21 @@
       ]
     },
     {
+      "framework": "device-asserted-token-identity",
+      "versions": [
+        "any"
+      ],
+      "signals": [
+        "A paired or authenticated device sends a cookie or token whose decoded subject, email, tenant, or account claim is reused as the identity for a stronger authorization gate",
+        "A JWT payload is base64-decoded or parsed without cryptographic verification before its claims are persisted as trusted device or account metadata",
+        "The verifier derives a JWKS or verification endpoint from an unverified iss, jku, x5u, or other token-controlled location instead of a server-pinned issuer configuration"
+      ]
+    },
+    {
       "framework": "server-side-session-store",
-      "versions": ["any"],
+      "versions": [
+        "any"
+      ],
       "signals": [
         "A resolved principal is cached in process, in a sidecar, or at a CDN edge without an invalidation path",
         "Global revocation deletes the stored rows but does not reach derived state held by each worker",
@@ -41,7 +63,9 @@
     },
     {
       "framework": "oauth-scope-mapping",
-      "versions": ["any"],
+      "versions": [
+        "any"
+      ],
       "signals": [
         "Scopes are read from the token but the resource check compares only the subject",
         "A refresh exchange widens scopes or extends lifetime beyond the original grant",
@@ -50,7 +74,9 @@
     },
     {
       "framework": "python-synthetic-fixture",
-      "versions": ["3.x"],
+      "versions": [
+        "3.x"
+      ],
       "signals": [
         "A verifier selects the signature algorithm from the token header and the key from a mixed key map",
         "A gateway caches resolved principals in process while global revocation only deletes stored rows"
@@ -58,8 +84,19 @@
     }
   ],
   "sources": {
-    "source_ids": ["mitre-cwe", "mitre-capec", "owasp-asvs", "owasp-api-top-10"],
-    "catalog_hypothesis_ids": ["SHX-SESS-L01", "SHX-SESS-L08", "SHX-SESS-L09", "SHX-SESS-L15", "SHX-CRYPTO-L17"],
+    "source_ids": [
+      "mitre-cwe",
+      "mitre-capec",
+      "owasp-asvs",
+      "owasp-api-top-10"
+    ],
+    "catalog_hypothesis_ids": [
+      "SHX-SESS-L01",
+      "SHX-SESS-L08",
+      "SHX-SESS-L09",
+      "SHX-SESS-L15",
+      "SHX-CRYPTO-L17"
+    ],
     "references": [
       "https://cwe.mitre.org/data/definitions/347.html",
       "https://capec.mitre.org/data/definitions/593.html",
@@ -75,11 +112,52 @@
     "invariant": "Authority is granted only from a token the verifier independently validated under its own pinned rules, and it ends when the governing record ends"
   },
   "sinks": [
-    {"kind": "TOKEN_VERIFICATION", "examples": ["Signature check on a bearer token", "Cookie signature or encryption check", "Introspection response handling"]},
-    {"kind": "PRINCIPAL_RESOLUTION", "examples": ["Session store lookup", "Cached principal read", "Header-derived identity at a trusted proxy"]},
-    {"kind": "SESSION_ISSUANCE", "examples": ["Identifier minted at login", "Refresh exchange", "Impersonation or support session"]},
-    {"kind": "SCOPE_DECISION", "examples": ["Scope-to-operation mapping", "Audience check before a downstream call"]},
-    {"kind": "REVOCATION_PATH", "examples": ["Single logout", "Global sign-out after a credential change", "Administrative lockout"]}
+    {
+      "kind": "TOKEN_VERIFICATION",
+      "examples": [
+        "Signature check on a bearer token",
+        "Cookie signature or encryption check",
+        "Introspection response handling"
+      ]
+    },
+    {
+      "kind": "PRINCIPAL_RESOLUTION",
+      "examples": [
+        "Session store lookup",
+        "Cached principal read",
+        "Header-derived identity at a trusted proxy"
+      ]
+    },
+    {
+      "kind": "SESSION_ISSUANCE",
+      "examples": [
+        "Identifier minted at login",
+        "Refresh exchange",
+        "Impersonation or support session"
+      ]
+    },
+    {
+      "kind": "SCOPE_DECISION",
+      "examples": [
+        "Scope-to-operation mapping",
+        "Audience check before a downstream call"
+      ]
+    },
+    {
+      "kind": "REVOCATION_PATH",
+      "examples": [
+        "Single logout",
+        "Global sign-out after a credential change",
+        "Administrative lockout"
+      ]
+    },
+    {
+      "kind": "DEVICE_ACCOUNT_GATE",
+      "examples": [
+        "A browser extension reports which upstream account is signed in before a privileged publish or write is allowed",
+        "An installation-authenticated device presents a token claim that is compared with a business-account allowlist"
+      ]
+    }
   ],
   "detection_layers": [
     {
@@ -87,7 +165,8 @@
       "signals": [
         "Find every place a token is decoded and separate the decoding helpers from the verifying ones",
         "Record where the algorithm, key, issuer, and audience come from, and whether any of them can be influenced by the token itself",
-        "Trace the resolved principal forward and note every cache, memo, or context object that stores it beyond the request"
+        "Trace the resolved principal forward and note every cache, memo, or context object that stores it beyond the request",
+        "Trace every decoded-but-unverified token claim forward: if email, subject, tenant, account, role, or scope reaches a gate, label, lease, routing decision, or persisted trusted metadata, record the stronger boundary it is being asked to prove"
       ]
     },
     {
@@ -95,7 +174,8 @@
       "signals": [
         "State which claims are mandatory and compare that with the checks the verifier performs unconditionally",
         "Follow every revocation path to the state it must invalidate, including state held by other processes",
-        "Decide whether the identifier is rotated at every privilege change, not only at login"
+        "Decide whether the identifier is rotated at every privilege change, not only at login",
+        "Separate transport or installation authentication from the upstream account identity being asserted; proving a request came from a paired device does not prove which third-party account that browser session belongs to"
       ]
     },
     {
@@ -109,7 +189,8 @@
       "layer": "LOCAL_RUNTIME",
       "signals": [
         "Present tokens with a substituted algorithm, an unknown key id, and omitted claims to the verifier in isolation and record which are accepted",
-        "Revoke a session and replay the same request against every process and cache tier that serves it"
+        "Revoke a session and replay the same request against every process and cache tier that serves it",
+        "For a synthetic paired-device fixture, present an invalid-signature token carrying the expected account identity and confirm the privileged gate rejects it while a correctly signed token from the pinned issuer and audience is accepted"
       ]
     }
   ],
@@ -122,7 +203,9 @@
       "Establish a working authenticated control request first, so a later denial is distinguishable from a broken harness",
       "Exercise the verification function in isolation with algorithm, key-id, and claim variants, and record exactly which inputs it accepts",
       "Revoke the session through each documented revocation path and replay the control request against every serving tier",
-      "Record the verification point, the caching tiers, and the observed revocation delay without touching production credentials"
+      "Record the verification point, the caching tiers, and the observed revocation delay without touching production credentials",
+      "For device-account gates, use a synthetic paired installation and locally generated tokens to test whether an invalid-signature token with the expected email or subject can satisfy the stronger account-identity check",
+      "When remote key discovery is part of verification, confirm the JWKS location comes from a server-pinned issuer or allowlist rather than directly from an unverified token claim"
     ]
   },
   "false_positive_filters": [
@@ -130,7 +213,9 @@
     "The library in use rejects algorithm substitution by default and the configuration has been read rather than assumed",
     "The cache is keyed and invalidated on every revocation path, evidenced in code rather than inferred from a comment",
     "The token lifetime is short enough that the documented revocation model is stated as eventual and accepted with a rationale",
-    "The identifier is rotated at every privilege transition, so a planted value cannot become authenticated"
+    "The identifier is rotated at every privilege transition, so a planted value cannot become authenticated",
+    "The decoded claim is explicitly labelled unverified telemetry, never persisted as trusted identity, and cannot by itself allow or widen a privileged operation",
+    "A paired-device request is separately verified against the upstream account through a server-side introspection or signature-verified token path whose issuer, audience, algorithm, and freshness are pinned by server configuration"
   ],
   "verification": {
     "independent_required": true,
@@ -138,13 +223,16 @@
       "The exact input the verifier accepts and the authority it grants for it",
       "A reachable path from a caller-controlled token to the protected operation",
       "A safe local reproduction that distinguishes a verification weakness from a key-management weakness",
-      "The defective invariant stated as a verification, rotation, or revocation failure, with its concrete authority impact"
+      "The defective invariant stated as a verification, rotation, or revocation failure, with its concrete authority impact",
+      "For a device-account identity claim, evidence that the principal controlling the paired device can or cannot choose the asserted upstream account identity independently of cryptographic verification"
     ],
     "refutation_tests": [
       "Exercise the verifier alone on the same inputs to separate a parsing weakness from a request-time weakness",
       "Re-read the library configuration for a pinned algorithm list before concluding the header is trusted",
       "Check every revocation path for cache invalidation before concluding revoked authority persists",
-      "Establish whether the claimed key material is actually reachable by the attacker, since alg confusion needs a published key to matter"
+      "Establish whether the claimed key material is actually reachable by the attacker, since alg confusion needs a published key to matter",
+      "Check whether the self-reported decoded claim is merely accidental-misconfiguration telemetry while a different server-side control independently proves the upstream account before the privileged operation",
+      "If JWKS discovery is remote, prove the verifier does not follow an attacker-chosen issuer or key URL from an unverified token before trust is established"
     ]
   },
   "root_causes": [
@@ -153,11 +241,25 @@
     "Claim validation is conditional on presence, so omitting a claim omits its check",
     "A pre-authentication identifier is promoted in place instead of rotated at the privilege transition",
     "Authority is derived once and cached, while revocation only updates the source record",
-    "Scopes are read but never compared against the operation being performed"
+    "Scopes are read but never compared against the operation being performed",
+    "Transport or installation authentication is conflated with a stronger upstream-account identity, so a paired device is allowed to self-report the identity that is supposed to constrain it",
+    "JWT claims are decoded and trusted before signature, issuer, audience, token type, and expiry are verified under server-pinned policy",
+    "The key-discovery location is derived from an unverified token claim, letting untrusted token metadata influence verification network destinations"
   ],
   "variant_strategy": {
-    "anchor_fields": ["invariant", "boundary", "action"],
-    "variant_dimensions": ["actor", "object", "identity_state", "enforcement_layer", "sink_kind", "framework"],
+    "anchor_fields": [
+      "invariant",
+      "boundary",
+      "action"
+    ],
+    "variant_dimensions": [
+      "actor",
+      "object",
+      "identity_state",
+      "enforcement_layer",
+      "sink_kind",
+      "framework"
+    ],
     "result_contract": "EXACT | VARIANT | REFUTED | BLOCKED; exact and variant matches remain hypotheses until verified"
   },
   "remediation": {
@@ -168,22 +270,41 @@
       "Rotate the session identifier at every privilege transition and destroy the previous one",
       "Prefer an authoritative lookup per request over a cached decision, or bind every cache entry to an invalidation event and a short ceiling",
       "Make global revocation reach derived state in every process, edge, and sidecar that can answer a request",
-      "Compare the token's scopes and audience against the operation, not only its subject"
+      "Compare the token's scopes and audience against the operation, not only its subject",
+      "Treat decode-only claims as untrusted telemetry. If they influence authority, verify the token cryptographically first and fail closed on any verification error",
+      "Pin the expected issuer, audience/client id, algorithms, and token type in server configuration; construct the JWKS endpoint from that pinned issuer rather than from an unverified token claim",
+      "If a device-reported account value is intended only to prevent accidental wrong-account use, name and document it as unverified safety telemetry and keep it out of hard authorization decisions"
     ]
   },
   "regression": {
-    "fixture_ids": ["EVAL-SESS-001", "EVAL-SESS-002"],
+    "fixture_ids": [
+      "EVAL-SESS-001",
+      "EVAL-SESS-002",
+      "EVAL-SESS-003"
+    ],
     "assertions": [
       "The vulnerable verifier accepts a token whose header selects a different algorithm from the one the issuer signed with",
       "The vulnerable verifier accepts a token that omits the expiry claim entirely",
       "The remediated verifier pins the algorithm, requires every security-relevant claim, and still accepts a correctly issued token",
       "The vulnerable gateway keeps resolving a session that global revocation deleted, because the cached principal is never invalidated",
-      "The compensated gateway performs no explicit revocation check yet denies immediately after revocation, because the stored row is read on every request"
+      "The compensated gateway performs no explicit revocation check yet denies immediately after revocation, because the stored row is read on every request",
+      "A paired device cannot satisfy a business-account gate with an invalid-signature token whose decoded email equals the expected business account",
+      "The remediated device gate accepts a correctly signed, unexpired id token only when issuer, audience, token type, and account identity all match server-pinned policy",
+      "A verifier never chooses a JWKS endpoint from an unverified issuer claim; key discovery starts from server-pinned configuration"
     ]
   },
   "mappings": {
-    "cwe": ["CWE-347", "CWE-345", "CWE-384", "CWE-613"],
-    "owasp": ["OWASP-ASVS:V3", "OWASP-A07:2021", "OWASP-API2:2023"]
+    "cwe": [
+      "CWE-347",
+      "CWE-345",
+      "CWE-384",
+      "CWE-613"
+    ],
+    "owasp": [
+      "OWASP-ASVS:V3",
+      "OWASP-A07:2021",
+      "OWASP-API2:2023"
+    ]
   },
   "calibration": {
     "measurement_status": "NOT_MEASURED",
@@ -194,6 +315,7 @@
     "Library defaults change between versions, so a verifier that looks permissive may be constrained by the version actually installed",
     "Revocation behaviour depends on deployment topology: caches, edges, and sidecars outside the repository often decide the real delay",
     "Fixtures demonstrate the verification contract, not the entropy or storage of production key material",
-    "A short token lifetime can be a deliberate, documented trade-off rather than a defect, and must be judged against the stated model"
+    "A short token lifetime can be a deliberate, documented trade-off rather than a defect, and must be judged against the stated model",
+    "A correctly verified upstream id token proves only the issuer's claim at token time; account switching, revocation, session binding, and device compromise can still require separate controls"
   ]
 }
