@@ -8,7 +8,8 @@ from sechelix_core.variant_hunter import VariantSearchError, classify_variant, s
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PACK_PATH = ROOT / "gold-packs" / "SEC-AUTHZ-IDOR-001" / "pack.json"\nSESSION_PACK_PATH = ROOT / "gold-packs" / "SEC-SESSION-TOKEN-001" / "pack.json"
+PACK_PATH = ROOT / "gold-packs" / "SEC-AUTHZ-IDOR-001" / "pack.json"
+SESSION_PACK_PATH = ROOT / "gold-packs" / "SEC-SESSION-TOKEN-001" / "pack.json"
 
 
 def seed() -> dict[str, str]:
@@ -59,6 +60,17 @@ class GoldPackTests(unittest.TestCase):
         pack["sources"]["source_ids"].append("unknown-source")
         with self.assertRaises(ContractValidationError):
             validate_contract("gold-check-pack", pack)
+
+    def test_session_pack_covers_paired_device_identity_assertions(self) -> None:
+        pack = json.loads(SESSION_PACK_PATH.read_text(encoding="utf-8"))
+        validate_contract("gold-check-pack", pack)
+        self.assertIn("EVAL-SESS-003", pack["regression"]["fixture_ids"])
+        self.assertIn("device_identity", pack["applicability"]["capability_tags"])
+        frameworks = {item["framework"] for item in pack["framework_fingerprints"]}
+        self.assertIn("device-asserted-token-identity", frameworks)
+        remediation = "\n".join(pack["remediation"]["patterns"]).lower()
+        self.assertIn("pinned issuer", remediation)
+        self.assertIn("unverified token claim", remediation)
 
 
 class VariantHunterTests(unittest.TestCase):
