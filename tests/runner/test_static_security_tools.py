@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import patch, Mock
 
+from sechelix_runner.cli import build_parser
 from sechelix_runner.pentest.static_tools import StaticSecurityRunner
 
 
@@ -50,6 +51,14 @@ class StaticSecurityRunnerTests(unittest.TestCase):
         self.assertIn("SEC-SESSION-TOKEN-001", rules)
         self.assertIn("pinned issuer", rules)
         self.assertNotIn("VERIFIED", rules)
+
+    def test_cli_exposes_session_token_trust_scout(self) -> None:
+        args = build_parser().parse_args(
+            ["scout", ".", "--capability", "session-token-trust", "--json"]
+        )
+        self.assertEqual(args.command, "scout")
+        self.assertEqual(args.capability, "session-token-trust")
+        self.assertTrue(args.json)
 
     def test_runner_exposes_no_generic_run_command(self) -> None:
         runner_methods = {name for name in dir(StaticSecurityRunner) if not name.startswith("_")}
