@@ -1,0 +1,30 @@
+{
+  "id": "EVAL-SESS-003",
+  "schema_version": "1.1",
+  "family": "Authentication / Sessions",
+  "task": "Decide whether a paired browser device can forge the upstream business-account identity used by a privileged publish gate.",
+  "provenance": "Synthetic SecHelix fixture authored for this repository. No third-party code, no customer data, and no request is executed by the eval runner.",
+  "difficulty": "hard",
+  "mappings": {
+    "cwe": [
+      "CWE-347",
+      "CWE-345"
+    ]
+  },
+  "variants": {
+    "vulnerable": {
+      "expected": "VULNERABLE",
+      "language": "typescript",
+      "filename": "device_account_gate.ts",
+      "source": "type PushRequest = {\n  installationPaired: boolean;\n  cookieIdToken: string;\n};\n\nfunction decodeEmailWithoutVerification(idToken: string): string | null {\n  try {\n    const payload = idToken.split(\".\")[1];\n    if (!payload) return null;\n    const claims = JSON.parse(\n      Buffer.from(payload.replace(/-/g, \"+\").replace(/_/g, \"/\"), \"base64\").toString(\"utf8\"),\n    ) as Record<string, unknown>;\n    if (claims.token_use !== undefined && claims.token_use !== \"id\") return null;\n    return typeof claims.email === \"string\" ? claims.email.toLowerCase() : null;\n  } catch {\n    return null;\n  }\n}\n\nexport function canPublishFromDevice(req: PushRequest, expectedBusinessEmail: string): boolean {\n  if (!req.installationPaired) return false;\n\n  // Pairing proves the request came from an enrolled installation. The browser\n  // also sends its current upstream id token so we can avoid publishing from\n  // the wrong account.\n  const reportedEmail = decodeEmailWithoutVerification(req.cookieIdToken);\n  return reportedEmail === expectedBusinessEmail.toLowerCase();\n}\n",
+      "rationale": "The installation pairing proves only which device sent the request. The stronger upstream-account identity is derived by base64-decoding a device-supplied JWT without verifying its signature, issuer, audience, token type, or expiry. A paired device that can choose the cookie value can therefore assert the expected business email and satisfy the publish gate."
+    },
+    "clean": {
+      "expected": "CLEAN",
+      "language": "typescript",
+      "filename": "device_account_gate.ts",
+      "source": "type PushRequest = {\n  installationPaired: boolean;\n  cookieIdToken: string;\n};\n\ntype VerifiedClaims = {\n  email?: string;\n  token_use?: string;\n};\n\ntype IdTokenVerifier = {\n  verify(\n    token: string,\n    policy: {\n      issuer: string;\n      audience: string;\n      algorithms: readonly [\"RS256\"];\n    },\n  ): Promise<VerifiedClaims>;\n};\n\nconst EXPECTED_ISSUER = \"https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_business\";\nconst EXPECTED_CLIENT_ID = \"business-web-client\";\n\nexport async function canPublishFromDevice(\n  req: PushRequest,\n  expectedBusinessEmail: string,\n  verifier: IdTokenVerifier,\n): Promise<boolean> {\n  if (!req.installationPaired) return false;\n\n  try {\n    // The verifier is configured from server-owned values. Its JWKS source is\n    // derived from EXPECTED_ISSUER, never from an unverified token claim.\n    const claims = await verifier.verify(req.cookieIdToken, {\n      issuer: EXPECTED_ISSUER,\n      audience: EXPECTED_CLIENT_ID,\n      algorithms: [\"RS256\"],\n    });\n    if (claims.token_use !== \"id\") return false;\n    return typeof claims.email === \"string\"\n      && claims.email.toLowerCase() === expectedBusinessEmail.toLowerCase();\n  } catch {\n    return false;\n  }\n}\n",
+      "rationale": "The paired installation remains a separate transport control, while the upstream account identity is accepted only after verification under server-pinned issuer, audience, algorithm, token type, and freshness policy. Key discovery is rooted in the pinned issuer rather than an unverified token claim, and any verification failure denies the publish gate."
+    }
+  }
+}
