@@ -91,7 +91,7 @@ Do not reveal the family counts, the balance, or that cases are paired.
   "provider": "<provider>",
   "runner": "<how predictions were produced>",
   "sechelix_commit": "<git rev-parse HEAD of the repo the packet came from>",
-  "fixture_suite_version": "38 fixtures / 76 cases",
+  "fixture_suite_version": "39 fixtures / 76 cases",
   "agent_host": "<Claude Code | API | other>",
   "execution_mode": "STATIC",
   "tools": ["<any scanner used, or none>"],

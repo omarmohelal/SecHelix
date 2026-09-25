@@ -1958,6 +1958,108 @@ class SessionGateway:
 ''',
 ))
 
+FIXTURES.append(fixture(
+    "EVAL-SESS-003",
+    "Authentication / Sessions",
+    "Decide whether a paired browser device can forge the upstream business-account identity used by a privileged publish gate.",
+    language="typescript",
+    filename="device_account_gate.ts",
+    cwe=["CWE-347", "CWE-345"],
+    difficulty="hard",
+    vulnerable_rationale=(
+        "The installation pairing proves only which device sent the request. "
+        "The stronger upstream-account identity is derived by base64-decoding a "
+        "device-supplied JWT without verifying its signature, issuer, audience, "
+        "token type, or expiry. A paired device that can choose the cookie value "
+        "can therefore assert the expected business email and satisfy the publish gate."
+    ),
+    vulnerable='''\\
+type PushRequest = {
+  installationPaired: boolean;
+  cookieIdToken: string;
+};
+
+function decodeEmailWithoutVerification(idToken: string): string | null {
+  try {
+    const payload = idToken.split(".")[1];
+    if (!payload) return null;
+    const claims = JSON.parse(
+      Buffer.from(payload.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"),
+    ) as Record<string, unknown>;
+    if (claims.token_use !== undefined && claims.token_use !== "id") return null;
+    return typeof claims.email === "string" ? claims.email.toLowerCase() : null;
+  } catch {
+    return null;
+  }
+}
+
+export function canPublishFromDevice(req: PushRequest, expectedBusinessEmail: string): boolean {
+  if (!req.installationPaired) return false;
+
+  // Pairing proves the request came from an enrolled installation. The browser
+  // also sends its current upstream id token so we can avoid publishing from
+  // the wrong account.
+  const reportedEmail = decodeEmailWithoutVerification(req.cookieIdToken);
+  return reportedEmail === expectedBusinessEmail.toLowerCase();
+}
+''',
+    clean_rationale=(
+        "The paired installation remains a separate transport control, while the "
+        "upstream account identity is accepted only after verification under "
+        "server-pinned issuer, audience, algorithm, token type, and freshness policy. "
+        "Key discovery is rooted in the pinned issuer rather than an unverified "
+        "token claim, and any verification failure denies the publish gate."
+    ),
+    clean='''\\
+type PushRequest = {
+  installationPaired: boolean;
+  cookieIdToken: string;
+};
+
+type VerifiedClaims = {
+  email?: string;
+  token_use?: string;
+};
+
+type IdTokenVerifier = {
+  verify(
+    token: string,
+    policy: {
+      issuer: string;
+      audience: string;
+      algorithms: readonly ["RS256"];
+    },
+  ): Promise<VerifiedClaims>;
+};
+
+const EXPECTED_ISSUER = "https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_business";
+const EXPECTED_CLIENT_ID = "business-web-client";
+
+export async function canPublishFromDevice(
+  req: PushRequest,
+  expectedBusinessEmail: string,
+  verifier: IdTokenVerifier,
+): Promise<boolean> {
+  if (!req.installationPaired) return false;
+
+  try {
+    // The verifier is configured from server-owned values. Its JWKS source is
+    // derived from EXPECTED_ISSUER, never from an unverified token claim.
+    const claims = await verifier.verify(req.cookieIdToken, {
+      issuer: EXPECTED_ISSUER,
+      audience: EXPECTED_CLIENT_ID,
+      algorithms: ["RS256"],
+    });
+    if (claims.token_use !== "id") return false;
+    return typeof claims.email === "string"
+      && claims.email.toLowerCase() === expectedBusinessEmail.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+''',
+))
+
 # ============================================================================
 # SEC-INJECTION-DATAFLOW-001 — injection and dataflow
 # ============================================================================

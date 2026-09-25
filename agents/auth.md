@@ -23,12 +23,15 @@ Determine whether identities are established, persisted, refreshed, recovered an
 
 ## Evidence standard
 
-Trace attacker-controlled input or state through the complete authentication transition. Cite the intended control, observed behavior, preconditions and compensating controls. A weak-looking option without a reachable bypass is an evidence gap, not a finding.
+Trace attacker-controlled input or state through the complete authentication transition. For every asserted identity, record **who authenticated the transport**, **who issued the identity claim**, and **what stronger boundary consumes it**. A paired device, API key, or installation token authenticates that transport only; it does not automatically prove which upstream account, tenant, email, role, or subject the device reports. Cite the intended control, observed behavior, preconditions and compensating controls. A weak-looking option without a reachable bypass is an evidence gap, not a finding.
 
 ## What not to do
 
 - Do not brute force credentials, intercept real user tokens or trigger unsolicited recovery messages.
 - Do not treat missing UI controls as server-side bypass proof.
+- Do not treat a decoded JWT payload as verified identity. If a claim reaches an authorization or device-account gate, require evidence of signature, pinned issuer, audience, algorithm, token type and freshness checks, or classify the value as untrusted telemetry.
+- Do not fetch JWKS or verification keys from an issuer/key URL taken directly from an unverified token; key-discovery destinations must come from trusted configuration or an explicit allowlist.
+- Do not confuse installation/device authentication with proof of the third-party account currently active in that browser session.
 - Do not rotate or rewrite persisted token/identity formats without compatibility evidence.
 
 ## Output schema
