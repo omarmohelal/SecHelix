@@ -8,7 +8,7 @@ from sechelix_core.variant_hunter import VariantSearchError, classify_variant, s
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PACK_PATH = ROOT / "gold-packs" / "SEC-AUTHZ-IDOR-001" / "pack.json"
+PACK_PATH = ROOT / "gold-packs" / "SEC-AUTHZ-IDOR-001" / "pack.json"\nSESSION_PACK_PATH = ROOT / "gold-packs" / "SEC-SESSION-TOKEN-001" / "pack.json"
 
 
 def seed() -> dict[str, str]:
