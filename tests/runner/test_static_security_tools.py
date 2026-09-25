@@ -24,6 +24,33 @@ class StaticSecurityRunnerTests(unittest.TestCase):
             decisions = Path(work, "tool-decisions.jsonl").read_text(encoding="utf-8")
             self.assertIn('"network": false', decisions.lower())
 
+    def test_session_token_trust_is_curated_bounded_and_candidate_only(self) -> None:
+        with tempfile.TemporaryDirectory() as repo, tempfile.TemporaryDirectory() as work:
+            payload = '{"results":[{"check_id":"sechelix.jwt.decode-only-payload","path":"device.ts","start":{"line":4,"col":1},"extra":{"message":"decode-only jwt","severity":"WARNING"}}],"errors":[]}'
+            completed = Mock(returncode=0, stdout=payload, stderr="")
+            with patch("sechelix_runner.pentest.static_tools.subprocess.run", return_value=completed) as run:
+                result = StaticSecurityRunner(repo, work).session_token_trust()
+            command = run.call_args.args[0]
+            self.assertEqual(command[0], "semgrep")
+            self.assertIn("session-token-trust.yml", " ".join(command))
+            self.assertFalse(run.call_args.kwargs["shell"])
+            self.assertEqual(result.tool, "session-token-trust")
+            self.assertEqual(result.candidates[0]["status"], "CANDIDATE")
+            self.assertEqual(result.candidates[0]["assessment"], "UNASSESSED")
+            decisions = Path(work, "tool-decisions.jsonl").read_text(encoding="utf-8")
+            self.assertIn('"network": false', decisions.lower())
+
+    def test_session_token_rules_are_review_leads_not_findings(self) -> None:
+        rules = (
+            Path(__file__).resolve().parents[2]
+            / "rules"
+            / "session-token-trust.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("sechelix_status: CANDIDATE", rules)
+        self.assertIn("SEC-SESSION-TOKEN-001", rules)
+        self.assertIn("pinned issuer", rules)
+        self.assertNotIn("VERIFIED", rules)
+
     def test_runner_exposes_no_generic_run_command(self) -> None:
         runner_methods = {name for name in dir(StaticSecurityRunner) if not name.startswith("_")}
         self.assertNotIn("run", runner_methods)
