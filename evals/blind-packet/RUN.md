@@ -158,6 +158,6 @@ than a misleading `0.0`.
 
 ## What this will not tell you
 
-The suite is 38 paired fixtures across 10 families, authored rather than harvested from real
+The suite is 39 paired fixtures across 10 families, authored rather than harvested from real
 incidents. A strong score means the reviewer distinguishes these paired near-misses — it does not
 establish performance on an unfamiliar production codebase, and nobody should claim it does.
