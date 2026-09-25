@@ -60,6 +60,24 @@ class StaticSecurityRunnerTests(unittest.TestCase):
         self.assertEqual(args.capability, "session-token-trust")
         self.assertTrue(args.json)
 
+    def test_session_token_trust_uses_local_rules_without_auto_config(self) -> None:
+        with tempfile.TemporaryDirectory() as repo, tempfile.TemporaryDirectory() as work:
+            payload = '{"results":[{"check_id":"sechelix.jwt.decode-only-payload","path":"auth.ts","start":{"line":7,"col":1},"extra":{"message":"decode-only token","severity":"WARNING"}}],"errors":[]}'
+            completed = Mock(returncode=0, stdout=payload, stderr="")
+            with patch("sechelix_runner.pentest.static_tools.subprocess.run", return_value=completed) as run:
+                result = StaticSecurityRunner(repo, work).session_token_trust()
+
+            command = run.call_args.args[0]
+            self.assertEqual(command[0], "semgrep")
+            self.assertIn("--config", command)
+            config_path = Path(command[command.index("--config") + 1])
+            self.assertEqual(config_path.name, "session-token-trust.yml")
+            self.assertNotIn("auto", command)
+            self.assertFalse(run.call_args.kwargs["shell"])
+            self.assertEqual(result.candidates[0]["status"], "CANDIDATE")
+            self.assertEqual(result.candidates[0]["assessment"], "UNASSESSED")
+            self.assertTrue(Path(result.report_path).name.startswith("session-token-trust"))
+
     def test_runner_exposes_no_generic_run_command(self) -> None:
         runner_methods = {name for name in dir(StaticSecurityRunner) if not name.startswith("_")}
         self.assertNotIn("run", runner_methods)
