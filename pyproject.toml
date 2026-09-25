@@ -69,11 +69,12 @@ norecursedirs = ["examples", "dist", ".git", "*.egg-info", "node_modules"]
 # The Agent Skill itself is still absent: it is distributed through the skills
 # ecosystem and is deliberately not a Python package.
 packages = ["sechelix_runner", "sechelix_core", "adapters"]
-artifacts = ["schemas/*.json", "catalog/*.json", "catalog/*.txt"]
+artifacts = ["schemas/*.json", "catalog/*.json", "catalog/*.txt", "rules/*.yml"]
 
 [tool.hatch.build.targets.wheel.force-include]
 schemas = "sechelix_runner/_bundled/schemas"
 catalog = "sechelix_runner/_bundled/catalog"
+rules = "sechelix_runner/_bundled/rules"
 
 [tool.hatch.build.targets.sdist]
 # The sdist must contain every source that the wheel builder consumes. PyPI and
@@ -86,6 +87,7 @@ include = [
     "/adapters",
     "/schemas",
     "/catalog",
+    "/rules",
     "/tests/runner",
     "/docs/v4-quickstart.md",
     "/docs/packaging",

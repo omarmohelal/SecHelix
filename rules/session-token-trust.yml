@@ -1,0 +1,42 @@
+rules:
+  - id: sechelix.jwt.decode-only-payload
+    languages: [javascript, typescript]
+    message: >-
+      JWT/JWS-looking payload is base64-decoded and parsed without an adjacent
+      cryptographic verification step. Treat every derived claim as untrusted
+      telemetry until an independent verifier proves signature, pinned issuer,
+      audience, algorithm, token type, and freshness checks before authority.
+    severity: WARNING
+    metadata:
+      sechelix_family: Authentication / Sessions
+      sechelix_pack: SEC-SESSION-TOKEN-001
+      sechelix_status: CANDIDATE
+      cwe: CWE-347
+      confidence: medium
+    patterns:
+      - pattern-either:
+          - pattern: JSON.parse(Buffer.from($X, "base64").toString(...))
+          - pattern: JSON.parse(Buffer.from($X, "base64url").toString(...))
+      - pattern-not-inside: |
+          ...
+          jwtVerify(...)
+          ...
+
+  - id: sechelix.jwt.manual-payload-split
+    languages: [javascript, typescript]
+    message: >-
+      A JWT-looking token is manually split and its payload segment is decoded.
+      This is a review lead only: trace whether claims reach identity,
+      authorization, tenant, role, scope, device-account, or routing decisions,
+      and refute the candidate if a separate verified-token boundary dominates.
+    severity: INFO
+    metadata:
+      sechelix_family: Authentication / Sessions
+      sechelix_pack: SEC-SESSION-TOKEN-001
+      sechelix_status: CANDIDATE
+      cwe: CWE-347
+      confidence: low
+    patterns:
+      - pattern-either:
+          - pattern: $TOKEN.split(".")[1]
+          - pattern: String($TOKEN).split(".")[1]

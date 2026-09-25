@@ -383,6 +383,48 @@ def cmd_report(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_scout(args: argparse.Namespace) -> int:
+    """Run one bounded static evidence capability over a repository."""
+
+    from .pentest.static_tools import StaticSecurityRunner, StaticToolError
+
+    root = Path(args.path).resolve()
+    if not root.is_dir():
+        print(f"error: {root} is not a directory", file=sys.stderr)
+        return EXIT_USAGE
+    workspace = root / ".sechelix" / "scout"
+    runner = StaticSecurityRunner(root, workspace)
+    capabilities = {
+        "session-token-trust": runner.session_token_trust,
+        "semgrep": runner.semgrep,
+        "gitleaks": runner.gitleaks,
+        "trivy": runner.trivy,
+    }
+    try:
+        result = capabilities[args.capability]()
+    except StaticToolError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+
+    payload = {
+        "capability": result.tool,
+        "candidate_count": len(result.candidates),
+        "report_path": result.report_path,
+        "status": "CANDIDATE_ONLY",
+        "assessment": "UNASSESSED",
+    }
+    if args.json:
+        payload["candidates"] = list(result.candidates)
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"scout   {result.tool}")
+        print(f"signals {len(result.candidates)} candidate(s)")
+        print("status  CANDIDATE_ONLY / UNASSESSED")
+        print(f"report  {result.report_path}")
+        print("note    scanner signals are not SecHelix findings")
+    return EXIT_OK
+
+
 # -- entry point -------------------------------------------------------------
 
 
@@ -419,6 +461,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _common(audit)
     audit.set_defaults(func=cmd_audit)
+
+    scout = sub.add_parser(
+        "scout",
+        help="run one bounded static evidence capability; outputs candidates only",
+    )
+    scout.add_argument("path", nargs="?", default=".")
+    scout.add_argument(
+        "--capability",
+        choices=("session-token-trust", "semgrep", "gitleaks", "trivy"),
+        default="session-token-trust",
+    )
+    _common(scout)
+    scout.set_defaults(func=cmd_scout)
 
     runs = sub.add_parser("runs", help="list recorded runs and their integrity")
     runs.add_argument("path", nargs="?", default=".")
