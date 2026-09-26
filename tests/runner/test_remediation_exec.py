@@ -38,7 +38,7 @@ class NamedTestSpecTests(unittest.TestCase):
             NamedTestSpec("shell", ("tests/test_auth.py",))
 
     def test_targets_cannot_escape_scratch_workspace(self) -> None:
-        for target in ("../outside.py", "../../etc/passwd", "--help", ""):
+        for target in ("../outside.py", "../../etc/passwd", "/tmp/outside.py", "--help", ""):
             with self.subTest(target=target):
                 with self.assertRaises(RemediationExecutionError):
                     NamedTestSpec("python-unittest", (target,))
