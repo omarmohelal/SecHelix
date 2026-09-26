@@ -148,6 +148,21 @@ class CsrfHttpSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class SessionRevocationHttpSpec:
+    """Replay one operator-supplied LOCAL fixture session across revocation.
+
+    The revocation hook is a fixture callback, not an arbitrary network action.
+    Session headers are ephemeral and never appear in the result artifact.
+    """
+
+    url: str
+    authenticated_headers: Mapping[str, str] = field(default_factory=dict)
+    revoke_session: Callable[[], Any] | None = None
+    accepted_statuses: tuple[int, ...] = (200, 201, 202, 204)
+    denial_statuses: tuple[int, ...] = (401, 403, 404)
+
+
+@dataclass(frozen=True, slots=True)
 class SsrfHttpSpec:
     """Submit a loopback callback URL through one bounded target request.
 
@@ -221,6 +236,7 @@ class LocalProofExecutor:
             ProofClass.WEBHOOK_SIGNATURE: self._webhook,
             ProofClass.SSRF_CALLBACK: self._ssrf,
             ProofClass.CSRF_REQUEST: self._csrf,
+            ProofClass.SESSION_REVOCATION: self._session_revocation,
         }
         if plan.proof_class is ProofClass.XSS_EXECUTION:
             return ProofExecutionResult(
@@ -424,6 +440,64 @@ class LocalProofExecutor:
             notes = [
                 "foreign-origin response was neither an expected denial nor a normal accepted outcome"
             ]
+        return ProofExecutionResult(
+            plan.finding_id,
+            plan.proof_class,
+            behavior,
+            observations,
+            notes=notes,
+        )
+
+    def _session_revocation(self, plan: ProofPlan, spec: Any) -> ProofExecutionResult:
+        if not isinstance(spec, SessionRevocationHttpSpec):
+            raise ProofExecutionError("session revocation plan requires SessionRevocationHttpSpec")
+        if not spec.authenticated_headers:
+            raise ProofExecutionError("session revocation proof requires an authenticated fixture session")
+        if spec.revoke_session is None or not callable(spec.revoke_session):
+            raise ProofExecutionError("session revocation proof requires an operator-supplied revocation hook")
+
+        control = self._request(
+            "pre-revocation-control",
+            spec.url,
+            headers=spec.authenticated_headers,
+        )
+        if control.status not in spec.accepted_statuses:
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.INCONCLUSIVE,
+                [control.to_dict()],
+                notes=[
+                    "pre-revocation authenticated control was not accepted; revocation conclusion would be ambiguous"
+                ],
+            )
+
+        try:
+            spec.revoke_session()
+        except Exception as exc:
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.INCONCLUSIVE,
+                [control.to_dict()],
+                notes=[f"fixture revocation hook failed: {type(exc).__name__}"],
+            )
+
+        replay = self._request(
+            "post-revocation-replay",
+            spec.url,
+            headers=spec.authenticated_headers,
+        )
+        observations = [control.to_dict(), replay.to_dict()]
+        if replay.status in spec.denial_statuses:
+            behavior = ProofBehavior.SECURE_BEHAVIOR
+            notes = ["the exact same fixture session was denied after revocation"]
+        elif replay.status in spec.accepted_statuses:
+            behavior = ProofBehavior.VULNERABLE_BEHAVIOR
+            notes = ["the exact same revoked fixture session still reached the protected resource"]
+        else:
+            behavior = ProofBehavior.INCONCLUSIVE
+            notes = ["post-revocation response was neither an expected denial nor a normal accepted outcome"]
         return ProofExecutionResult(
             plan.finding_id,
             plan.proof_class,

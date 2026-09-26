@@ -83,7 +83,7 @@ provenance.
 
 Current focused slice: remediation/retest now has an executable `sechelix fix-check` surface over the existing scratch-workspace runner. It runs only named, policy-gated tests in the network-disabled sandbox, consumes explicit differential-review and independent-verification evidence, refuses the caller's current working tree, and can reach `READY_FOR_REVIEW` only when every canonical remediation stage passed. It never applies the patch.\n\nCurrent focused slice: the HTTP/API client now has a secret-minimized exchange recorder behind the existing policy/scope controls. It persists method, redacted URL, status, content type, header names, body sizes and auth-context labels, never header values/cookies/bodies. Replayability is marked only for read-only exchanges that can be reconstructed without secret or query data.
 
-Current focused slice: safely reconstructible anonymous GET/HEAD/OPTIONS exchanges can now be replayed through the normal TargetScope, InteractionPolicy, gateway and redirect controls. Persisted replayability is revalidated rather than trusted, and any authentication context, body, sensitive header or redacted query forces a fresh operator-authorized request.\n\nNext focused slice: add authenticated CSRF/XSS/session fixtures using fresh persona/session inputs rather than persisted credential reconstruction.
+Current focused slice: safely reconstructible anonymous GET/HEAD/OPTIONS exchanges can now be replayed through the normal TargetScope, InteractionPolicy, gateway and redirect controls. Persisted replayability is revalidated rather than trusted, and any authentication context, body, sensitive header or redacted query forces a fresh operator-authorized request.\n\nCurrent focused slice: session revocation now has a fixed-shape LOCAL proof using a fresh operator-supplied fixture session plus an explicit local revocation hook. It records a successful protected-read control, revokes that exact fixture session, then replays the same session. Continued access is VULNERABLE_BEHAVIOR evidence; denial is SECURE_BEHAVIOR; a broken control or revocation hook is INCONCLUSIVE. Session headers remain ephemeral and never enter the artifact.\n\nNext focused slice: add explicit Playwright-backed LOCAL XSS marker execution with the same scope/policy/evidence boundaries; then extend authenticated session rotation/revocation coverage beyond the deterministic fixture path.
 
 
 ## CSRF proof execution
@@ -100,3 +100,20 @@ VULNERABLE_BEHAVIOR evidence, denying it while the control succeeds is
 SECURE_BEHAVIOR evidence, and an unusable control is INCONCLUSIVE. The proof
 does not promote a finding; independent verification still establishes attacker
 control, reachability and the broken boundary.
+
+
+## Session revocation proof execution
+
+SecHelix now has a fixed-shape LOCAL-only session revocation proof. It requires
+both an authenticated fixture session and explicit fixture-session revocation
+authority. The operator supplies a deterministic local revocation hook; SecHelix
+does not invent a logout/reset endpoint or persist the session material.
+
+The proof first establishes that the protected read works, invokes the local
+revocation hook, then replays the exact same session against the same resource.
+If the replay is denied, the result is SECURE_BEHAVIOR. If it still reaches the
+protected resource, the result is VULNERABLE_BEHAVIOR evidence for stale
+authority or incomplete revocation propagation. A failed control or revocation
+hook is INCONCLUSIVE. Independent verification is still required before a
+finding can become VERIFIED.
+
