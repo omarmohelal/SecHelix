@@ -134,6 +134,11 @@ class WebhookHttpSpec:
     valid_signature: str
     invalid_signature: str = "sechelix-invalid-signature"
     accepted_statuses: tuple[int, ...] = (200, 201, 202, 204)
+    # Optional local readback turns webhook status observations into a
+    # deterministic side-effect invariant. The value never enters the artifact
+    # in the clear; only digests are recorded in notes.
+    read_state: Callable[[], Any] | None = None
+    expected_single_state: Any = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -354,6 +359,8 @@ class LocalProofExecutor:
             raise ProofExecutionError("webhook plan requires WebhookHttpSpec")
         if not spec.signature_header.strip():
             raise ProofExecutionError("signature_header must not be empty")
+
+        before = spec.read_state() if spec.read_state else None
         valid = self._request(
             "valid-signature-control",
             spec.url,
@@ -361,7 +368,11 @@ class LocalProofExecutor:
             {spec.signature_header: spec.valid_signature},
             spec.body,
         )
+        after_valid = spec.read_state() if spec.read_state else None
+
         unsigned = self._request("unsigned", spec.url, "POST", {}, spec.body)
+        after_unsigned = spec.read_state() if spec.read_state else None
+
         invalid = self._request(
             "invalid-signature",
             spec.url,
@@ -369,6 +380,8 @@ class LocalProofExecutor:
             {spec.signature_header: spec.invalid_signature},
             spec.body,
         )
+        after_invalid = spec.read_state() if spec.read_state else None
+
         replay = self._request(
             "valid-signature-replay",
             spec.url,
@@ -376,12 +389,50 @@ class LocalProofExecutor:
             {spec.signature_header: spec.valid_signature},
             spec.body,
         )
+        after_replay = spec.read_state() if spec.read_state else None
+
         observations = [item.to_dict() for item in (valid, unsigned, invalid, replay)]
         bad_accept = unsigned.status in spec.accepted_statuses or invalid.status in spec.accepted_statuses
         replay_accept = replay.status in spec.accepted_statuses and valid.status in spec.accepted_statuses
+
         if valid.status not in spec.accepted_statuses:
             behavior = ProofBehavior.INCONCLUSIVE
             notes = ["valid signed control was not accepted"]
+        elif spec.read_state is not None:
+            if after_valid != spec.expected_single_state or before == after_valid:
+                behavior = ProofBehavior.INCONCLUSIVE
+                notes = [
+                    "valid signed control did not establish the supplied single-application state invariant",
+                    f"before_sha256={_value_digest(before)}",
+                    f"after_valid_sha256={_value_digest(after_valid)}",
+                ]
+            else:
+                unauthorized_mutation = (
+                    after_unsigned != after_valid
+                    or after_invalid != after_unsigned
+                )
+                replay_mutation = after_replay != after_invalid
+                if unauthorized_mutation or replay_mutation:
+                    behavior = ProofBehavior.VULNERABLE_BEHAVIOR
+                    notes = [
+                        "fixture state changed after an unauthorized delivery or replay",
+                        f"after_valid_sha256={_value_digest(after_valid)}",
+                        f"after_unsigned_sha256={_value_digest(after_unsigned)}",
+                        f"after_invalid_sha256={_value_digest(after_invalid)}",
+                        f"after_replay_sha256={_value_digest(after_replay)}",
+                    ]
+                elif bad_accept:
+                    behavior = ProofBehavior.INCONCLUSIVE
+                    notes = [
+                        "unsigned or invalid-signature delivery returned an accepted status but produced no observed state change; signature enforcement remains ambiguous",
+                        f"after_valid_sha256={_value_digest(after_valid)}",
+                    ]
+                else:
+                    behavior = ProofBehavior.SECURE_BEHAVIOR
+                    notes = [
+                        "only the valid signed control changed fixture state; rejected unauthorized deliveries and accepted/rejected replay produced no additional side effect",
+                        f"after_valid_sha256={_value_digest(after_valid)}",
+                    ]
         elif bad_accept:
             behavior = ProofBehavior.VULNERABLE_BEHAVIOR
             notes = ["unsigned or incorrectly signed payload was accepted"]

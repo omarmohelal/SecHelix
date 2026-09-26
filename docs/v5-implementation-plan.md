@@ -31,7 +31,7 @@ is a hard boundary outside model control.
 | External scanners | Semgrep, curated JWT/session scout, Gitleaks and Trivy run through the gateway | Finish dependency audit/runtime image pinning and measured scanner contribution |
 | Sandbox | Docker policy/executor exists | Build dedicated V5 image with pinned security tools |
 | Tool gateway | Shipped and consumed by browser/API/static execution | Extend only through named capabilities; never add a generic shell |
-| Business logic | Specialist graph exists | Add idempotency/race/payment/webhook/state-machine fixtures |
+| Business logic | Race/idempotency proof + webhook signature/replay proof with optional local state invariant shipped | Add payment and explicit state-machine fixtures |
 | Multi-agent graph | Live graph exists | Converge names on V5 specialist graph; verifier stays separate |
 | Evidence store | Run/engagement artifacts + exact scanner dedupe shipped | Add conservative correlation hints, then canonical finding evidence envelope/root-cause grouping |
 | Fix/retest | Methodology exists | Executable fix command + original-proof replay |
@@ -83,7 +83,7 @@ provenance.
 
 Current focused slice: remediation/retest now has an executable `sechelix fix-check` surface over the existing scratch-workspace runner. It runs only named, policy-gated tests in the network-disabled sandbox, consumes explicit differential-review and independent-verification evidence, refuses the caller's current working tree, and can reach `READY_FOR_REVIEW` only when every canonical remediation stage passed. It never applies the patch.\n\nCurrent focused slice: the HTTP/API client now has a secret-minimized exchange recorder behind the existing policy/scope controls. It persists method, redacted URL, status, content type, header names, body sizes and auth-context labels, never header values/cookies/bodies. Replayability is marked only for read-only exchanges that can be reconstructed without secret or query data.
 
-Current focused slice: safely reconstructible anonymous GET/HEAD/OPTIONS exchanges can now be replayed through the normal TargetScope, InteractionPolicy, gateway and redirect controls. Persisted replayability is revalidated rather than trusted, and any authentication context, body, sensitive header or redacted query forces a fresh operator-authorized request.\n\nCurrent focused slice: session revocation now has a fixed-shape LOCAL proof using a fresh operator-supplied fixture session plus an explicit local revocation hook. It records a successful protected-read control, revokes that exact fixture session, then replays the same session. Continued access is VULNERABLE_BEHAVIOR evidence; denial is SECURE_BEHAVIOR; a broken control or revocation hook is INCONCLUSIVE. Session headers remain ephemeral and never enter the artifact.\n\nCurrent focused slice: XSS now has an explicit Playwright-backed LOCAL marker proof. The payload is fixed by SecHelix, query-encoded, and limited to writing one deterministic window marker. Target scope is exact-loopback, browser requests pass through the policy gateway and read-only interaction policy, and the proof requires a declared sink selector so non-execution without sink reachability remains INCONCLUSIVE rather than a false clean result.\n\nCurrent focused slice: HTTP evidence now extracts security-relevant Set-Cookie attributes in memory while discarding cookie names and values. Evidence can record Secure, HttpOnly, SameSite class, Partitioned, root Path, Domain scoping, __Host-/__Secure- prefix class, deletion Max-Age and Expires presence. Multiple Set-Cookie headers are preserved as separate attribute observations; legacy evidence without this optional field remains readable. These are transport observations only and do not self-promote into session findings.\n\nNext focused slice: correlate fresh authenticated persona/browser state with HTTP evidence so session rotation, cookie policy and authorization transitions can be reasoned about without persisting reusable credentials, then move into payment/webhook/state-machine business-logic fixtures.
+Current focused slice: safely reconstructible anonymous GET/HEAD/OPTIONS exchanges can now be replayed through the normal TargetScope, InteractionPolicy, gateway and redirect controls. Persisted replayability is revalidated rather than trusted, and any authentication context, body, sensitive header or redacted query forces a fresh operator-authorized request.\n\nCurrent focused slice: session revocation now has a fixed-shape LOCAL proof using a fresh operator-supplied fixture session plus an explicit local revocation hook. It records a successful protected-read control, revokes that exact fixture session, then replays the same session. Continued access is VULNERABLE_BEHAVIOR evidence; denial is SECURE_BEHAVIOR; a broken control or revocation hook is INCONCLUSIVE. Session headers remain ephemeral and never enter the artifact.\n\nCurrent focused slice: XSS now has an explicit Playwright-backed LOCAL marker proof. The payload is fixed by SecHelix, query-encoded, and limited to writing one deterministic window marker. Target scope is exact-loopback, browser requests pass through the policy gateway and read-only interaction policy, and the proof requires a declared sink selector so non-execution without sink reachability remains INCONCLUSIVE rather than a false clean result.\n\nCurrent focused slice: HTTP evidence now extracts security-relevant Set-Cookie attributes in memory while discarding cookie names and values. Evidence can record Secure, HttpOnly, SameSite class, Partitioned, root Path, Domain scoping, __Host-/__Secure- prefix class, deletion Max-Age and Expires presence. Multiple Set-Cookie headers are preserved as separate attribute observations; legacy evidence without this optional field remains readable. These are transport observations only and do not self-promote into session findings.\n\nCurrent focused slice: webhook proof can now accept an operator-supplied local state readback. A valid signed control must establish the declared single-application invariant; unsigned, invalid-signature and replay requests are then checked for additional state changes. HTTP acceptance alone remains inconclusive when no state readback exists. Only state digests enter evidence notes.\n\nNext focused slice: correlate fresh authenticated persona/browser state with HTTP evidence so session rotation, cookie policy and authorization transitions can be reasoned about without persisting reusable credentials, then add explicit payment/state-machine business-logic fixtures.
 
 
 ## CSRF proof execution
@@ -153,3 +153,22 @@ Cookie names and values never enter the artifact. The metadata is evidence for a
 session specialist, not a vulnerability verdict: preference cookies can
 legitimately differ from authentication cookies, so independent context and
 verification remain required.
+
+
+## Stateful webhook replay proof
+
+Webhook status codes are not enough to prove replay impact: an idempotent
+endpoint may legitimately return 2xx for a repeated delivery. SecHelix can now
+accept a LOCAL fixture state callback plus the expected single-application
+state.
+
+The proof establishes the valid signed control first, then sends unsigned,
+incorrectly signed and replayed deliveries. The raw fixture state never enters
+the artifact. SecHelix records only digests and classifies additional
+side-effects after the valid control as VULNERABLE_BEHAVIOR evidence. If
+unsigned/invalid deliveries are rejected and state remains at the supplied
+single-application invariant through replay, the bounded replay check records
+SECURE_BEHAVIOR. A bad-signature delivery that returns an accepted status but
+produces no observed state change remains INCONCLUSIVE rather than being called
+secure. Without readback, the existing conservative status-only behavior remains
+unchanged and an accepted replay stays INCONCLUSIVE.
