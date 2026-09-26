@@ -91,33 +91,34 @@ def make_handoff(root: Path) -> tuple[dict, dict[str, str]]:
             "replay/outcomes.json": file_digest(replay),
             "manifest.json": file_digest(manifest),
         }
+        bundle = {
+            "schema_version": "sechelix-arena-measurement-bundle/v1",
+            "status": "READY_FOR_INDEPENDENT_ASSESSMENT",
+            "run_identity": {"run_id": f"RUN-{case_id}"},
+            "bindings": {
+                "workspace_artifacts": workspace_artifacts,
+            },
+            "assessment_targets": {
+                "independent_verifier": [
+                    {
+                        "node_id": "verifier",
+                        "artifact_ref": "replay/outcomes.json",
+                    }
+                ],
+                "release_gate": [
+                    {
+                        "node_id": "gate",
+                        "artifact_ref": "replay/outcomes.json",
+                    }
+                ],
+            },
+        }
         cases.append(
             {
                 "case_id": case_id,
                 "run_id": f"RUN-{case_id}",
-                "bundle_digest": "sha256:" + ("a" if case_id == "CASE-A" else "b") * 64,
-                "bundle": {
-                    "schema_version": "sechelix-arena-measurement-bundle/v1",
-                    "status": "READY_FOR_INDEPENDENT_ASSESSMENT",
-                    "run_identity": {"run_id": f"RUN-{case_id}"},
-                    "bindings": {
-                        "workspace_artifacts": workspace_artifacts,
-                    },
-                    "assessment_targets": {
-                        "independent_verifier": [
-                            {
-                                "node_id": "verifier",
-                                "artifact_ref": "replay/outcomes.json",
-                            }
-                        ],
-                        "release_gate": [
-                            {
-                                "node_id": "gate",
-                                "artifact_ref": "replay/outcomes.json",
-                            }
-                        ],
-                    },
-                },
+                "bundle_digest": canonical_digest(bundle),
+                "bundle": bundle,
             }
         )
         artifacts[case_id] = str(replay.relative_to(root))
