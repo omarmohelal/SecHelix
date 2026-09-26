@@ -13,6 +13,7 @@ from sechelix_runner.proof_exec import (
     ProofBehavior,
     ProofExecutionError,
     RaceHttpSpec,
+    SessionRevocationHttpSpec,
     SsrfHttpSpec,
     TraversalHttpSpec,
     WebhookHttpSpec,
@@ -24,6 +25,8 @@ class _FixtureHandler(BaseHTTPRequestHandler):
     redeem_count = 0
     csrf_vulnerable_count = 0
     csrf_secure_count = 0
+    session_secure_active = True
+    session_vulnerable_active = True
     sentinel = b"SECHELIX_SENTINEL_93B1"
 
     def do_GET(self) -> None:  # noqa: N802
@@ -48,6 +51,24 @@ class _FixtureHandler(BaseHTTPRequestHandler):
                 self._send(200, b"fetched")
             except Exception:
                 self._send(502, b"failed")
+            return
+        if parsed.path == "/session-secure":
+            if self.headers.get("Cookie") != "session=fixture-auth":
+                self._send(401, b"no session")
+                return
+            if not type(self).session_secure_active:
+                self._send(401, b"revoked")
+                return
+            self._send(200, b"protected")
+            return
+        if parsed.path == "/session-vulnerable":
+            if self.headers.get("Cookie") != "session=fixture-auth":
+                self._send(401, b"no session")
+                return
+            # Intentionally vulnerable local fixture: the resolved principal was
+            # cached before revocation and the protected read never re-checks
+            # the authoritative session record.
+            self._send(200, b"protected")
             return
         self._send(404, b"missing")
 
@@ -111,6 +132,8 @@ class LocalProofExecutionTests(unittest.TestCase):
         _FixtureHandler.redeem_count = 0
         _FixtureHandler.csrf_vulnerable_count = 0
         _FixtureHandler.csrf_secure_count = 0
+        _FixtureHandler.session_secure_active = True
+        _FixtureHandler.session_vulnerable_active = True
         self.policy = NetworkPolicy(ExecutionMode.LOCAL)
         self.policy.grant(
             "127.0.0.1",
@@ -264,6 +287,75 @@ class LocalProofExecutionTests(unittest.TestCase):
         )
         self.assertEqual(result.behavior, ProofBehavior.BLOCKED)
         self.assertIn("fixture_authenticated_session", result.blocker)
+
+    def test_session_revocation_rejects_same_session_after_revoke(self) -> None:
+        plan = build_plan(
+            ProofClass.SESSION_REVOCATION,
+            "F-SESSION-REVOKE-SAFE",
+            available_authority={"fixture_authenticated_session", "fixture_session_revocation"},
+        )
+        result = self.executor.execute(
+            plan,
+            SessionRevocationHttpSpec(
+                url=self.base + "/session-secure",
+                authenticated_headers={"Cookie": "session=fixture-auth"},
+                revoke_session=lambda: setattr(_FixtureHandler, "session_secure_active", False),
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.SECURE_BEHAVIOR)
+        self.assertEqual(result.request_count, 2)
+        rendered = json.dumps(result.to_dict())
+        self.assertNotIn("fixture-auth", rendered)
+        self.assertNotIn("Cookie", rendered)
+
+    def test_session_revocation_detects_stale_cached_authority(self) -> None:
+        plan = build_plan(
+            ProofClass.SESSION_REVOCATION,
+            "F-SESSION-REVOKE-VULN",
+            available_authority={"fixture_authenticated_session", "fixture_session_revocation"},
+        )
+        result = self.executor.execute(
+            plan,
+            SessionRevocationHttpSpec(
+                url=self.base + "/session-vulnerable",
+                authenticated_headers={"Cookie": "session=fixture-auth"},
+                revoke_session=lambda: setattr(_FixtureHandler, "session_vulnerable_active", False),
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.VULNERABLE_BEHAVIOR)
+        self.assertEqual(result.request_count, 2)
+        self.assertIn("revoked fixture session", " ".join(result.notes))
+
+    def test_session_revocation_requires_fresh_session_and_revoke_authority(self) -> None:
+        plan = build_plan(
+            ProofClass.SESSION_REVOCATION,
+            "F-SESSION-REVOKE-NOSESSION",
+            available_authority={"fixture_authenticated_session", "fixture_session_revocation"},
+        )
+        with self.assertRaises(ProofExecutionError):
+            self.executor.execute(
+                plan,
+                SessionRevocationHttpSpec(
+                    url=self.base + "/session-secure",
+                    revoke_session=lambda: None,
+                ),
+            )
+
+        blocked = build_plan(
+            ProofClass.SESSION_REVOCATION,
+            "F-SESSION-REVOKE-BLOCKED",
+            available_authority={"fixture_authenticated_session"},
+        )
+        result = self.executor.execute(
+            blocked,
+            SessionRevocationHttpSpec(
+                url=self.base + "/session-secure",
+                authenticated_headers={"Cookie": "session=fixture-auth"},
+                revoke_session=lambda: None,
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.BLOCKED)
+        self.assertIn("fixture_session_revocation", result.blocker)
 
     def test_ssrf_proof_uses_loopback_callback_not_public_oob(self) -> None:
         plan = build_plan(
