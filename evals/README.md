@@ -60,12 +60,13 @@ them, attach live credentials, or point them at external targets.
 ## Dynamic proof primitive benchmark
 
 `dynamic_proof_benchmark.py` executes paired vulnerable/clean LOCAL fixtures for
-SecHelix's deterministic proof primitives. It currently measures three
+SecHelix's deterministic proof primitives. It currently measures four
 business-logic families:
 
 - one-step forbidden state transition;
 - duplicate payment/refund effect;
-- multi-step workflow prerequisite enforcement.
+- multi-step workflow prerequisite enforcement;
+- cross-entity money-flow idempotency.
 
 Run it with:
 
