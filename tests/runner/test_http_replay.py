@@ -72,7 +72,14 @@ class HttpSafeReplayTests(unittest.TestCase):
                 authentication_context=None,
             )
             payload = record.as_dict()
-            payload.pop("set_cookie_security", None)
+            for optional in (
+                "set_cookie_security",
+                "elapsed_ms",
+                "redirect_count",
+                "response_sample_sha256",
+                "response_security",
+            ):
+                payload.pop(optional, None)
             path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
 
             replay = load_safe_replay(path, sequence=1)
@@ -142,6 +149,33 @@ class HttpSafeReplayTests(unittest.TestCase):
                 response_body_bytes=20,
                 authentication_context=None,
             )
+            with self.assertRaises(HttpReplayDenied):
+                load_safe_replay(path, sequence=1)
+
+    def test_malformed_rich_transport_metadata_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "http.jsonl"
+            recorder = HttpEvidenceRecorder()
+            record = recorder.record_exchange(
+                method="GET",
+                url="https://app.example.test/health",
+                status=200,
+                content_type="application/json",
+                request_headers={},
+                response_headers={},
+                request_body_bytes=0,
+                response_body_bytes=2,
+                authentication_context=None,
+            )
+            payload = record.as_dict()
+            payload["response_sample_sha256"] = "not-a-digest"
+            path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+            with self.assertRaises(HttpReplayDenied):
+                load_safe_replay(path, sequence=1)
+
+            payload = record.as_dict()
+            payload["response_security"]["cors_allow_origin"] = "raw-secret-origin"
+            path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
             with self.assertRaises(HttpReplayDenied):
                 load_safe_replay(path, sequence=1)
 

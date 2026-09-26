@@ -151,6 +151,95 @@ class HttpEvidenceRecorderTests(unittest.TestCase):
             parsed = json.loads(raw)
             self.assertEqual(len(parsed["set_cookie_security"]), 2)
 
+    def test_response_security_projection_is_rich_but_value_free(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "http.jsonl"
+            recorder = HttpEvidenceRecorder(path)
+            record = recorder.record_exchange(
+                method="GET",
+                url="https://app.example.test/account",
+                status=200,
+                content_type="text/html",
+                request_headers={
+                    "Origin": "https://portal.example.test",
+                    "Accept": "text/html",
+                },
+                response_headers={
+                    "Access-Control-Allow-Origin": "https://portal.example.test",
+                    "Access-Control-Allow-Credentials": "true",
+                    "Vary": "Accept-Encoding, Origin",
+                    "Cache-Control": "private, no-store, s-maxage=30",
+                    "Content-Security-Policy": "default-src 'self'; frame-ancestors 'none'",
+                    "X-Frame-Options": "DENY",
+                    "X-Content-Type-Options": "nosniff",
+                    "Strict-Transport-Security": "max-age=63072000; includeSubDomains",
+                    "Referrer-Policy": "strict-origin-when-cross-origin",
+                    "Permissions-Policy": "camera=(), microphone=()",
+                    "Cross-Origin-Opener-Policy": "same-origin",
+                    "Cross-Origin-Embedder-Policy": "require-corp",
+                    "Cross-Origin-Resource-Policy": "same-origin",
+                },
+                request_body_bytes=0,
+                response_body_bytes=128,
+                authentication_context="persona:buyer",
+                elapsed_ms=17,
+                redirect_count=2,
+                response_sample_sha256="a" * 64,
+            )
+
+            security = record.response_security
+            self.assertEqual(security.cors_allow_origin, "same-request-origin")
+            self.assertTrue(security.cors_allow_credentials)
+            self.assertTrue(security.vary_origin)
+            self.assertTrue(security.cache_control_present)
+            self.assertTrue(security.cache_private)
+            self.assertTrue(security.cache_no_store)
+            self.assertTrue(security.shared_max_age_present)
+            self.assertTrue(security.content_security_policy)
+            self.assertTrue(security.csp_frame_ancestors)
+            self.assertTrue(security.x_frame_options)
+            self.assertTrue(security.nosniff)
+            self.assertTrue(security.strict_transport_security)
+            self.assertTrue(security.referrer_policy)
+            self.assertTrue(security.permissions_policy)
+            self.assertTrue(security.cross_origin_opener_policy)
+            self.assertTrue(security.cross_origin_embedder_policy)
+            self.assertTrue(security.cross_origin_resource_policy)
+            self.assertEqual(record.elapsed_ms, 17)
+            self.assertEqual(record.redirect_count, 2)
+            self.assertEqual(record.response_sample_sha256, "a" * 64)
+
+            raw = path.read_text(encoding="utf-8")
+            self.assertNotIn("https://portal.example.test", raw)
+            self.assertNotIn("max-age=63072000", raw)
+            self.assertNotIn("camera=()", raw)
+            self.assertNotIn("frame-ancestors 'none'", raw)
+            parsed = json.loads(raw)
+            self.assertEqual(
+                parsed["response_security"]["cors_allow_origin"],
+                "same-request-origin",
+            )
+
+    def test_response_security_classifies_wildcard_without_persisting_header_value(self) -> None:
+        recorder = HttpEvidenceRecorder()
+        record = recorder.record_exchange(
+            method="OPTIONS",
+            url="https://app.example.test/api/public",
+            status=204,
+            content_type="",
+            request_headers={"Origin": "https://attacker.invalid"},
+            response_headers={
+                "Access-Control-Allow-Origin": "*",
+                "Cache-Control": "public, max-age=60",
+            },
+            request_body_bytes=0,
+            response_body_bytes=0,
+            authentication_context=None,
+        )
+        self.assertEqual(record.response_security.cors_allow_origin, "wildcard")
+        self.assertTrue(record.response_security.cache_public)
+        self.assertFalse(record.response_security.cache_private)
+
     def test_simple_anonymous_get_can_be_marked_replayable(self) -> None:
         recorder = HttpEvidenceRecorder()
         record = recorder.record_exchange(
@@ -190,6 +279,9 @@ class HttpEvidenceRecorderTests(unittest.TestCase):
             self.assertEqual(len(records), 1)
             self.assertEqual(records[0].authentication_context, "persona:buyer")
             self.assertIn("authorization", records[0].request_header_names)
+            self.assertGreaterEqual(records[0].elapsed_ms, 0)
+            self.assertEqual(records[0].redirect_count, 0)
+            self.assertEqual(len(records[0].response_sample_sha256), 64)
             raw = path.read_text(encoding="utf-8")
             self.assertNotIn("request-secret", raw)
             self.assertNotIn("response-secret", raw)
