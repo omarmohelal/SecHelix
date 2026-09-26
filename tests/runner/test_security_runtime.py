@@ -20,7 +20,7 @@ DOCKERFILE_PATH = RUNTIME_DIR / "Dockerfile"
 PY_INPUT_PATH = RUNTIME_DIR / "python-tools.in"
 PY_LOCK_PATH = RUNTIME_DIR / "python-tools.lock"
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
-PY_REQUIREMENT = re.compile(r"^([A-Za-z0-9_.-]+)==([^\\s\\\\]+)\\s*\\\\?$")
+PY_REQUIREMENT = re.compile(r"^([A-Za-z0-9_.-]+)==([^\s\\]+)\s*\\?$")
 
 
 class SecurityRuntimeTests(unittest.TestCase):
