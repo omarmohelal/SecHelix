@@ -101,6 +101,119 @@ def _aggregate_optional_numeric(
     return total, True, len(values), len(applicable)
 
 
+def _aggregate_duration(
+    records: Mapping[str, Mapping[str, Any]],
+) -> tuple[float | str, bool, int, int]:
+    """Aggregate terminal-node active time without inventing missing durations."""
+
+    applicable = [
+        item
+        for item in records.values()
+        if str(item.get("status") or "") != "PENDING"
+    ]
+    if not applicable:
+        return NOT_APPLICABLE, True, 0, 0
+
+    values: list[float] = []
+    for item in applicable:
+        value = item.get("duration_seconds")
+        if isinstance(value, bool):
+            value = None
+        if isinstance(value, (int, float)):
+            if float(value) < 0:
+                raise ArenaRunTelemetryError("node duration_seconds cannot be negative")
+            values.append(float(value))
+
+    complete = len(values) == len(applicable)
+    if not complete:
+        return NOT_MEASURED, False, len(values), len(applicable)
+    return round(sum(values), 6), True, len(values), len(applicable)
+
+
+def _role_breakdown(
+    records: Mapping[str, Mapping[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Return per-role operational telemetry with explicit completeness."""
+
+    roles = sorted(
+        {
+            str(item.get("role")).strip()
+            for item in records.values()
+            if isinstance(item.get("role"), str) and str(item.get("role")).strip()
+        }
+    )
+    output: dict[str, dict[str, Any]] = {}
+    for role in roles:
+        subset = {
+            node_id: item
+            for node_id, item in records.items()
+            if item.get("role") == role
+        }
+        statuses: dict[str, int] = {}
+        for item in subset.values():
+            status = str(item.get("status") or "UNKNOWN")
+            statuses[status] = statuses.get(status, 0) + 1
+
+        duration, duration_complete, duration_measured, duration_applicable = _aggregate_duration(
+            subset
+        )
+        input_tokens, input_complete, input_measured, input_applicable = _aggregate_optional_numeric(
+            subset, "input_tokens"
+        )
+        output_tokens, output_complete, output_measured, output_applicable = _aggregate_optional_numeric(
+            subset, "output_tokens"
+        )
+        cost, cost_complete, cost_measured, cost_applicable = _aggregate_optional_numeric(
+            subset, "cost_usd"
+        )
+        provider, providers = _identity_summary(subset, "provider")
+        model, models = _identity_summary(subset, "model")
+
+        output[role] = {
+            "node_count": len(subset),
+            "status_counts": dict(sorted(statuses.items())),
+            "node_active_seconds": duration,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "cost_usd": cost,
+            "provider": provider,
+            "model": model,
+            "providers": providers,
+            "models": models,
+            "node_active_seconds": node_active_seconds,
+            "node_time_to_wall_ratio": node_time_to_wall_ratio,
+            "role_breakdown": role_breakdown,
+            "telemetry_completeness": {
+                "duration_seconds": {
+                    "complete": duration_complete,
+                    "measured_nodes": duration_measured,
+                    "applicable_nodes": duration_applicable,
+                },
+                "duration_seconds": {
+                    "complete": duration_complete,
+                    "measured_nodes": duration_measured,
+                    "applicable_nodes": duration_applicable,
+                },
+                "input_tokens": {
+                    "complete": input_complete,
+                    "measured_nodes": input_measured,
+                    "applicable_nodes": input_applicable,
+                },
+                "output_tokens": {
+                    "complete": output_complete,
+                    "measured_nodes": output_measured,
+                    "applicable_nodes": output_applicable,
+                },
+                "cost_usd": {
+                    "complete": cost_complete,
+                    "measured_nodes": cost_measured,
+                    "applicable_nodes": cost_applicable,
+                },
+            },
+        }
+    return output
+
+
 def _identity_summary(
     records: Mapping[str, Mapping[str, Any]],
     field: str,
@@ -172,6 +285,16 @@ def build_arena_run_record(
     )
     provider, providers = _identity_summary(records, "provider")
     model, models = _identity_summary(records, "model")
+    node_active_seconds, duration_complete, duration_measured, duration_applicable = _aggregate_duration(
+        records
+    )
+    role_breakdown = _role_breakdown(records)
+    if isinstance(node_active_seconds, (int, float)) and elapsed > 0:
+        node_time_to_wall_ratio: float | str = round(float(node_active_seconds) / elapsed, 6)
+    elif isinstance(node_active_seconds, (int, float)) and elapsed == 0:
+        node_time_to_wall_ratio = NOT_APPLICABLE
+    else:
+        node_time_to_wall_ratio = node_active_seconds
 
     statuses: dict[str, int] = {}
     for item in records.values():
