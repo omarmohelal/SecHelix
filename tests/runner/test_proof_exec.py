@@ -20,6 +20,7 @@ from sechelix_runner.proof_exec import (
     StateTransitionHttpSpec,
     TraversalHttpSpec,
     WebhookHttpSpec,
+    WorkflowSequenceHttpSpec,
     XssBrowserSpec,
 )
 from sechelix_runner.sandbox import ExecutionMode, NetworkPolicy
@@ -41,6 +42,9 @@ class _FixtureHandler(BaseHTTPRequestHandler):
     payment_idempotent_balance = 10_000
     payment_wrong_delta_balance = 10_000
     refund_idempotent_balance = 5_000
+    workflow_sequence_vulnerable_state = "created"
+    workflow_sequence_secure_state = "created"
+    workflow_sequence_broken_state = "created"
     sentinel = b"SECHELIX_SENTINEL_93B1"
 
     def do_GET(self) -> None:  # noqa: N802
@@ -154,6 +158,40 @@ class _FixtureHandler(BaseHTTPRequestHandler):
                 type(self).refund_idempotent_balance += 300
             self._send(200, b"accepted")
             return
+        if self.path == "/workflow-sequence-vulnerable-step1":
+            if type(self).workflow_sequence_vulnerable_state != "created":
+                self._send(409, b"wrong start")
+                return
+            type(self).workflow_sequence_vulnerable_state = "approved"
+            self._send(200, b"approved")
+            return
+        if self.path == "/workflow-sequence-vulnerable-step2":
+            # Intentionally vulnerable: step two does not require "approved".
+            type(self).workflow_sequence_vulnerable_state = "completed"
+            self._send(200, b"completed")
+            return
+        if self.path == "/workflow-sequence-secure-step1":
+            if type(self).workflow_sequence_secure_state != "created":
+                self._send(409, b"wrong start")
+                return
+            type(self).workflow_sequence_secure_state = "approved"
+            self._send(200, b"approved")
+            return
+        if self.path == "/workflow-sequence-secure-step2":
+            if type(self).workflow_sequence_secure_state != "approved":
+                self._send(409, b"missing prerequisite")
+                return
+            type(self).workflow_sequence_secure_state = "completed"
+            self._send(200, b"completed")
+            return
+        if self.path == "/workflow-sequence-broken-step1":
+            # Deliberately broken control: never reaches the declared intermediate state.
+            self._send(202, b"queued")
+            return
+        if self.path == "/workflow-sequence-broken-step2":
+            type(self).workflow_sequence_broken_state = "completed"
+            self._send(200, b"completed")
+            return
         if self.path == "/csrf-vulnerable":
             if self.headers.get("Cookie") != "session=fixture-auth":
                 self._send(401, b"no session")
@@ -255,6 +293,9 @@ class LocalProofExecutionTests(unittest.TestCase):
         _FixtureHandler.payment_idempotent_balance = 10_000
         _FixtureHandler.payment_wrong_delta_balance = 10_000
         _FixtureHandler.refund_idempotent_balance = 5_000
+        _FixtureHandler.workflow_sequence_vulnerable_state = "created"
+        _FixtureHandler.workflow_sequence_secure_state = "created"
+        _FixtureHandler.workflow_sequence_broken_state = "created"
         self.policy = NetworkPolicy(ExecutionMode.LOCAL)
         self.policy.grant(
             "127.0.0.1",
@@ -793,6 +834,206 @@ class LocalProofExecutionTests(unittest.TestCase):
         self.assertEqual(result.behavior, ProofBehavior.BLOCKED)
         self.assertIn("fixture_financial_readback", result.blocker)
         self.assertEqual(result.request_count, 0)
+
+    def test_workflow_sequence_detects_prerequisite_bypass(self) -> None:
+        plan = build_plan(
+            ProofClass.WORKFLOW_SEQUENCE,
+            "F-WORKFLOW-BYPASS",
+            available_authority={
+                "fixture_write_access",
+                "fixture_state_readback",
+                "fixture_reset",
+            },
+        )
+
+        def reset_fixture() -> bool:
+            _FixtureHandler.workflow_sequence_vulnerable_state = "created"
+            return True
+
+        result = self.executor.execute(
+            plan,
+            WorkflowSequenceHttpSpec(
+                step_one_url=self.base + "/workflow-sequence-vulnerable-step1",
+                step_two_url=self.base + "/workflow-sequence-vulnerable-step2",
+                headers={"Authorization": "Bearer workflow-sequence-secret"},
+                read_state=lambda: _FixtureHandler.workflow_sequence_vulnerable_state,
+                reset_fixture=reset_fixture,
+                expected_start_state="created",
+                expected_intermediate_state="approved",
+                expected_final_state="completed",
+                expected_safe_bypass_state="created",
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.VULNERABLE_BEHAVIOR)
+        self.assertEqual(result.request_count, 3)
+        self.assertEqual(_FixtureHandler.workflow_sequence_vulnerable_state, "completed")
+        rendered = json.dumps(result.to_dict())
+        self.assertNotIn("workflow-sequence-secret", rendered)
+        self.assertNotIn('"approved"', rendered)
+        self.assertNotIn('"completed"', rendered)
+        self.assertIn("bypassed", " ".join(result.notes))
+
+    def test_workflow_sequence_recognizes_enforced_prerequisite(self) -> None:
+        plan = build_plan(
+            ProofClass.WORKFLOW_SEQUENCE,
+            "F-WORKFLOW-SAFE",
+            available_authority={
+                "fixture_write_access",
+                "fixture_state_readback",
+                "fixture_reset",
+            },
+        )
+
+        def reset_fixture() -> bool:
+            _FixtureHandler.workflow_sequence_secure_state = "created"
+            return True
+
+        result = self.executor.execute(
+            plan,
+            WorkflowSequenceHttpSpec(
+                step_one_url=self.base + "/workflow-sequence-secure-step1",
+                step_two_url=self.base + "/workflow-sequence-secure-step2",
+                read_state=lambda: _FixtureHandler.workflow_sequence_secure_state,
+                reset_fixture=reset_fixture,
+                expected_start_state="created",
+                expected_intermediate_state="approved",
+                expected_final_state="completed",
+                expected_safe_bypass_state="created",
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.SECURE_BEHAVIOR)
+        self.assertEqual(result.request_count, 3)
+        self.assertEqual(_FixtureHandler.workflow_sequence_secure_state, "created")
+        self.assertIn("did not bypass", " ".join(result.notes))
+
+    def test_workflow_sequence_stops_when_legitimate_control_is_broken(self) -> None:
+        plan = build_plan(
+            ProofClass.WORKFLOW_SEQUENCE,
+            "F-WORKFLOW-BROKEN-CONTROL",
+            available_authority={
+                "fixture_write_access",
+                "fixture_state_readback",
+                "fixture_reset",
+            },
+        )
+        result = self.executor.execute(
+            plan,
+            WorkflowSequenceHttpSpec(
+                step_one_url=self.base + "/workflow-sequence-broken-step1",
+                step_two_url=self.base + "/workflow-sequence-broken-step2",
+                read_state=lambda: _FixtureHandler.workflow_sequence_broken_state,
+                reset_fixture=lambda: True,
+                expected_start_state="created",
+                expected_intermediate_state="approved",
+                expected_final_state="completed",
+                expected_safe_bypass_state="created",
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.INCONCLUSIVE)
+        self.assertEqual(result.request_count, 1)
+        self.assertEqual(_FixtureHandler.workflow_sequence_broken_state, "created")
+        self.assertIn("step one", " ".join(result.notes))
+
+    def test_workflow_sequence_reset_failure_is_inconclusive_without_bypass_attempt(self) -> None:
+        plan = build_plan(
+            ProofClass.WORKFLOW_SEQUENCE,
+            "F-WORKFLOW-RESET",
+            available_authority={
+                "fixture_write_access",
+                "fixture_state_readback",
+                "fixture_reset",
+            },
+        )
+        _FixtureHandler.workflow_sequence_secure_state = "created"
+        result = self.executor.execute(
+            plan,
+            WorkflowSequenceHttpSpec(
+                step_one_url=self.base + "/workflow-sequence-secure-step1",
+                step_two_url=self.base + "/workflow-sequence-secure-step2",
+                read_state=lambda: _FixtureHandler.workflow_sequence_secure_state,
+                reset_fixture=lambda: False,
+                expected_start_state="created",
+                expected_intermediate_state="approved",
+                expected_final_state="completed",
+                expected_safe_bypass_state="created",
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.INCONCLUSIVE)
+        self.assertEqual(result.request_count, 2)
+        self.assertIn("reset", " ".join(result.notes))
+
+    def test_workflow_sequence_wrong_start_and_missing_authority_fail_closed(self) -> None:
+        plan = build_plan(
+            ProofClass.WORKFLOW_SEQUENCE,
+            "F-WORKFLOW-WRONG-START",
+            available_authority={
+                "fixture_write_access",
+                "fixture_state_readback",
+                "fixture_reset",
+            },
+        )
+        result = self.executor.execute(
+            plan,
+            WorkflowSequenceHttpSpec(
+                step_one_url=self.base + "/workflow-sequence-secure-step1",
+                step_two_url=self.base + "/workflow-sequence-secure-step2",
+                read_state=lambda: "already-approved",
+                reset_fixture=lambda: True,
+                expected_start_state="created",
+                expected_intermediate_state="approved",
+                expected_final_state="completed",
+                expected_safe_bypass_state="created",
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.INCONCLUSIVE)
+        self.assertEqual(result.request_count, 0)
+
+        blocked = build_plan(
+            ProofClass.WORKFLOW_SEQUENCE,
+            "F-WORKFLOW-BLOCKED",
+            available_authority={"fixture_write_access", "fixture_state_readback"},
+        )
+        result = self.executor.execute(
+            blocked,
+            WorkflowSequenceHttpSpec(
+                step_one_url=self.base + "/workflow-sequence-secure-step1",
+                step_two_url=self.base + "/workflow-sequence-secure-step2",
+                read_state=lambda: _FixtureHandler.workflow_sequence_secure_state,
+                reset_fixture=lambda: True,
+                expected_start_state="created",
+                expected_intermediate_state="approved",
+                expected_final_state="completed",
+                expected_safe_bypass_state="created",
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.BLOCKED)
+        self.assertIn("fixture_reset", result.blocker)
+        self.assertEqual(result.request_count, 0)
+
+    def test_workflow_sequence_rejects_contradictory_invariants(self) -> None:
+        plan = build_plan(
+            ProofClass.WORKFLOW_SEQUENCE,
+            "F-WORKFLOW-INVARIANT",
+            available_authority={
+                "fixture_write_access",
+                "fixture_state_readback",
+                "fixture_reset",
+            },
+        )
+        with self.assertRaises(ProofExecutionError):
+            self.executor.execute(
+                plan,
+                WorkflowSequenceHttpSpec(
+                    step_one_url=self.base + "/workflow-sequence-secure-step1",
+                    step_two_url=self.base + "/workflow-sequence-secure-step2",
+                    read_state=lambda: "created",
+                    reset_fixture=lambda: True,
+                    expected_start_state="created",
+                    expected_intermediate_state="created",
+                    expected_final_state="completed",
+                    expected_safe_bypass_state="created",
+                ),
+            )
 
     def test_ssrf_proof_uses_loopback_callback_not_public_oob(self) -> None:
         plan = build_plan(
