@@ -42,7 +42,7 @@ An evaluator that did not produce the predictions records applicable observation
 - `regression_proof`: boolean or `NOT_APPLICABLE`
 - `release_gate`: boolean or `NOT_APPLICABLE`
 
-A boolean means whether that workflow decision matched the independently established expected result. `NOT_APPLICABLE` is excluded from the denominator; it is never converted to success.
+A boolean means whether that workflow decision matched the independently established expected result. Every boolean must also carry an `evidence.<metric>` record with a short basis, one or more stable artifact references, and a SHA-256 digest binding the cited evidence bundle. `NOT_APPLICABLE` is excluded from the denominator and does not require invented evidence.
 
 ## 5. Finalize
 
@@ -55,7 +55,7 @@ python evals/arena.py finalize \
   --output work/arena-result.json
 ```
 
-The result stays **NOT_MEASURED** unless all required run metadata exists, the evaluator is independently identified, contamination is explicitly `UNCONTAMINATED`, truth was sealed until after predictions, prediction and truth digests are present, and every full-workflow metric has at least one applicable assessed observation.
+The result stays **NOT_MEASURED** unless all required run metadata exists, the evaluator is independently identified, contamination is explicitly `UNCONTAMINATED`, truth was sealed until after predictions, prediction and truth digests are present, every scored workflow judgment is evidence-backed, and every full-workflow metric has at least one applicable assessed observation.
 
 ## Comparison rule
 
