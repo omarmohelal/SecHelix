@@ -36,6 +36,7 @@ class ProofClass(str, Enum):
     CSRF_REQUEST = "CSRF_REQUEST"
     SESSION_REVOCATION = "SESSION_REVOCATION"
     STATE_TRANSITION = "STATE_TRANSITION"
+    PAYMENT_INVARIANT = "PAYMENT_INVARIANT"
 
 
 class PlanState(str, Enum):
@@ -316,6 +317,29 @@ def _state_transition(finding_id: str) -> ProofPlan:
         ),
     )
 
+def _payment_invariant(finding_id: str) -> ProofPlan:
+    return _plan(
+        ProofClass.PAYMENT_INVARIANT,
+        finding_id,
+        preconditions=[
+            "the fixture exposes a deterministic balance or liability readback in integer minor units",
+            "one harmless charge or refund request has an operator-declared expected single-operation delta",
+            "replaying the exact same request is safe in the local fixture",
+        ],
+        required_authority=["fixture_write_access", "fixture_financial_readback"],
+        actions=[
+            "read the starting financial state",
+            "issue one bounded payment mutation and verify the exact declared delta",
+            "replay the exact same request once and verify it does not apply the financial delta twice",
+        ],
+        expected_secure_behavior=(
+            "the first request applies exactly the declared delta and replay leaves the financial state unchanged"
+        ),
+        expected_vulnerable_behavior=(
+            "the first request applies the declared delta and replay applies that same financial effect again"
+        ),
+    )
+
 
 def _traversal(finding_id: str) -> ProofPlan:
     return _plan(
@@ -345,4 +369,5 @@ _BUILDERS = {
     ProofClass.CSRF_REQUEST: _csrf,
     ProofClass.SESSION_REVOCATION: _session_revocation,
     ProofClass.STATE_TRANSITION: _state_transition,
+    ProofClass.PAYMENT_INVARIANT: _payment_invariant,
 }
