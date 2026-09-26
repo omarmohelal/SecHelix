@@ -127,6 +127,10 @@ def build_measurement_bundle(
             "output_tokens": run_record.get("output_tokens"),
             "cost": run_record.get("cost"),
             "telemetry_completeness": operational.get("telemetry_completeness"),
+            "role_runtime": {
+                "independent_verifier": verifier_runtime,
+                "release_gate": gate_runtime,
+            },
         },
         "assessment_targets": {
             "independent_verifier": verifier,
