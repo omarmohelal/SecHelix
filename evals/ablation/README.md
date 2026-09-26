@@ -159,3 +159,19 @@ token value makes that aggregate `NOT_MEASURED`.
 Run separate matrices for repeated trials. Do not pool different models,
 prompts, case packets or execution hosts into one matrix, and do not describe
 summed counterfactual changed-case counts as unique findings.
+
+
+## Repeated isolated scanner trials
+
+A single scanner matrix still reflects one model run. Use
+`evals/scanner_ablation_trials.py` to aggregate separately executed matrices
+without mixing their matched conditions.
+
+Every matrix must be `MEASURED`, have a unique `ablation_run_id`, carry the
+same persisted comparison conditions, and contain the exact same isolated
+scanner set. The aggregator reports mean/min/max metric deltas per scanner and
+keeps incomplete operational telemetry as `NOT_MEASURED`.
+
+This is descriptive repeatability evidence, not a significance test. Do not
+re-run until a favourable spread appears, do not mix models/prompts/hosts, and
+do not interpret summed changed-case counts as unique findings.

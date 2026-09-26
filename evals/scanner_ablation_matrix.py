@@ -174,6 +174,18 @@ def build_scanner_ablation_matrix(
         "result_kind": "CONTROLLED_ISOLATED_SCANNER_ABLATION_MATRIX",
         "measured_at": measured_at,
         "ablation_run_id": control.get("ablation_run_id"),
+        "matched_conditions": {
+            key: control.get(key)
+            for key in (
+                "model",
+                "provider",
+                "agent_host",
+                "execution_mode",
+                "prompt_reference",
+                "cases_sha256",
+                "fixture_suite_version",
+            )
+        },
         "scanner_count": len(rows),
         "scanners": rows,
         "operational_delta_totals": operational,

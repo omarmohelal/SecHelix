@@ -181,3 +181,25 @@ than a clean result.
 This is an integration measurement for browser context isolation and session
 verification. It is separate from the session-revocation proof and is not a
 full SecHelix workflow score.
+
+
+## Repeated isolated scanner trials
+
+`scanner_ablation_trials.py` aggregates two or more isolated scanner matrices
+from separate matched runs. Each matrix may have a different
+`ablation_run_id`, but model, provider, host, execution mode, prompt reference,
+blind case digest, fixture-suite version, and isolated scanner set must match
+exactly.
+
+```bash
+python evals/scanner_ablation_trials.py \
+  --matrix work/scanner-matrix-run-1.json \
+  --matrix work/scanner-matrix-run-2.json \
+  --matrix work/scanner-matrix-run-3.json \
+  --output work/scanner-trials.json
+```
+
+The result reports mean/min/max deltas per isolated scanner and aggregate/mean
+changed-case counts across trials. Missing time/token/cost telemetry remains
+`NOT_MEASURED`; it is never treated as zero. The helper does not calculate
+statistical significance or generalize the authored fixture suite to production.
