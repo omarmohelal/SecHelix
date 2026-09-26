@@ -407,24 +407,30 @@ class LocalProofExecutor:
                     f"after_valid_sha256={_value_digest(after_valid)}",
                 ]
             else:
-                mutated_after_control = (
+                unauthorized_mutation = (
                     after_unsigned != after_valid
-                    or after_invalid != after_valid
-                    or after_replay != after_valid
+                    or after_invalid != after_unsigned
                 )
-                if mutated_after_control:
+                replay_mutation = after_replay != after_invalid
+                if unauthorized_mutation or replay_mutation:
                     behavior = ProofBehavior.VULNERABLE_BEHAVIOR
                     notes = [
-                        "state changed after an unsigned, invalid-signature, or replay request",
+                        "fixture state changed after an unauthorized delivery or replay",
                         f"after_valid_sha256={_value_digest(after_valid)}",
                         f"after_unsigned_sha256={_value_digest(after_unsigned)}",
                         f"after_invalid_sha256={_value_digest(after_invalid)}",
                         f"after_replay_sha256={_value_digest(after_replay)}",
                     ]
+                elif bad_accept:
+                    behavior = ProofBehavior.INCONCLUSIVE
+                    notes = [
+                        "unsigned or invalid-signature delivery returned an accepted status but produced no observed state change; signature enforcement remains ambiguous",
+                        f"after_valid_sha256={_value_digest(after_valid)}",
+                    ]
                 else:
                     behavior = ProofBehavior.SECURE_BEHAVIOR
                     notes = [
-                        "only the valid signed control changed fixture state; unsigned, invalid-signature and replay requests produced no additional side effect",
+                        "only the valid signed control changed fixture state; rejected unauthorized deliveries and accepted/rejected replay produced no additional side effect",
                         f"after_valid_sha256={_value_digest(after_valid)}",
                     ]
         elif bad_accept:
