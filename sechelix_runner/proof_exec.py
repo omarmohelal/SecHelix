@@ -194,6 +194,23 @@ class StateTransitionHttpSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class PaymentInvariantHttpSpec:
+    """Replay one harmless LOCAL charge/refund against an integer financial invariant.
+
+    The operator supplies a local balance/liability readback in integer minor
+    units plus the exact expected delta of one legitimate operation. Raw
+    balances, request headers and request bodies never enter the artifact.
+    """
+
+    url: str
+    body: bytes = b""
+    headers: Mapping[str, str] = field(default_factory=dict)
+    read_balance_minor: Callable[[], int] | None = None
+    expected_single_delta_minor: int = 0
+    accepted_statuses: tuple[int, ...] = (200, 201, 202, 204)
+
+
+@dataclass(frozen=True, slots=True)
 class XssBrowserSpec:
     """One reflected LOCAL browser sink with a fixed benign marker payload.
 
@@ -288,6 +305,7 @@ class LocalProofExecutor:
             ProofClass.CSRF_REQUEST: self._csrf,
             ProofClass.SESSION_REVOCATION: self._session_revocation,
             ProofClass.STATE_TRANSITION: self._state_transition,
+            ProofClass.PAYMENT_INVARIANT: self._payment_invariant,
         }
         if plan.proof_class is ProofClass.XSS_EXECUTION:
             return self._xss(plan, spec)
@@ -650,6 +668,105 @@ class LocalProofExecutor:
                 0,
                 "post-request state matched neither the declared safe nor forbidden invariant",
             )
+        return ProofExecutionResult(
+            plan.finding_id,
+            plan.proof_class,
+            behavior,
+            observations,
+            notes=notes,
+        )
+
+    def _payment_invariant(self, plan: ProofPlan, spec: Any) -> ProofExecutionResult:
+        if not isinstance(spec, PaymentInvariantHttpSpec):
+            raise ProofExecutionError("payment invariant plan requires PaymentInvariantHttpSpec")
+        if spec.read_balance_minor is None or not callable(spec.read_balance_minor):
+            raise ProofExecutionError("payment invariant proof requires a financial readback")
+        if (
+            isinstance(spec.expected_single_delta_minor, bool)
+            or not isinstance(spec.expected_single_delta_minor, int)
+            or spec.expected_single_delta_minor == 0
+        ):
+            raise ProofExecutionError("expected_single_delta_minor must be a non-zero integer")
+        if abs(spec.expected_single_delta_minor) > 100_000_000:
+            raise ProofExecutionError("expected_single_delta_minor exceeds the bounded fixture limit")
+
+        before = spec.read_balance_minor()
+        if isinstance(before, bool) or not isinstance(before, int):
+            raise ProofExecutionError("financial readback must return integer minor units")
+
+        first = self._request(
+            "payment-control",
+            spec.url,
+            "POST",
+            spec.headers,
+            spec.body,
+        )
+        after_first = spec.read_balance_minor()
+        if isinstance(after_first, bool) or not isinstance(after_first, int):
+            raise ProofExecutionError("financial readback must return integer minor units")
+
+        first_delta = after_first - before
+        observations = [first.to_dict()]
+        notes = [
+            f"before_sha256={_value_digest(before)}",
+            f"after_first_sha256={_value_digest(after_first)}",
+            f"expected_delta_sha256={_value_digest(spec.expected_single_delta_minor)}",
+        ]
+
+        if first.status not in spec.accepted_statuses:
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.INCONCLUSIVE,
+                observations,
+                notes=[
+                    "legitimate payment control was not accepted; duplicate-effect conclusion would be ambiguous",
+                    *notes,
+                ],
+            )
+        if first_delta != spec.expected_single_delta_minor:
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.INCONCLUSIVE,
+                observations,
+                notes=[
+                    "first payment mutation did not match the operator-declared single-operation delta",
+                    f"observed_first_delta_sha256={_value_digest(first_delta)}",
+                    *notes,
+                ],
+            )
+
+        replay = self._request(
+            "payment-replay",
+            spec.url,
+            "POST",
+            spec.headers,
+            spec.body,
+        )
+        after_replay = spec.read_balance_minor()
+        if isinstance(after_replay, bool) or not isinstance(after_replay, int):
+            raise ProofExecutionError("financial readback must return integer minor units")
+        observations.append(replay.to_dict())
+        replay_delta = after_replay - after_first
+        notes.extend([
+            f"after_replay_sha256={_value_digest(after_replay)}",
+            f"replay_delta_sha256={_value_digest(replay_delta)}",
+        ])
+
+        if after_replay == after_first:
+            behavior = ProofBehavior.SECURE_BEHAVIOR
+            notes.insert(0, "exact replay produced no additional financial effect")
+        elif replay_delta == spec.expected_single_delta_minor:
+            behavior = ProofBehavior.VULNERABLE_BEHAVIOR
+            notes.insert(0, "exact replay applied the same charge/refund delta a second time")
+        else:
+            behavior = ProofBehavior.INCONCLUSIVE
+            notes.insert(
+                0,
+                "replay changed financial state, but not by the declared single-operation delta",
+            )
+
         return ProofExecutionResult(
             plan.finding_id,
             plan.proof_class,

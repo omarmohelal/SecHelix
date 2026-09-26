@@ -11,6 +11,7 @@ from sechelix_runner.proof_exec import (
     CsrfHttpSpec,
     IdorHttpSpec,
     LocalProofExecutor,
+    PaymentInvariantHttpSpec,
     ProofBehavior,
     ProofExecutionError,
     RaceHttpSpec,
@@ -36,6 +37,10 @@ class _FixtureHandler(BaseHTTPRequestHandler):
     workflow_secure_state = "cancelled"
     workflow_vulnerable_state = "cancelled"
     workflow_ambiguous_state = "cancelled"
+    payment_vulnerable_balance = 10_000
+    payment_idempotent_balance = 10_000
+    payment_wrong_delta_balance = 10_000
+    refund_idempotent_balance = 5_000
     sentinel = b"SECHELIX_SENTINEL_93B1"
 
     def do_GET(self) -> None:  # noqa: N802
@@ -128,6 +133,26 @@ class _FixtureHandler(BaseHTTPRequestHandler):
         if self.path == "/state-transition-ambiguous":
             type(self).workflow_ambiguous_state = "manual_review"
             self._send(202, b"queued")
+            return
+        if self.path == "/payment-vulnerable":
+            type(self).payment_vulnerable_balance -= 250
+            self._send(200, b"charged")
+            return
+        if self.path == "/payment-idempotent":
+            key = self.headers.get("Idempotency-Key")
+            if key == "fixture-payment-1" and type(self).payment_idempotent_balance == 10_000:
+                type(self).payment_idempotent_balance -= 250
+            self._send(200, b"accepted")
+            return
+        if self.path == "/payment-wrong-delta":
+            type(self).payment_wrong_delta_balance -= 100
+            self._send(200, b"charged")
+            return
+        if self.path == "/refund-idempotent":
+            key = self.headers.get("Idempotency-Key")
+            if key == "fixture-refund-1" and type(self).refund_idempotent_balance == 5_000:
+                type(self).refund_idempotent_balance += 300
+            self._send(200, b"accepted")
             return
         if self.path == "/csrf-vulnerable":
             if self.headers.get("Cookie") != "session=fixture-auth":
@@ -226,6 +251,10 @@ class LocalProofExecutionTests(unittest.TestCase):
         _FixtureHandler.workflow_secure_state = "cancelled"
         _FixtureHandler.workflow_vulnerable_state = "cancelled"
         _FixtureHandler.workflow_ambiguous_state = "cancelled"
+        _FixtureHandler.payment_vulnerable_balance = 10_000
+        _FixtureHandler.payment_idempotent_balance = 10_000
+        _FixtureHandler.payment_wrong_delta_balance = 10_000
+        _FixtureHandler.refund_idempotent_balance = 5_000
         self.policy = NetworkPolicy(ExecutionMode.LOCAL)
         self.policy.grant(
             "127.0.0.1",
@@ -638,6 +667,131 @@ class LocalProofExecutionTests(unittest.TestCase):
         )
         self.assertEqual(result.behavior, ProofBehavior.BLOCKED)
         self.assertIn("fixture_state_readback", result.blocker)
+        self.assertEqual(result.request_count, 0)
+
+    def test_payment_invariant_detects_duplicate_charge_effect(self) -> None:
+        plan = build_plan(
+            ProofClass.PAYMENT_INVARIANT,
+            "F-PAYMENT-DUPLICATE",
+            available_authority={"fixture_write_access", "fixture_financial_readback"},
+        )
+        result = self.executor.execute(
+            plan,
+            PaymentInvariantHttpSpec(
+                url=self.base + "/payment-vulnerable",
+                body=b'{"amount_minor":250}',
+                headers={"Authorization": "Bearer payment-secret"},
+                read_balance_minor=lambda: _FixtureHandler.payment_vulnerable_balance,
+                expected_single_delta_minor=-250,
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.VULNERABLE_BEHAVIOR)
+        self.assertEqual(result.request_count, 2)
+        self.assertEqual(_FixtureHandler.payment_vulnerable_balance, 9_500)
+        rendered = json.dumps(result.to_dict())
+        self.assertNotIn("payment-secret", rendered)
+        self.assertNotIn("10000", rendered)
+        self.assertNotIn("9500", rendered)
+        self.assertIn("same charge/refund delta a second time", " ".join(result.notes))
+
+    def test_payment_invariant_accepts_idempotent_replay(self) -> None:
+        plan = build_plan(
+            ProofClass.PAYMENT_INVARIANT,
+            "F-PAYMENT-IDEMPOTENT",
+            available_authority={"fixture_write_access", "fixture_financial_readback"},
+        )
+        result = self.executor.execute(
+            plan,
+            PaymentInvariantHttpSpec(
+                url=self.base + "/payment-idempotent",
+                headers={"Idempotency-Key": "fixture-payment-1"},
+                read_balance_minor=lambda: _FixtureHandler.payment_idempotent_balance,
+                expected_single_delta_minor=-250,
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.SECURE_BEHAVIOR)
+        self.assertEqual(result.request_count, 2)
+        self.assertEqual(_FixtureHandler.payment_idempotent_balance, 9_750)
+        self.assertIn("no additional financial effect", " ".join(result.notes))
+
+    def test_payment_invariant_refuses_to_replay_when_control_delta_is_wrong(self) -> None:
+        plan = build_plan(
+            ProofClass.PAYMENT_INVARIANT,
+            "F-PAYMENT-WRONG-DELTA",
+            available_authority={"fixture_write_access", "fixture_financial_readback"},
+        )
+        result = self.executor.execute(
+            plan,
+            PaymentInvariantHttpSpec(
+                url=self.base + "/payment-wrong-delta",
+                read_balance_minor=lambda: _FixtureHandler.payment_wrong_delta_balance,
+                expected_single_delta_minor=-250,
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.INCONCLUSIVE)
+        self.assertEqual(result.request_count, 1)
+        self.assertEqual(_FixtureHandler.payment_wrong_delta_balance, 9_900)
+        self.assertIn("did not match", " ".join(result.notes))
+
+    def test_payment_invariant_supports_refund_delta_and_replay_protection(self) -> None:
+        plan = build_plan(
+            ProofClass.PAYMENT_INVARIANT,
+            "F-PAYMENT-REFUND",
+            available_authority={"fixture_write_access", "fixture_financial_readback"},
+        )
+        result = self.executor.execute(
+            plan,
+            PaymentInvariantHttpSpec(
+                url=self.base + "/refund-idempotent",
+                headers={"Idempotency-Key": "fixture-refund-1"},
+                read_balance_minor=lambda: _FixtureHandler.refund_idempotent_balance,
+                expected_single_delta_minor=300,
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.SECURE_BEHAVIOR)
+        self.assertEqual(result.request_count, 2)
+        self.assertEqual(_FixtureHandler.refund_idempotent_balance, 5_300)
+
+    def test_payment_invariant_requires_integer_minor_units_and_authority(self) -> None:
+        plan = build_plan(
+            ProofClass.PAYMENT_INVARIANT,
+            "F-PAYMENT-INVALID",
+            available_authority={"fixture_write_access", "fixture_financial_readback"},
+        )
+        with self.assertRaises(ProofExecutionError):
+            self.executor.execute(
+                plan,
+                PaymentInvariantHttpSpec(
+                    url=self.base + "/payment-vulnerable",
+                    read_balance_minor=lambda: 10_000,
+                    expected_single_delta_minor=0,
+                ),
+            )
+        with self.assertRaises(ProofExecutionError):
+            self.executor.execute(
+                plan,
+                PaymentInvariantHttpSpec(
+                    url=self.base + "/payment-vulnerable",
+                    read_balance_minor=lambda: 100.5,  # type: ignore[return-value]
+                    expected_single_delta_minor=-250,
+                ),
+            )
+
+        blocked = build_plan(
+            ProofClass.PAYMENT_INVARIANT,
+            "F-PAYMENT-BLOCKED",
+            available_authority={"fixture_write_access"},
+        )
+        result = self.executor.execute(
+            blocked,
+            PaymentInvariantHttpSpec(
+                url=self.base + "/payment-idempotent",
+                read_balance_minor=lambda: _FixtureHandler.payment_idempotent_balance,
+                expected_single_delta_minor=-250,
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.BLOCKED)
+        self.assertIn("fixture_financial_readback", result.blocker)
         self.assertEqual(result.request_count, 0)
 
     def test_ssrf_proof_uses_loopback_callback_not_public_oob(self) -> None:
