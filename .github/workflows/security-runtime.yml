@@ -47,4 +47,5 @@ jobs:
               gitleaks version | grep -F "8.28.0"
               trivy --version | grep -F "Version: 0.74.0"
               pip-audit --version | grep -F "2.9.0"
+              python -m pip check
             '
