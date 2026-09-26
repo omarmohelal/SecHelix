@@ -36,7 +36,14 @@ class ArenaBatchHandoffTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.manifest = prepare_manifest(PACKET, PARTICIPANT)
 
-    def _case(self, case_id: str, run_id: str, *, target_commit: str = "abc123") -> dict:
+    def _case(
+        self,
+        case_id: str,
+        run_id: str,
+        *,
+        target_commit: str = "abc123",
+        verifier_cost: float | None = 0.01,
+    ) -> dict:
         ws = RunWorkspace(self.root, run_id).create()
         run = {
             "run_id": run_id,
@@ -59,7 +66,7 @@ class ArenaBatchHandoffTests(unittest.TestCase):
                     "model": "model-a",
                     "input_tokens": 100,
                     "output_tokens": 20,
-                    "cost_usd": 0.01,
+                    "cost_usd": verifier_cost,
                     "output_evidence_ids": ["E-VERIFY-" + case_id],
                 },
                 "gate": {
@@ -109,7 +116,7 @@ class ArenaBatchHandoffTests(unittest.TestCase):
                     "model": "model-a",
                     "input_tokens": 100,
                     "output_tokens": 20,
-                    "cost_usd": 0.01,
+                    "cost_usd": verifier_cost,
                 },
                 "gate": {
                     "status": "SUCCEEDED",
@@ -155,10 +162,46 @@ class ArenaBatchHandoffTests(unittest.TestCase):
         self.assertFalse(result["measurement_scope"]["scores_correctness"])
         self.assertFalse(result["measurement_scope"]["reveals_ground_truth"])
         self.assertTrue(result["measurement_scope"]["requires_independent_assessor"])
+        summary = result["operational_summary"]
+        self.assertEqual(summary["case_count"], 2)
+        self.assertEqual(summary["elapsed_seconds"]["total"], 10.0)
+        self.assertEqual(summary["elapsed_seconds"]["mean"], 5.0)
+        self.assertEqual(summary["input_tokens"]["total"], 200.0)
+        self.assertEqual(summary["output_tokens"]["total"], 40.0)
+        self.assertEqual(summary["cost_usd"]["total"], 0.02)
+        self.assertEqual(
+            summary["independent_verifier"]["duration_seconds"]["total"],
+            4.0,
+        )
+        self.assertEqual(
+            summary["release_gate"]["duration_seconds"]["total"],
+            1.0,
+        )
+        self.assertFalse(summary["measurement_scope"]["scores_correctness"])
 
         rendered = json.dumps(result)
         self.assertNotIn("redacted-workflow-output", rendered)
         self.assertNotIn('"decision": "PASS"', rendered)
+
+    def test_incomplete_batch_cost_telemetry_stays_not_measured(self) -> None:
+        run_map = {
+            "cases": [
+                self._case("CASE-AAA111", "RUN-COST_A", verifier_cost=0.01),
+                self._case("CASE-BBB222", "RUN-COST_B", verifier_cost=None),
+            ]
+        }
+        result = build_batch_handoff(self.manifest, run_map, base_dir=self.root)
+        summary = result["operational_summary"]
+        self.assertFalse(summary["cost_usd"]["complete"])
+        self.assertEqual(summary["cost_usd"]["total"], "NOT_MEASURED")
+        self.assertFalse(
+            summary["independent_verifier"]["cost_usd"]["complete"]
+        )
+        self.assertEqual(
+            summary["independent_verifier"]["cost_usd"]["total"],
+            "NOT_MEASURED",
+        )
+        self.assertEqual(summary["elapsed_seconds"]["total"], 10.0)
 
     def test_missing_or_extra_case_fails_closed(self) -> None:
         only_one = {"cases": [self._case("CASE-AAA111", "RUN-ONLY_ONE")]}
