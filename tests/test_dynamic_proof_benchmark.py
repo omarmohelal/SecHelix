@@ -15,7 +15,7 @@ class DynamicProofBenchmarkTests(unittest.TestCase):
         self.assertFalse(result["is_full_sechelix_workflow"])
         self.assertEqual(result["run"]["execution_mode"], "LOCAL")
         self.assertEqual(result["run"]["network_scope"], "literal-loopback-only")
-        self.assertEqual(result["run"]["case_count"], 10)
+        self.assertEqual(result["run"]["case_count"], 14)
         self.assertEqual(result["metrics"]["case_accuracy"], 1.0)
         self.assertEqual(result["metrics"]["vulnerable_behavior_recall"], 1.0)
         self.assertEqual(result["metrics"]["clean_behavior_rejection_rate"], 1.0)
@@ -24,11 +24,15 @@ class DynamicProofBenchmarkTests(unittest.TestCase):
         families = {row["family"] for row in result["cases"]}
         self.assertEqual(
             families,
-            {"state-transition", "payment-invariant", "money-flow-invariant", "settlement-refund-sequence", "workflow-sequence"},
+            {"csrf-request", "session-revocation", "state-transition", "payment-invariant", "money-flow-invariant", "settlement-refund-sequence", "workflow-sequence"},
         )
         case_ids = {row["case_id"] for row in result["cases"]}
         self.assertIn("SETTLEMENT-REFUND-VULNERABLE", case_ids)
         self.assertIn("SETTLEMENT-REFUND-CLEAN", case_ids)
+        self.assertIn("CSRF-VULNERABLE", case_ids)
+        self.assertIn("CSRF-CLEAN", case_ids)
+        self.assertIn("SESSION-VULNERABLE", case_ids)
+        self.assertIn("SESSION-CLEAN", case_ids)
 
         for row in result["cases"]:
             self.assertTrue(row["correct"])
