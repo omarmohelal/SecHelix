@@ -1,0 +1,28 @@
+name: Generate security runtime Python lock
+
+on:
+  pull_request:
+    paths:
+      - 'containers/security-runtime/python-tools.in'
+      - '.github/workflows/generate-security-runtime-python-lock.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.12.11'
+      - name: Generate hash-locked transitive requirements
+        run: |
+          python -m pip install --disable-pip-version-check --no-cache-dir 'pip-tools==7.4.1'
+          python -m piptools compile             --resolver=backtracking             --generate-hashes             --strip-extras             --no-emit-index-url             --no-emit-trusted-host             --output-file=/tmp/python-tools.lock             containers/security-runtime/python-tools.in
+          echo '<<<SECHELIX_PYTHON_LOCK_BEGIN>>>'
+          cat /tmp/python-tools.lock
+          echo '<<<SECHELIX_PYTHON_LOCK_END>>>'
