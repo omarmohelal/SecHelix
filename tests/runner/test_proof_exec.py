@@ -89,7 +89,7 @@ class _FixtureHandler(BaseHTTPRequestHandler):
             return
         if self.path == "/webhook-state-vulnerable":
             signature = self.headers.get("X-Demo-Signature")
-            if signature != "valid":
+            if signature != "fixture-valid-secret":
                 self._send(401, b"no")
                 return
             type(self).webhook_vulnerable_count += 1
@@ -97,7 +97,7 @@ class _FixtureHandler(BaseHTTPRequestHandler):
             return
         if self.path == "/webhook-state-idempotent":
             signature = self.headers.get("X-Demo-Signature")
-            if signature != "valid":
+            if signature != "fixture-valid-secret":
                 self._send(401, b"no")
                 return
             if type(self).webhook_idempotent_count == 0:
@@ -299,7 +299,7 @@ class LocalProofExecutionTests(unittest.TestCase):
                 url=self.base + "/webhook-state-vulnerable",
                 body=b'{"event":"demo"}',
                 signature_header="X-Demo-Signature",
-                valid_signature="valid",
+                valid_signature="fixture-valid-secret",
                 read_state=lambda: _FixtureHandler.webhook_vulnerable_count,
                 expected_single_state=1,
             ),
@@ -308,7 +308,7 @@ class LocalProofExecutionTests(unittest.TestCase):
         self.assertEqual(result.request_count, 4)
         self.assertEqual(_FixtureHandler.webhook_vulnerable_count, 2)
         rendered = json.dumps(result.to_dict())
-        self.assertNotIn("valid", rendered)
+        self.assertNotIn("fixture-valid-secret", rendered)
         self.assertIn("after_replay_sha256=", " ".join(result.notes))
 
     def test_webhook_state_readback_proves_idempotent_replay(self) -> None:
@@ -323,7 +323,7 @@ class LocalProofExecutionTests(unittest.TestCase):
                 url=self.base + "/webhook-state-idempotent",
                 body=b'{"event":"demo"}',
                 signature_header="X-Demo-Signature",
-                valid_signature="valid",
+                valid_signature="fixture-valid-secret",
                 read_state=lambda: _FixtureHandler.webhook_idempotent_count,
                 expected_single_state=1,
             ),
