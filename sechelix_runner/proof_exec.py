@@ -38,6 +38,12 @@ class ProofExecutionError(RuntimeError):
     """The execution spec is unsafe, malformed, or inconsistent with the plan."""
 
 
+def _default_browser_factory(*args: Any, **kwargs: Any) -> Any:
+    from .pentest.safe_browser import SafeAuthorizedBrowser
+
+    return SafeAuthorizedBrowser(*args, **kwargs)
+
+
 class ProofBehavior(StrEnum):
     VULNERABLE_BEHAVIOR = "VULNERABLE_BEHAVIOR"
     SECURE_BEHAVIOR = "SECURE_BEHAVIOR"
@@ -163,6 +169,23 @@ class SessionRevocationHttpSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class XssBrowserSpec:
+    """One reflected LOCAL browser sink with a fixed benign marker payload.
+
+    ``url_template`` must contain ``{payload}``. The executor URL-encodes a
+    SecHelix-owned script marker; callers cannot provide arbitrary JavaScript.
+    ``injection_selector`` identifies where inert text should appear in a
+    compensated fixture so absence of execution is not mistaken for proof.
+    """
+
+    url_template: str
+    injection_selector: str
+    marker_name: str = "__SECHELIX_XSS_MARKER"
+    marker_value: str = "SECHELIX_XSS_MARKER_1"
+    timeout_ms: int = 10_000
+
+
+@dataclass(frozen=True, slots=True)
 class SsrfHttpSpec:
     """Submit a loopback callback URL through one bounded target request.
 
@@ -201,6 +224,7 @@ class LocalProofExecutor:
         *,
         timeout_seconds: float = 5.0,
         max_requests: int = 8,
+        browser_factory: Callable[..., Any] | None = _default_browser_factory,
     ) -> None:
         if policy.mode is not ExecutionMode.LOCAL:
             raise ProofExecutionError("active proof executor requires LOCAL network policy")
@@ -211,6 +235,7 @@ class LocalProofExecutor:
         self.policy = policy
         self.timeout_seconds = timeout_seconds
         self.max_requests = max_requests
+        self.browser_factory = browser_factory
         self._requests = 0
 
     def execute(self, plan: ProofPlan, spec: Any) -> ProofExecutionResult:
@@ -239,15 +264,7 @@ class LocalProofExecutor:
             ProofClass.SESSION_REVOCATION: self._session_revocation,
         }
         if plan.proof_class is ProofClass.XSS_EXECUTION:
-            return ProofExecutionResult(
-                plan.finding_id,
-                plan.proof_class,
-                ProofBehavior.BLOCKED,
-                blocker=(
-                    "XSS execution requires an explicit browser backend; the stdlib runner "
-                    "does not silently install or drive a browser"
-                ),
-            )
+            return self._xss(plan, spec)
         handler = dispatch.get(plan.proof_class)
         if handler is None:
             raise ProofExecutionError(f"no executor for {plan.proof_class.value}")
@@ -503,6 +520,132 @@ class LocalProofExecutor:
             plan.proof_class,
             behavior,
             observations,
+            notes=notes,
+        )
+
+    def _xss(self, plan: ProofPlan, spec: Any) -> ProofExecutionResult:
+        if not isinstance(spec, XssBrowserSpec):
+            raise ProofExecutionError("XSS plan requires XssBrowserSpec")
+        if "{payload}" not in spec.url_template:
+            raise ProofExecutionError("XSS url_template must contain {payload}")
+        if not spec.injection_selector.strip():
+            raise ProofExecutionError("XSS proof requires an injection_selector control")
+        if not 1_000 <= spec.timeout_ms <= 30_000:
+            raise ProofExecutionError("XSS timeout_ms must be between 1000 and 30000")
+        if spec.marker_name != "__SECHELIX_XSS_MARKER" or spec.marker_value != "SECHELIX_XSS_MARKER_1":
+            raise ProofExecutionError("XSS proof marker is fixed by SecHelix and cannot be caller-defined")
+        if self.browser_factory is None:
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.BLOCKED,
+                blocker="XSS execution requires an explicit browser backend",
+            )
+
+        payload = (
+            '"><script>window.'
+            + spec.marker_name
+            + "="
+            + json.dumps(spec.marker_value)
+            + "</script>"
+        )
+        url = spec.url_template.format(payload=urllib.parse.quote(payload, safe=""))
+        parsed = urllib.parse.urlsplit(url)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            raise ProofExecutionError("XSS proof URL must be absolute HTTP(S)")
+        if parsed.hostname not in {"127.0.0.1", "::1"}:
+            raise ProofExecutionError("XSS LOCAL proof requires literal loopback target")
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        self.policy.require(parsed.hostname, port, protocol=parsed.scheme)
+
+        from .pentest.browser import BrowserUnavailable
+        from .pentest.gateway import PolicyToolGateway
+        from .pentest.request_policy import InteractionPolicy
+        from .pentest.scope import ScopeEndpoint, TargetScope
+
+        scope = TargetScope(
+            primary_url=url,
+            mode=ExecutionMode.LOCAL,
+            endpoints=(
+                ScopeEndpoint(
+                    host=parsed.hostname,
+                    schemes=(parsed.scheme,),
+                    ports=(port,),
+                ),
+            ),
+        )
+        gateway = PolicyToolGateway(scope=scope)
+
+        try:
+            with self.browser_factory(
+                scope,
+                interaction_policy=InteractionPolicy(),
+                gateway=gateway,
+            ) as browser:
+                observation = browser.navigate(url, timeout_ms=spec.timeout_ms)
+                if observation.challenge.value != "NONE":
+                    return ProofExecutionResult(
+                        plan.finding_id,
+                        plan.proof_class,
+                        ProofBehavior.INCONCLUSIVE,
+                        [{
+                            "label": "browser-navigation",
+                            "status": observation.status,
+                            "url": observation.url,
+                            "challenge": observation.challenge.value,
+                            "blocked_requests": observation.blocked_requests,
+                        }],
+                        request_count=1,
+                        notes=["browser challenge prevented a deterministic XSS conclusion"],
+                    )
+                executed = browser.window_marker_matches(spec.marker_name, spec.marker_value)
+                rendered_text = browser.text(spec.injection_selector, timeout_ms=spec.timeout_ms)
+        except BrowserUnavailable as exc:
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.BLOCKED,
+                blocker=str(exc),
+            )
+
+        text_digest = (
+            hashlib.sha256(rendered_text.encode("utf-8")).hexdigest()
+            if rendered_text is not None
+            else ""
+        )
+        marker_present_as_text = bool(rendered_text and spec.marker_value in rendered_text)
+        observations = [
+            {
+                "label": "browser-navigation",
+                "status": observation.status,
+                "url": observation.url,
+                "challenge": observation.challenge.value,
+                "blocked_requests": observation.blocked_requests,
+            },
+            {
+                "label": "xss-marker",
+                "executed": executed,
+                "inert_text_observed": marker_present_as_text,
+                "rendered_text_sha256": text_digest,
+            },
+        ]
+        if executed:
+            behavior = ProofBehavior.VULNERABLE_BEHAVIOR
+            notes = ["fixed benign browser marker executed in the LOCAL fixture"]
+        elif marker_present_as_text:
+            behavior = ProofBehavior.SECURE_BEHAVIOR
+            notes = ["marker reached the declared sink only as inert text"]
+        else:
+            behavior = ProofBehavior.INCONCLUSIVE
+            notes = [
+                "marker did not execute, but the declared sink did not expose the marker as inert text either"
+            ]
+        return ProofExecutionResult(
+            plan.finding_id,
+            plan.proof_class,
+            behavior,
+            observations,
+            request_count=1,
             notes=notes,
         )
 
