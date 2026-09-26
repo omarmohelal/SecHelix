@@ -180,15 +180,7 @@ def _role_breakdown(
             "model": model,
             "providers": providers,
             "models": models,
-            "node_active_seconds": node_active_seconds,
-            "node_time_to_wall_ratio": node_time_to_wall_ratio,
-            "role_breakdown": role_breakdown,
             "telemetry_completeness": {
-                "duration_seconds": {
-                    "complete": duration_complete,
-                    "measured_nodes": duration_measured,
-                    "applicable_nodes": duration_applicable,
-                },
                 "duration_seconds": {
                     "complete": duration_complete,
                     "measured_nodes": duration_measured,
@@ -330,7 +322,15 @@ def build_arena_run_record(
             "failed": list(run.get("failed") or []),
             "providers": providers,
             "models": models,
+            "node_active_seconds": node_active_seconds,
+            "node_time_to_wall_ratio": node_time_to_wall_ratio,
+            "role_breakdown": role_breakdown,
             "telemetry_completeness": {
+                "duration_seconds": {
+                    "complete": duration_complete,
+                    "measured_nodes": duration_measured,
+                    "applicable_nodes": duration_applicable,
+                },
                 "input_tokens": {
                     "complete": input_complete,
                     "measured_nodes": input_measured,
