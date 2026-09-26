@@ -110,3 +110,26 @@ This result kind is `REAL_BROWSER_XSS_INTEGRATION_BENCHMARK`. It measures a
 browser-engine integration slice only and must not be presented as full
 SecHelix workflow precision/recall, verifier accuracy, remediation quality or
 release-gate accuracy.
+
+
+## Real-browser session integration benchmark
+
+`real_browser_session_benchmark.py` measures the optional Playwright-backed
+imported-session path using two isolated browser contexts against a
+literal-loopback protected fixture. One context receives a valid ephemeral
+fixture session and must observe the operator-defined protected selector; a
+separate context receives an invalid session and must not.
+
+```bash
+python evals/real_browser_session_benchmark.py \
+  --sechelix-commit <commit> \
+  --output work/real-browser-session.json
+```
+
+Session cookie values are execution-only inputs and never enter the result
+artifact. Missing Playwright/Chromium reports `BLOCKED_BY_ENVIRONMENT` rather
+than a clean result.
+
+This is an integration measurement for browser context isolation and session
+verification. It is separate from the session-revocation proof and is not a
+full SecHelix workflow score.
