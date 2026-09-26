@@ -21,6 +21,7 @@ from typing import Callable, Sequence
 from sechelix_runner.proof import ProofClass, build_plan
 from sechelix_runner.proof_exec import (
     LocalProofExecutor,
+    MoneyFlowInvariantHttpSpec,
     PaymentInvariantHttpSpec,
     ProofBehavior,
     StateTransitionHttpSpec,
@@ -44,6 +45,8 @@ class _Handler(BaseHTTPRequestHandler):
     payment_clean = 10_000
     workflow_vulnerable = "created"
     workflow_clean = "created"
+    money_flow_vulnerable = {"buyer": 10_000, "seller": 2_000, "platform": 500}
+    money_flow_clean = {"buyer": 10_000, "seller": 2_000, "platform": 500}
 
     def do_POST(self) -> None:  # noqa: N802
         length = int(self.headers.get("Content-Length", "0"))
@@ -64,6 +67,22 @@ class _Handler(BaseHTTPRequestHandler):
         if self.path == "/payment/clean":
             if type(self).payment_clean == 10_000:
                 type(self).payment_clean -= 250
+            self._send(200)
+            return
+
+        if self.path == "/money-flow/vulnerable":
+            state = type(self).money_flow_vulnerable
+            state["buyer"] -= 1000
+            state["seller"] += 900
+            state["platform"] += 100
+            self._send(200)
+            return
+        if self.path == "/money-flow/clean":
+            state = type(self).money_flow_clean
+            if state["buyer"] == 10_000:
+                state["buyer"] -= 1000
+                state["seller"] += 900
+                state["platform"] += 100
             self._send(200)
             return
 
@@ -115,6 +134,8 @@ def _reset() -> None:
     _Handler.payment_clean = 10_000
     _Handler.workflow_vulnerable = "created"
     _Handler.workflow_clean = "created"
+    _Handler.money_flow_vulnerable = {"buyer": 10_000, "seller": 2_000, "platform": 500}
+    _Handler.money_flow_clean = {"buyer": 10_000, "seller": 2_000, "platform": 500}
 
 
 def _cases() -> tuple[BenchmarkCase, ...]:
@@ -182,6 +203,36 @@ def _cases() -> tuple[BenchmarkCase, ...]:
             ),
         )
 
+    def money_flow_vulnerable(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.MONEY_FLOW_INVARIANT,
+            "BENCH-MONEY-FLOW-VULN",
+            available_authority={"fixture_write_access", "fixture_financial_readback"},
+        )
+        return executor.execute(
+            plan,
+            MoneyFlowInvariantHttpSpec(
+                url=base + "/money-flow/vulnerable",
+                read_balances_minor=lambda: dict(_Handler.money_flow_vulnerable),
+                expected_deltas_minor={"buyer": -1000, "seller": 900, "platform": 100},
+            ),
+        )
+
+    def money_flow_clean(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.MONEY_FLOW_INVARIANT,
+            "BENCH-MONEY-FLOW-CLEAN",
+            available_authority={"fixture_write_access", "fixture_financial_readback"},
+        )
+        return executor.execute(
+            plan,
+            MoneyFlowInvariantHttpSpec(
+                url=base + "/money-flow/clean",
+                read_balances_minor=lambda: dict(_Handler.money_flow_clean),
+                expected_deltas_minor={"buyer": -1000, "seller": 900, "platform": 100},
+            ),
+        )
+
     def workflow_vulnerable(base: str, executor: LocalProofExecutor):
         plan = build_plan(
             ProofClass.WORKFLOW_SEQUENCE,
@@ -245,6 +296,8 @@ def _cases() -> tuple[BenchmarkCase, ...]:
         BenchmarkCase("STATE-CLEAN", "state-transition", ProofBehavior.SECURE_BEHAVIOR, state_clean),
         BenchmarkCase("PAYMENT-VULNERABLE", "payment-invariant", ProofBehavior.VULNERABLE_BEHAVIOR, payment_vulnerable),
         BenchmarkCase("PAYMENT-CLEAN", "payment-invariant", ProofBehavior.SECURE_BEHAVIOR, payment_clean),
+        BenchmarkCase("MONEY-FLOW-VULNERABLE", "money-flow-invariant", ProofBehavior.VULNERABLE_BEHAVIOR, money_flow_vulnerable),
+        BenchmarkCase("MONEY-FLOW-CLEAN", "money-flow-invariant", ProofBehavior.SECURE_BEHAVIOR, money_flow_clean),
         BenchmarkCase("WORKFLOW-VULNERABLE", "workflow-sequence", ProofBehavior.VULNERABLE_BEHAVIOR, workflow_vulnerable),
         BenchmarkCase("WORKFLOW-CLEAN", "workflow-sequence", ProofBehavior.SECURE_BEHAVIOR, workflow_clean),
     )
