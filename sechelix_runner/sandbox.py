@@ -239,6 +239,7 @@ class SandboxSpec:
     """
 
     image: str = "python:3.12-slim"
+    require_pinned_image: bool = False
     read_only_root: bool = True
     no_new_privileges: bool = True
     privileged: bool = False
@@ -257,6 +258,8 @@ class SandboxSpec:
         problems: list[str] = []
         if self.privileged:
             problems.append("privileged containers are not permitted")
+        if self.require_pinned_image and not re.fullmatch(r"[^\\s@]+@sha256:[0-9a-f]{64}", self.image.strip()):
+            problems.append("security runtime image must be pinned by sha256 digest")
         if not self.no_new_privileges:
             problems.append("no_new_privileges must stay enabled")
         if "ALL" not in self.drop_capabilities:
