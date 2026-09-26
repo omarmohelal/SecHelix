@@ -44,6 +44,28 @@ An evaluator that did not produce the predictions records applicable observation
 
 A boolean means whether that workflow decision matched the independently established expected result. Every boolean must also carry an `evidence.<metric>` record with a short basis, one or more stable artifact references, and a SHA-256 digest binding the cited evidence bundle. `NOT_APPLICABLE` is excluded from the denominator and does not require invented evidence.
 
+### Build an evidence-backed assessment packet
+
+`evals/arena_packets.py` helps an independent evaluator bind each explicit
+judgment to local run artifacts without copying artifact contents or local paths
+into the assessment JSON.
+
+The packet spec still contains the evaluator's own boolean/NOT_APPLICABLE
+judgments and human-readable basis. The helper does **not** infer correctness,
+establish independence, or reveal blind truth. For each scored judgment it hashes
+the referenced files inside a caller-chosen base directory, emits only stable
+refs plus one canonical bundle digest, and rejects missing files, duplicate refs,
+and path escapes.
+
+```bash
+python evals/arena_packets.py \
+  --spec work/assessment-spec.json \
+  --base-dir work/run-artifacts \
+  --output work/assessment.json
+```
+
+The resulting `assessment.json` is passed to `arena.py finalize` below.
+
 ## 5. Finalize
 
 ```bash
