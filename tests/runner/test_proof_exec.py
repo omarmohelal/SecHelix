@@ -16,6 +16,7 @@ from sechelix_runner.proof_exec import (
     RaceHttpSpec,
     SessionRevocationHttpSpec,
     SsrfHttpSpec,
+    StateTransitionHttpSpec,
     TraversalHttpSpec,
     WebhookHttpSpec,
     XssBrowserSpec,
@@ -32,6 +33,9 @@ class _FixtureHandler(BaseHTTPRequestHandler):
     webhook_ambiguous_count = 0
     session_secure_active = True
     session_vulnerable_active = True
+    workflow_secure_state = "cancelled"
+    workflow_vulnerable_state = "cancelled"
+    workflow_ambiguous_state = "cancelled"
     sentinel = b"SECHELIX_SENTINEL_93B1"
 
     def do_GET(self) -> None:  # noqa: N802
@@ -113,6 +117,17 @@ class _FixtureHandler(BaseHTTPRequestHandler):
             # do not change the measured state. SecHelix must not call this
             # secure merely because the side-effect readback is unchanged.
             self._send(200, b"accepted")
+            return
+        if self.path == "/state-transition-vulnerable":
+            type(self).workflow_vulnerable_state = "completed"
+            self._send(200, b"transitioned")
+            return
+        if self.path == "/state-transition-secure":
+            self._send(409, b"forbidden transition")
+            return
+        if self.path == "/state-transition-ambiguous":
+            type(self).workflow_ambiguous_state = "manual_review"
+            self._send(202, b"queued")
             return
         if self.path == "/csrf-vulnerable":
             if self.headers.get("Cookie") != "session=fixture-auth":
@@ -208,6 +223,9 @@ class LocalProofExecutionTests(unittest.TestCase):
         _FixtureHandler.webhook_ambiguous_count = 0
         _FixtureHandler.session_secure_active = True
         _FixtureHandler.session_vulnerable_active = True
+        _FixtureHandler.workflow_secure_state = "cancelled"
+        _FixtureHandler.workflow_vulnerable_state = "cancelled"
+        _FixtureHandler.workflow_ambiguous_state = "cancelled"
         self.policy = NetworkPolicy(ExecutionMode.LOCAL)
         self.policy.grant(
             "127.0.0.1",
@@ -497,6 +515,92 @@ class LocalProofExecutionTests(unittest.TestCase):
         )
         self.assertEqual(result.behavior, ProofBehavior.BLOCKED)
         self.assertIn("fixture_session_revocation", result.blocker)
+
+    def test_state_transition_detects_forbidden_business_state(self) -> None:
+        plan = build_plan(
+            ProofClass.STATE_TRANSITION,
+            "F-STATE-VULN",
+            available_authority={"fixture_write_access", "fixture_state_readback"},
+        )
+        result = self.executor.execute(
+            plan,
+            StateTransitionHttpSpec(
+                url=self.base + "/state-transition-vulnerable",
+                body=b'{"status":"completed"}',
+                headers={"Authorization": "Bearer workflow-secret"},
+                read_state=lambda: _FixtureHandler.workflow_vulnerable_state,
+                expected_start_state="cancelled",
+                expected_secure_state="cancelled",
+                forbidden_state="completed",
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.VULNERABLE_BEHAVIOR)
+        self.assertEqual(result.request_count, 1)
+        self.assertEqual(_FixtureHandler.workflow_vulnerable_state, "completed")
+        rendered = json.dumps(result.to_dict())
+        self.assertNotIn("workflow-secret", rendered)
+        self.assertNotIn('"completed"', rendered)
+        self.assertIn("forbidden_state_sha256=", " ".join(result.notes))
+
+    def test_state_transition_accepts_explicit_rejection_as_secure_behavior(self) -> None:
+        plan = build_plan(
+            ProofClass.STATE_TRANSITION,
+            "F-STATE-SAFE",
+            available_authority={"fixture_write_access", "fixture_state_readback"},
+        )
+        result = self.executor.execute(
+            plan,
+            StateTransitionHttpSpec(
+                url=self.base + "/state-transition-secure",
+                body=b'{"status":"completed"}',
+                read_state=lambda: _FixtureHandler.workflow_secure_state,
+                expected_start_state="cancelled",
+                expected_secure_state="cancelled",
+                forbidden_state="completed",
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.SECURE_BEHAVIOR)
+        self.assertEqual(result.request_count, 1)
+        self.assertEqual(_FixtureHandler.workflow_secure_state, "cancelled")
+
+    def test_state_transition_unknown_intermediate_state_is_inconclusive(self) -> None:
+        plan = build_plan(
+            ProofClass.STATE_TRANSITION,
+            "F-STATE-AMBIGUOUS",
+            available_authority={"fixture_write_access", "fixture_state_readback"},
+        )
+        result = self.executor.execute(
+            plan,
+            StateTransitionHttpSpec(
+                url=self.base + "/state-transition-ambiguous",
+                read_state=lambda: _FixtureHandler.workflow_ambiguous_state,
+                expected_start_state="cancelled",
+                expected_secure_state="cancelled",
+                forbidden_state="completed",
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.INCONCLUSIVE)
+        self.assertEqual(_FixtureHandler.workflow_ambiguous_state, "manual_review")
+
+    def test_state_transition_requires_declared_readback_authority(self) -> None:
+        blocked = build_plan(
+            ProofClass.STATE_TRANSITION,
+            "F-STATE-BLOCKED",
+            available_authority={"fixture_write_access"},
+        )
+        result = self.executor.execute(
+            blocked,
+            StateTransitionHttpSpec(
+                url=self.base + "/state-transition-secure",
+                read_state=lambda: _FixtureHandler.workflow_secure_state,
+                expected_start_state="cancelled",
+                expected_secure_state="cancelled",
+                forbidden_state="completed",
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.BLOCKED)
+        self.assertIn("fixture_state_readback", result.blocker)
+        self.assertEqual(result.request_count, 0)
 
     def test_ssrf_proof_uses_loopback_callback_not_public_oob(self) -> None:
         plan = build_plan(
