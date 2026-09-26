@@ -95,9 +95,10 @@ class _Handler(BaseHTTPRequestHandler):
 
         if self.path == "/settlement-refund/vulnerable/settle":
             state = type(self).settlement_refund_vulnerable
-            state["customer"] -= 1000
-            state["worker"] += 800
-            state["platform"] += 200
+            if type(self).settlement_refund_vulnerable_settle_count == 0:
+                state["customer"] -= 1000
+                state["worker"] += 800
+                state["platform"] += 200
             type(self).settlement_refund_vulnerable_settle_count += 1
             self._send(200)
             return
