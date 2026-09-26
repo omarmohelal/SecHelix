@@ -139,6 +139,32 @@ def build_scanner_ablation(
     scanner_sources = _validate_pair(control, treatment)
     fixture_rows = fixtures if fixtures is not None else load_fixtures()
 
+    declared_sources = set(scanner_sources)
+    for arm_name, packet, scanners_allowed in (
+        ("control", control, set()),
+        ("treatment", treatment, declared_sources),
+    ):
+        rows = packet.get("predictions")
+        if not isinstance(rows, list):
+            raise ScannerAblationError(f"{arm_name} predictions must be an array")
+        for index, row in enumerate(rows):
+            if not isinstance(row, Mapping):
+                continue
+            raw_sources = row.get("scanner_sources", [])
+            if not isinstance(raw_sources, list) or not all(
+                isinstance(item, str) and item.strip() for item in raw_sources
+            ):
+                raise ScannerAblationError(
+                    f"{arm_name} predictions[{index}].scanner_sources must be a string list"
+                )
+            normalized = {item.strip() for item in raw_sources}
+            undeclared = sorted(normalized - scanners_allowed)
+            if undeclared:
+                raise ScannerAblationError(
+                    f"{arm_name} prediction references undeclared scanner sources: "
+                    + ", ".join(undeclared)
+                )
+
     try:
         control_result = score(control, fixture_rows)
         treatment_result = score(treatment, fixture_rows)
@@ -206,7 +232,7 @@ def build_scanner_ablation(
                 if len(scanner_sources) > 1
                 else "single declared scanner"
             ),
-            "individual_scanner_credit": False,
+            "individual_scanner_credit": len(scanner_sources) == 1,
         },
         "matched_conditions": {field: control[field] for field in _MATCH_FIELDS},
         "control": {
