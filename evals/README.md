@@ -85,6 +85,21 @@ Fixtures are synthetic source fragments for static reasoning. Do not deploy
 them, attach live credentials, or point them at external targets.
 
 
+## Full-packet Arena operational summary
+
+The complete Arena batch handoff now aggregates operational telemetry across
+every manifest-verified case. The summary includes packet-wide elapsed time,
+input/output tokens, cost, host/provider/model labels, plus separate runtime
+summaries for the independent verifier and release gate.
+
+Aggregates are fail-closed: one applicable case or role node missing token/cost
+telemetry makes that total `NOT_MEASURED`; missing values are never treated as
+zero. Elapsed time remains measurable when its own data is complete.
+
+This summary is operational only. It does not score verifier or release-gate
+correctness and cannot make a batch publishable without the independent Arena
+assessment.
+
 ## Dynamic proof primitive benchmark
 
 `dynamic_proof_benchmark.py` executes paired vulnerable/clean LOCAL fixtures for
