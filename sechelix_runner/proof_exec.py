@@ -38,6 +38,12 @@ class ProofExecutionError(RuntimeError):
     """The execution spec is unsafe, malformed, or inconsistent with the plan."""
 
 
+def _default_browser_factory(*args: Any, **kwargs: Any) -> Any:
+    from .pentest.safe_browser import SafeAuthorizedBrowser
+
+    return SafeAuthorizedBrowser(*args, **kwargs)
+
+
 class ProofBehavior(StrEnum):
     VULNERABLE_BEHAVIOR = "VULNERABLE_BEHAVIOR"
     SECURE_BEHAVIOR = "SECURE_BEHAVIOR"
@@ -218,6 +224,7 @@ class LocalProofExecutor:
         *,
         timeout_seconds: float = 5.0,
         max_requests: int = 8,
+        browser_factory: Callable[..., Any] | None = _default_browser_factory,
     ) -> None:
         if policy.mode is not ExecutionMode.LOCAL:
             raise ProofExecutionError("active proof executor requires LOCAL network policy")
@@ -228,6 +235,7 @@ class LocalProofExecutor:
         self.policy = policy
         self.timeout_seconds = timeout_seconds
         self.max_requests = max_requests
+        self.browser_factory = browser_factory
         self._requests = 0
 
     def execute(self, plan: ProofPlan, spec: Any) -> ProofExecutionResult:
@@ -524,6 +532,15 @@ class LocalProofExecutor:
             raise ProofExecutionError("XSS proof requires an injection_selector control")
         if not 1_000 <= spec.timeout_ms <= 30_000:
             raise ProofExecutionError("XSS timeout_ms must be between 1000 and 30000")
+        if spec.marker_name != "__SECHELIX_XSS_MARKER" or spec.marker_value != "SECHELIX_XSS_MARKER_1":
+            raise ProofExecutionError("XSS proof marker is fixed by SecHelix and cannot be caller-defined")
+        if self.browser_factory is None:
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.BLOCKED,
+                blocker="XSS execution requires an explicit browser backend",
+            )
 
         payload = (
             '"><script>window.'
@@ -544,7 +561,6 @@ class LocalProofExecutor:
         from .pentest.browser import BrowserUnavailable
         from .pentest.gateway import PolicyToolGateway
         from .pentest.request_policy import InteractionPolicy
-        from .pentest.safe_browser import SafeAuthorizedBrowser
         from .pentest.scope import ScopeEndpoint, TargetScope
 
         scope = TargetScope(
@@ -561,7 +577,7 @@ class LocalProofExecutor:
         gateway = PolicyToolGateway(scope=scope)
 
         try:
-            with SafeAuthorizedBrowser(
+            with self.browser_factory(
                 scope,
                 interaction_policy=InteractionPolicy(),
                 gateway=gateway,
@@ -579,6 +595,7 @@ class LocalProofExecutor:
                             "challenge": observation.challenge.value,
                             "blocked_requests": observation.blocked_requests,
                         }],
+                        request_count=1,
                         notes=["browser challenge prevented a deterministic XSS conclusion"],
                     )
                 executed = browser.window_marker_matches(spec.marker_name, spec.marker_value)
@@ -628,6 +645,7 @@ class LocalProofExecutor:
             plan.proof_class,
             behavior,
             observations,
+            request_count=1,
             notes=notes,
         )
 
