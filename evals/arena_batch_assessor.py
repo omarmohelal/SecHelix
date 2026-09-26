@@ -79,6 +79,11 @@ def _validate_handoff(handoff: Mapping[str, Any]) -> dict[str, Mapping[str, Any]
         bundle = row.get("bundle")
         if not isinstance(bundle, Mapping):
             raise ArenaBatchAssessmentError(f"{case_id} measurement bundle missing")
+        bundle_digest = row.get("bundle_digest")
+        if not _is_digest(bundle_digest):
+            raise ArenaBatchAssessmentError(f"{case_id} measurement bundle digest missing")
+        if bundle_digest != canonical_digest(bundle):
+            raise ArenaBatchAssessmentError(f"{case_id} measurement bundle digest mismatch")
         cases[case_id] = row
 
     if handoff.get("case_count") != len(cases):
