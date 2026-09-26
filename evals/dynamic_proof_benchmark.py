@@ -15,18 +15,23 @@ import threading
 import time
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from types import SimpleNamespace
 from pathlib import Path
 from typing import Callable, Sequence
 
 from sechelix_runner.proof import ProofClass, build_plan
 from sechelix_runner.proof_exec import (
+    CsrfHttpSpec,
+    IdorHttpSpec,
     LocalProofExecutor,
     MoneyFlowInvariantHttpSpec,
     PaymentInvariantHttpSpec,
     ProofBehavior,
+    SessionRevocationHttpSpec,
     SettlementRefundSequenceHttpSpec,
     StateTransitionHttpSpec,
     WorkflowSequenceHttpSpec,
+    XssBrowserSpec,
 )
 from sechelix_runner.sandbox import ExecutionMode, NetworkPolicy
 
@@ -54,10 +59,67 @@ class _Handler(BaseHTTPRequestHandler):
     settlement_refund_vulnerable_refund_count = 0
     settlement_refund_clean_settle_count = 0
     settlement_refund_clean_refund_count = 0
+    session_vulnerable_active = True
+    session_clean_active = True
+    csrf_vulnerable_count = 0
+    csrf_clean_count = 0
+
+    def do_GET(self) -> None:  # noqa: N802
+        if self.path == "/idor/vulnerable/1":
+            if self.headers.get("X-Bench-Identity") not in {"owner", "foreign"}:
+                self._send(401)
+                return
+            self._send(200, b'{"id":1,"owner":"owner"}')
+            return
+        if self.path == "/idor/clean/1":
+            identity = self.headers.get("X-Bench-Identity")
+            if identity == "owner":
+                self._send(200, b'{"id":1,"owner":"owner"}')
+            elif identity == "foreign":
+                self._send(403)
+            else:
+                self._send(401)
+            return
+        if self.path == "/session/vulnerable":
+            if self.headers.get("X-Bench-Session") != "fixture-session":
+                self._send(401)
+                return
+            # Intentionally stale authority: revocation state is ignored.
+            self._send(200, b"protected")
+            return
+        if self.path == "/session/clean":
+            if self.headers.get("X-Bench-Session") != "fixture-session":
+                self._send(401)
+                return
+            if not type(self).session_clean_active:
+                self._send(401)
+                return
+            self._send(200, b"protected")
+            return
+        self._send(404)
 
     def do_POST(self) -> None:  # noqa: N802
         length = int(self.headers.get("Content-Length", "0"))
         self.rfile.read(length)
+
+        if self.path == "/csrf/vulnerable":
+            if self.headers.get("X-Bench-Session") != "fixture-session":
+                self._send(401)
+                return
+            type(self).csrf_vulnerable_count += 1
+            self._send(200)
+            return
+        if self.path == "/csrf/clean":
+            if self.headers.get("X-Bench-Session") != "fixture-session":
+                self._send(401)
+                return
+            expected_origin = f"http://127.0.0.1:{self.server.server_port}"
+            if self.headers.get("Origin") != expected_origin:
+                self._send(403)
+                return
+            type(self).csrf_clean_count += 1
+            self._send(200)
+            return
 
         if self.path == "/state/vulnerable":
             type(self).state_vulnerable = "completed"
@@ -161,8 +223,7 @@ class _Handler(BaseHTTPRequestHandler):
 
         self._send(404)
 
-    def _send(self, status: int) -> None:
-        body = b"ok"
+    def _send(self, status: int, body: bytes = b"ok") -> None:
         self.send_response(status)
         self.send_header("Content-Type", "text/plain")
         self.send_header("Content-Length", str(len(body)))
@@ -188,6 +249,49 @@ def _reset() -> None:
     _Handler.settlement_refund_vulnerable_refund_count = 0
     _Handler.settlement_refund_clean_settle_count = 0
     _Handler.settlement_refund_clean_refund_count = 0
+    _Handler.session_vulnerable_active = True
+    _Handler.session_clean_active = True
+    _Handler.csrf_vulnerable_count = 0
+    _Handler.csrf_clean_count = 0
+
+
+class _BenchmarkXssBrowser:
+    """Deterministic browser-fixture adapter for the proof primitive benchmark."""
+
+    def __init__(
+        self,
+        scope,
+        *,
+        interaction_policy,
+        gateway,
+        execute_marker: bool = False,
+        inert_text: bool = False,
+    ) -> None:
+        self.scope = scope
+        self.interaction_policy = interaction_policy
+        self.gateway = gateway
+        self.execute_marker = execute_marker
+        self.inert_text = inert_text
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return None
+
+    def navigate(self, url, *, timeout_ms):
+        return SimpleNamespace(
+            status=200,
+            url=url.split("?", 1)[0] + "?q=[REDACTED]",
+            challenge=SimpleNamespace(value="NONE"),
+            blocked_requests=0,
+        )
+
+    def window_marker_matches(self, name, expected):
+        return self.execute_marker
+
+    def text(self, selector, *, timeout_ms):
+        return "SECHELIX_XSS_MARKER_1" if self.inert_text else "no marker"
 
 
 def _cases() -> tuple[BenchmarkCase, ...]:
@@ -393,6 +497,153 @@ def _cases() -> tuple[BenchmarkCase, ...]:
             ),
         )
 
+
+    def idor_vulnerable(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.AUTHORIZATION_IDOR,
+            "BENCH-IDOR-VULN",
+            available_authority={"identity_a_credentials", "identity_b_credentials"},
+        )
+        return executor.execute(
+            plan,
+            IdorHttpSpec(
+                url_template=base + "/idor/vulnerable/{object_id}",
+                object_id="1",
+                identity_a_headers={"X-Bench-Identity": "owner"},
+                identity_b_headers={"X-Bench-Identity": "foreign"},
+            ),
+        )
+
+    def idor_clean(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.AUTHORIZATION_IDOR,
+            "BENCH-IDOR-CLEAN",
+            available_authority={"identity_a_credentials", "identity_b_credentials"},
+        )
+        return executor.execute(
+            plan,
+            IdorHttpSpec(
+                url_template=base + "/idor/clean/{object_id}",
+                object_id="1",
+                identity_a_headers={"X-Bench-Identity": "owner"},
+                identity_b_headers={"X-Bench-Identity": "foreign"},
+            ),
+        )
+
+    def csrf_vulnerable(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.CSRF_REQUEST,
+            "BENCH-CSRF-VULN",
+            available_authority={"fixture_authenticated_session", "fixture_write_access"},
+        )
+        return executor.execute(
+            plan,
+            CsrfHttpSpec(
+                url=base + "/csrf/vulnerable",
+                authenticated_headers={"X-Bench-Session": "fixture-session"},
+            ),
+        )
+
+    def csrf_clean(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.CSRF_REQUEST,
+            "BENCH-CSRF-CLEAN",
+            available_authority={"fixture_authenticated_session", "fixture_write_access"},
+        )
+        return executor.execute(
+            plan,
+            CsrfHttpSpec(
+                url=base + "/csrf/clean",
+                authenticated_headers={"X-Bench-Session": "fixture-session"},
+            ),
+        )
+
+    def session_vulnerable(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.SESSION_REVOCATION,
+            "BENCH-SESSION-VULN",
+            available_authority={"fixture_authenticated_session", "fixture_session_revocation"},
+        )
+
+        def revoke() -> None:
+            _Handler.session_vulnerable_active = False
+
+        return executor.execute(
+            plan,
+            SessionRevocationHttpSpec(
+                url=base + "/session/vulnerable",
+                authenticated_headers={"X-Bench-Session": "fixture-session"},
+                revoke_session=revoke,
+            ),
+        )
+
+    def session_clean(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.SESSION_REVOCATION,
+            "BENCH-SESSION-CLEAN",
+            available_authority={"fixture_authenticated_session", "fixture_session_revocation"},
+        )
+
+        def revoke() -> None:
+            _Handler.session_clean_active = False
+
+        return executor.execute(
+            plan,
+            SessionRevocationHttpSpec(
+                url=base + "/session/clean",
+                authenticated_headers={"X-Bench-Session": "fixture-session"},
+                revoke_session=revoke,
+            ),
+        )
+
+    def xss_vulnerable(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.XSS_EXECUTION,
+            "BENCH-XSS-VULN",
+            available_authority={"local_browser_runtime"},
+        )
+
+        def factory(scope, **kwargs):
+            return _BenchmarkXssBrowser(scope, execute_marker=True, **kwargs)
+
+        browser_executor = LocalProofExecutor(
+            executor.policy,
+            timeout_seconds=executor.timeout_seconds,
+            max_requests=executor.max_requests,
+            browser_factory=factory,
+        )
+        return browser_executor.execute(
+            plan,
+            XssBrowserSpec(
+                url_template=base + "/xss?q={payload}",
+                injection_selector="#sink",
+            ),
+        )
+
+    def xss_clean(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.XSS_EXECUTION,
+            "BENCH-XSS-CLEAN",
+            available_authority={"local_browser_runtime"},
+        )
+
+        def factory(scope, **kwargs):
+            return _BenchmarkXssBrowser(scope, inert_text=True, **kwargs)
+
+        browser_executor = LocalProofExecutor(
+            executor.policy,
+            timeout_seconds=executor.timeout_seconds,
+            max_requests=executor.max_requests,
+            browser_factory=factory,
+        )
+        return browser_executor.execute(
+            plan,
+            XssBrowserSpec(
+                url_template=base + "/xss?q={payload}",
+                injection_selector="#sink",
+            ),
+        )
+
     return (
         BenchmarkCase("STATE-VULNERABLE", "state-transition", ProofBehavior.VULNERABLE_BEHAVIOR, state_vulnerable),
         BenchmarkCase("STATE-CLEAN", "state-transition", ProofBehavior.SECURE_BEHAVIOR, state_clean),
@@ -404,6 +655,14 @@ def _cases() -> tuple[BenchmarkCase, ...]:
         BenchmarkCase("SETTLEMENT-REFUND-CLEAN", "settlement-refund-sequence", ProofBehavior.SECURE_BEHAVIOR, settlement_refund_clean),
         BenchmarkCase("WORKFLOW-VULNERABLE", "workflow-sequence", ProofBehavior.VULNERABLE_BEHAVIOR, workflow_vulnerable),
         BenchmarkCase("WORKFLOW-CLEAN", "workflow-sequence", ProofBehavior.SECURE_BEHAVIOR, workflow_clean),
+        BenchmarkCase("IDOR-VULNERABLE", "authorization-idor", ProofBehavior.VULNERABLE_BEHAVIOR, idor_vulnerable),
+        BenchmarkCase("IDOR-CLEAN", "authorization-idor", ProofBehavior.SECURE_BEHAVIOR, idor_clean),
+        BenchmarkCase("CSRF-VULNERABLE", "csrf-request", ProofBehavior.VULNERABLE_BEHAVIOR, csrf_vulnerable),
+        BenchmarkCase("CSRF-CLEAN", "csrf-request", ProofBehavior.SECURE_BEHAVIOR, csrf_clean),
+        BenchmarkCase("SESSION-VULNERABLE", "session-revocation", ProofBehavior.VULNERABLE_BEHAVIOR, session_vulnerable),
+        BenchmarkCase("SESSION-CLEAN", "session-revocation", ProofBehavior.SECURE_BEHAVIOR, session_clean),
+        BenchmarkCase("XSS-VULNERABLE", "xss-browser-marker", ProofBehavior.VULNERABLE_BEHAVIOR, xss_vulnerable),
+        BenchmarkCase("XSS-CLEAN", "xss-browser-marker", ProofBehavior.SECURE_BEHAVIOR, xss_clean),
     )
 
 
@@ -474,6 +733,7 @@ def run_dynamic_proof_benchmark(*, sechelix_commit: str = "NOT_MEASURED") -> dic
             "model": "NONE",
             "provider": "NONE",
             "external_scanners": [],
+            "browser_backend": "deterministic-fixture-adapter-for-xss-pair",
         },
         "metrics": {
             "case_accuracy": _ratio(correct, len(rows)),
@@ -492,6 +752,7 @@ def run_dynamic_proof_benchmark(*, sechelix_commit: str = "NOT_MEASURED") -> dic
             "Measures deterministic proof primitives only, not candidate discovery or model reasoning.",
             "Does not measure independent-verifier accuracy, remediation, regression generation, or release-gate accuracy.",
             "Synthetic loopback fixtures do not represent production latency, concurrency, infrastructure, or deployment policy.",
+            "The XSS pair measures proof-classification logic through a deterministic browser fixture adapter; it is not a Playwright/browser-engine compatibility benchmark.",
             "A passing clean fixture establishes only the bounded declared invariant for that fixture.",
         ],
     }
