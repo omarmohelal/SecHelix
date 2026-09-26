@@ -35,6 +35,7 @@ class ProofClass(str, Enum):
     PATH_TRAVERSAL = "PATH_TRAVERSAL"
     CSRF_REQUEST = "CSRF_REQUEST"
     SESSION_REVOCATION = "SESSION_REVOCATION"
+    STATE_TRANSITION = "STATE_TRANSITION"
 
 
 class PlanState(str, Enum):
@@ -292,6 +293,30 @@ def _session_revocation(finding_id: str) -> ProofPlan:
         ),
     )
 
+def _state_transition(finding_id: str) -> ProofPlan:
+    return _plan(
+        ProofClass.STATE_TRANSITION,
+        finding_id,
+        preconditions=[
+            "the fixture has a deterministic readable starting state",
+            "one harmless transition request represents an operator-declared forbidden state edge",
+            "the post-request state can be read without exposing credential material",
+        ],
+        required_authority=["fixture_write_access", "fixture_state_readback"],
+        actions=[
+            "read and verify the fixture starting state",
+            "issue exactly one bounded forbidden-transition request",
+            "read the resulting fixture state and compare it with the declared safe and forbidden outcomes",
+        ],
+        expected_secure_behavior=(
+            "the declared forbidden target state is not reached and the fixture remains in the supplied safe state"
+        ),
+        expected_vulnerable_behavior=(
+            "the request moves the fixture into the operator-declared forbidden target state"
+        ),
+    )
+
+
 def _traversal(finding_id: str) -> ProofPlan:
     return _plan(
         ProofClass.PATH_TRAVERSAL,
@@ -319,4 +344,5 @@ _BUILDERS = {
     ProofClass.PATH_TRAVERSAL: _traversal,
     ProofClass.CSRF_REQUEST: _csrf,
     ProofClass.SESSION_REVOCATION: _session_revocation,
+    ProofClass.STATE_TRANSITION: _state_transition,
 }
