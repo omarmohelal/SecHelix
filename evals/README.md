@@ -55,3 +55,30 @@ See [`arena/README.md`](arena/README.md) and start from
 
 Fixtures are synthetic source fragments for static reasoning. Do not deploy
 them, attach live credentials, or point them at external targets.
+
+
+## Dynamic proof primitive benchmark
+
+`dynamic_proof_benchmark.py` executes paired vulnerable/clean LOCAL fixtures for
+SecHelix's deterministic proof primitives. It currently measures three
+business-logic families:
+
+- one-step forbidden state transition;
+- duplicate payment/refund effect;
+- multi-step workflow prerequisite enforcement.
+
+Run it with:
+
+```bash
+python evals/dynamic_proof_benchmark.py --sechelix-commit <commit> --output work/dynamic-proof-result.json
+```
+
+The artifact records per-case expected/observed behavior, request count and
+elapsed time, plus aggregate case accuracy, vulnerable-behavior recall,
+clean-behavior rejection rate and inconclusive rate.
+
+This is deliberately **not** a full SecHelix benchmark. It does not exercise
+candidate discovery, model reasoning, independent verification, remediation,
+regression generation, or release-gate decisions. Those remain governed by the
+full-workflow Arena protocol and must not inherit scores from this primitive
+benchmark.
