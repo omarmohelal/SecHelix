@@ -85,6 +85,16 @@ class ArenaRunTelemetryTests(unittest.TestCase):
         self.assertEqual(record["provider"], "MULTI")
         self.assertEqual(record["model"], "MULTI")
         self.assertEqual(record["operational_metrics"]["providers"], ["p1", "p2"])
+        self.assertEqual(record["operational_metrics"]["node_active_seconds"], 3.5)
+        self.assertEqual(record["operational_metrics"]["node_time_to_wall_ratio"], 0.7)
+        roles = record["operational_metrics"]["role_breakdown"]
+        self.assertEqual(roles["AUTHORIZATION"]["node_active_seconds"], 1.0)
+        self.assertEqual(roles["AUTHORIZATION"]["input_tokens"], 100)
+        self.assertEqual(roles["AUTHORIZATION"]["cost_usd"], 0.01)
+        self.assertEqual(roles["INDEPENDENT_VERIFIER"]["node_active_seconds"], 2.0)
+        self.assertEqual(roles["INDEPENDENT_VERIFIER"]["cost_usd"], 0.02)
+        self.assertEqual(roles["RELEASE_GATE"]["node_active_seconds"], 0.5)
+        self.assertEqual(roles["BROWSER"]["input_tokens"], NOT_APPLICABLE)
         self.assertTrue(record["operational_metrics"]["independent_verifier"]["present"])
         self.assertTrue(record["operational_metrics"]["release_gate"]["present"])
         verifier = record["operational_metrics"]["independent_verifier"]["nodes"][0]
@@ -163,6 +173,27 @@ class ArenaRunTelemetryTests(unittest.TestCase):
         self.assertEqual(record["input_tokens"], NOT_MEASURED)
         self.assertEqual(record["output_tokens"], NOT_MEASURED)
         self.assertEqual(record["cost"], NOT_MEASURED)
+
+    def test_missing_duration_is_not_silently_summed(self):
+        run = sample_run()
+        run["records"]["verifier"]["duration_seconds"] = None
+        record = build_arena_run_record(run, agent_host="host")
+        metrics = record["operational_metrics"]
+        self.assertEqual(metrics["node_active_seconds"], NOT_MEASURED)
+        self.assertEqual(metrics["node_time_to_wall_ratio"], NOT_MEASURED)
+        completeness = metrics["telemetry_completeness"]["duration_seconds"]
+        self.assertFalse(completeness["complete"])
+        self.assertEqual(completeness["measured_nodes"], 3)
+        self.assertEqual(completeness["applicable_nodes"], 4)
+        verifier = metrics["role_breakdown"]["INDEPENDENT_VERIFIER"]
+        self.assertEqual(verifier["node_active_seconds"], NOT_MEASURED)
+        self.assertFalse(verifier["telemetry_completeness"]["duration_seconds"]["complete"])
+
+    def test_negative_duration_is_rejected(self):
+        run = sample_run()
+        run["records"]["authz"]["duration_seconds"] = -0.1
+        with self.assertRaises(ArenaRunTelemetryError):
+            build_arena_run_record(run, agent_host="host")
 
     def test_rejects_bad_time_order_and_empty_records(self):
         run = sample_run()
