@@ -54,6 +54,28 @@ It also binds the generated metadata to the source run artifact with SHA-256.
 This is operational telemetry only: it does not score whether the verifier or
 gate was *correct*. That remains the job of the independent Arena assessment.
 
+## 3.2 Bind the persisted SecHelix workspace
+
+For an actual SecHelix run, the evaluator can also bind the persisted run
+workspace before scoring verifier/gate behavior:
+
+```bash
+python evals/arena_workspace.py \
+  --root . \
+  --run-id RUN-EXAMPLE \
+  --output work/arena-workspace-evidence.json
+```
+
+The helper first verifies the workspace `manifest.json`. Any changed, missing,
+or unmanifested file is a hard failure. It then emits SHA-256 identities for
+`run.json`, `graph.json`, `replay/outcomes.json`, and `manifest.json`, plus
+digest-only summaries for independent-verifier, release-gate, remediator and
+patch-verifier nodes.
+
+Node output bodies are not copied into the index. The evaluator still opens the
+original redacted workspace artifacts when assessing correctness; the index only
+proves exactly which bytes and role outputs the assessment references.
+
 ## 4. Independent workflow assessment
 
 An evaluator that did not produce the predictions records applicable observations with these fields:
