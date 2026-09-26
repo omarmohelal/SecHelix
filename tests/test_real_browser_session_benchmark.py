@@ -29,6 +29,7 @@ class FakeSessionBrowser:
         self.authentication_context = authentication_context
 
     def __enter__(self):
+        self._revocation_calls = 0
         return self
 
     def __exit__(self, exc_type, exc, tb):
@@ -37,6 +38,10 @@ class FakeSessionBrowser:
     def verify_session(self, probe):
         cookie_value = str(self.access.cookies[0]["value"])
         verified = cookie_value == "fixture-session-valid"
+        if "/revocation/" in probe.url:
+            self._revocation_calls += 1
+            if "/revocation/clean" in probe.url and self._revocation_calls >= 2:
+                verified = False
         return LoginResult(
             profile_name=self.access.profile_name,
             role=self.access.role,
@@ -69,11 +74,17 @@ class RealBrowserSessionBenchmarkTests(unittest.TestCase):
             result["result_kind"],
             "REAL_BROWSER_SESSION_INTEGRATION_BENCHMARK",
         )
-        self.assertEqual(result["case_count"], 2)
+        self.assertEqual(result["case_count"], 4)
         self.assertTrue(all(case["matched"] for case in result["cases"]))
         by_id = {case["case_id"]: case for case in result["cases"]}
         self.assertTrue(by_id["SESSION-REAL-VALID"]["observed_verified"])
         self.assertFalse(by_id["SESSION-REAL-INVALID"]["observed_verified"])
+        self.assertTrue(
+            by_id["SESSION-REVOCATION-REAL-VULNERABLE"]["observed_post_revocation_verified"]
+        )
+        self.assertFalse(
+            by_id["SESSION-REVOCATION-REAL-CLEAN"]["observed_post_revocation_verified"]
+        )
         self.assertFalse(result["credential_material_persisted"])
         self.assertFalse(result["is_full_sechelix_workflow"])
 
@@ -82,9 +93,29 @@ class RealBrowserSessionBenchmarkTests(unittest.TestCase):
             browser_factory=MissingSessionBrowser
         )
         self.assertEqual(result["measurement_status"], BLOCKED_BY_ENVIRONMENT)
-        self.assertEqual(result["case_count"], 2)
-        self.assertTrue(all(case["observed_verified"] is None for case in result["cases"]))
-        self.assertTrue(all(case["blocker"] for case in result["cases"]))
+        self.assertEqual(result["case_count"], 4)
+        for case in result["cases"]:
+            if "observed_verified" in case:
+                self.assertIsNone(case["observed_verified"])
+            else:
+                self.assertIsNone(case["observed_pre_revocation_verified"])
+                self.assertIsNone(case["observed_post_revocation_verified"])
+            self.assertTrue(case["blocker"])
+
+    def test_revocation_cases_reuse_one_context_before_and_after_server_revocation(self):
+        result = run_real_browser_session_benchmark(
+            browser_factory=FakeSessionBrowser,
+            sechelix_commit="TEST-REVOCATION",
+        )
+        by_id = {case["case_id"]: case for case in result["cases"]}
+        vulnerable = by_id["SESSION-REVOCATION-REAL-VULNERABLE"]
+        clean = by_id["SESSION-REVOCATION-REAL-CLEAN"]
+        self.assertTrue(vulnerable["observed_pre_revocation_verified"])
+        self.assertTrue(vulnerable["observed_post_revocation_verified"])
+        self.assertTrue(clean["observed_pre_revocation_verified"])
+        self.assertFalse(clean["observed_post_revocation_verified"])
+        self.assertTrue(vulnerable["matched"])
+        self.assertTrue(clean["matched"])
 
     def test_session_values_never_enter_artifact(self):
         result = run_real_browser_session_benchmark(

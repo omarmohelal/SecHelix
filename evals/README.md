@@ -126,7 +126,7 @@ python evals/real_browser_session_benchmark.py \
   --output work/real-browser-session.json
 ```
 
-Session cookie values are execution-only inputs and never enter the result
+Session cookie values are execution-only inputs and never enter the result. The benchmark now also reuses one browser context across a deterministic LOCAL server-side revocation event for paired stale-authority versus immediate-revocation fixtures
 artifact. Missing Playwright/Chromium reports `BLOCKED_BY_ENVIRONMENT` rather
 than a clean result.
 
