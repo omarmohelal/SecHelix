@@ -211,6 +211,24 @@ class PaymentInvariantHttpSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class MoneyFlowInvariantHttpSpec:
+    """Validate one bounded multi-entity money movement in a LOCAL fixture.
+
+    Balances are integer minor units keyed by operator-declared entity labels.
+    Expected and forbidden delta vectors are explicit fixture invariants. Raw
+    balances, headers and bodies never enter the serialized proof artifact.
+    """
+
+    url: str
+    body: bytes = b""
+    headers: Mapping[str, str] = field(default_factory=dict)
+    read_balances_minor: Callable[[], Mapping[str, int]] | None = None
+    expected_deltas_minor: Mapping[str, int] = field(default_factory=dict)
+    forbidden_delta_vectors: tuple[Mapping[str, int], ...] = ()
+    accepted_statuses: tuple[int, ...] = (200, 201, 202, 204)
+
+
+@dataclass(frozen=True, slots=True)
 class WorkflowSequenceHttpSpec:
     """Prove one declared prerequisite edge in a LOCAL multi-step workflow.
 
@@ -332,6 +350,7 @@ class LocalProofExecutor:
             ProofClass.STATE_TRANSITION: self._state_transition,
             ProofClass.PAYMENT_INVARIANT: self._payment_invariant,
             ProofClass.WORKFLOW_SEQUENCE: self._workflow_sequence,
+            ProofClass.MONEY_FLOW_INVARIANT: self._money_flow_invariant,
         }
         if plan.proof_class is ProofClass.XSS_EXECUTION:
             return self._xss(plan, spec)
@@ -791,6 +810,149 @@ class LocalProofExecutor:
             notes.insert(
                 0,
                 "replay changed financial state, but not by the declared single-operation delta",
+            )
+
+        return ProofExecutionResult(
+            plan.finding_id,
+            plan.proof_class,
+            behavior,
+            observations,
+            notes=notes,
+        )
+
+    def _money_flow_invariant(self, plan: ProofPlan, spec: Any) -> ProofExecutionResult:
+        if not isinstance(spec, MoneyFlowInvariantHttpSpec):
+            raise ProofExecutionError("money flow invariant plan requires MoneyFlowInvariantHttpSpec")
+        if spec.read_balances_minor is None or not callable(spec.read_balances_minor):
+            raise ProofExecutionError("money flow invariant proof requires a financial readback")
+
+        def normalize_vector(value: Mapping[str, int], label: str) -> dict[str, int]:
+            if not isinstance(value, Mapping):
+                raise ProofExecutionError(f"{label} must be a mapping of entity labels to integer minor units")
+            normalized: dict[str, int] = {}
+            for raw_key, raw_amount in value.items():
+                key = str(raw_key).strip()
+                if not key or len(key) > 80:
+                    raise ProofExecutionError(f"{label} contains an invalid entity label")
+                if isinstance(raw_amount, bool) or not isinstance(raw_amount, int):
+                    raise ProofExecutionError(f"{label} values must be integer minor units")
+                if abs(raw_amount) > 100_000_000_000:
+                    raise ProofExecutionError(f"{label} contains an amount outside the bounded fixture limit")
+                normalized[key] = raw_amount
+            if not 2 <= len(normalized) <= 8:
+                raise ProofExecutionError(f"{label} must declare between 2 and 8 financial entities")
+            return normalized
+
+        expected = normalize_vector(spec.expected_deltas_minor, "expected_deltas_minor")
+        if not any(expected.values()):
+            raise ProofExecutionError("expected_deltas_minor must include at least one non-zero movement")
+
+        forbidden = tuple(
+            normalize_vector(item, f"forbidden_delta_vectors[{index}]")
+            for index, item in enumerate(spec.forbidden_delta_vectors)
+        )
+        for item in forbidden:
+            if set(item) != set(expected):
+                raise ProofExecutionError("forbidden delta vectors must use the same entity labels as expected_deltas_minor")
+            if item == expected:
+                raise ProofExecutionError("a forbidden delta vector cannot equal the expected delta vector")
+
+        before = normalize_vector(spec.read_balances_minor(), "financial readback")
+        if set(before) != set(expected):
+            raise ProofExecutionError("financial readback labels must exactly match expected_deltas_minor")
+
+        first = self._request(
+            "money-flow-control",
+            spec.url,
+            "POST",
+            spec.headers,
+            spec.body,
+        )
+        after_first = normalize_vector(spec.read_balances_minor(), "financial readback")
+        if set(after_first) != set(before):
+            raise ProofExecutionError("financial readback entity labels changed during proof")
+
+        observed_first = {
+            key: after_first[key] - before[key]
+            for key in sorted(before)
+        }
+        observations = [first.to_dict()]
+        notes = [
+            f"before_sha256={_value_digest(before)}",
+            f"after_first_sha256={_value_digest(after_first)}",
+            f"expected_vector_sha256={_value_digest(expected)}",
+            f"observed_first_vector_sha256={_value_digest(observed_first)}",
+        ]
+
+        if first.status not in spec.accepted_statuses:
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.INCONCLUSIVE,
+                observations,
+                notes=[
+                    "legitimate money-flow control was not accepted; invariant conclusion would be ambiguous",
+                    *notes,
+                ],
+            )
+
+        if any(observed_first == item for item in forbidden):
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.VULNERABLE_BEHAVIOR,
+                observations,
+                notes=[
+                    "first money-flow mutation matched an operator-declared forbidden delta vector",
+                    *notes,
+                ],
+            )
+
+        if observed_first != expected:
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.INCONCLUSIVE,
+                observations,
+                notes=[
+                    "first money-flow mutation matched neither the expected nor any declared forbidden delta vector",
+                    *notes,
+                ],
+            )
+
+        replay = self._request(
+            "money-flow-replay",
+            spec.url,
+            "POST",
+            spec.headers,
+            spec.body,
+        )
+        after_replay = normalize_vector(spec.read_balances_minor(), "financial readback")
+        if set(after_replay) != set(before):
+            raise ProofExecutionError("financial readback entity labels changed during replay")
+
+        replay_delta = {
+            key: after_replay[key] - after_first[key]
+            for key in sorted(before)
+        }
+        observations.append(replay.to_dict())
+        notes.extend([
+            f"after_replay_sha256={_value_digest(after_replay)}",
+            f"replay_vector_sha256={_value_digest(replay_delta)}",
+        ])
+
+        zero_vector = {key: 0 for key in expected}
+        if replay_delta == zero_vector:
+            behavior = ProofBehavior.SECURE_BEHAVIOR
+            notes.insert(0, "exact replay produced no additional cross-entity money movement")
+        elif replay_delta == expected or any(replay_delta == item for item in forbidden):
+            behavior = ProofBehavior.VULNERABLE_BEHAVIOR
+            notes.insert(0, "exact replay produced a duplicate or explicitly forbidden money-flow vector")
+        else:
+            behavior = ProofBehavior.INCONCLUSIVE
+            notes.insert(
+                0,
+                "replay changed financial state by a vector outside the declared secure and vulnerable outcomes",
             )
 
         return ProofExecutionResult(
