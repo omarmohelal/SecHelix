@@ -31,6 +31,29 @@ Freeze predictions before revealing truth. Record exact tool version/commit, hos
 
 Do not let the evaluated session read `evals/fixtures/`, the fixture builder, Gold Pack answers, or any ground-truth material before predictions are fixed.
 
+## 3.1 Build SecHelix operational run telemetry
+
+For a SecHelix participant, convert the completed `RunResult.to_dict()`
+artifact into Arena-compatible run metadata instead of manually adding cost,
+token and verifier/gate fields:
+
+```bash
+python evals/arena_run.py \
+  --run work/arena-run.json \
+  --agent-host isolated-eval-host \
+  --output work/arena-run.json
+```
+
+The helper records wall-clock elapsed time, per-status node counts, provider and
+model sets, aggregate tokens/cost when those measurements are complete, and the
+actual `INDEPENDENT_VERIFIER` / `RELEASE_GATE` node records. Missing telemetry
+is `NOT_MEASURED`, never zero. Nodes that were blocked or skipped without
+provider execution do not create fake token/cost gaps.
+
+It also binds the generated metadata to the source run artifact with SHA-256.
+This is operational telemetry only: it does not score whether the verifier or
+gate was *correct*. That remains the job of the independent Arena assessment.
+
 ## 4. Independent workflow assessment
 
 An evaluator that did not produce the predictions records applicable observations with these fields:
