@@ -25,15 +25,15 @@ is a hard boundary outside model control.
 | Capability | Current baseline | V5 convergence |
 |---|---|---|
 | Evidence-first verification | Shipped | Preserve; independent verifier remains mandatory |
-| Scope boundary | Shipped for LOCAL/STAGING | Route every dynamic tool through one policy gateway |
-| Browser/auth/personas | Foundation shipped | Add replayable authz/CSRF/XSS fixtures and state capture |
-| HTTP/API | Contracts + bounded browser traces | Add policy-gated request runner and proxy adapter |
-| External scanners | ZAP baseline + safe Nuclei | Add Semgrep, Gitleaks, Trivy and dependency audit adapters |
+| Scope boundary | Policy gateway shipped for LOCAL/STAGING browser/API/static execution | Keep every new executor behind the same gateway |
+| Browser/auth/personas | Browser/API authority, persona matrix and declared authz probes shipped | Add replayable CSRF/XSS/session fixtures and richer state capture |
+| HTTP/API | Policy-gated request runner + same-origin redirect enforcement shipped | Add interception/proxy evidence adapter and replay fixtures |
+| External scanners | Semgrep, curated JWT/session scout, Gitleaks and Trivy run through the gateway | Finish dependency audit/runtime image pinning and measured scanner contribution |
 | Sandbox | Docker policy/executor exists | Build dedicated V5 image with pinned security tools |
-| Tool gateway | **This V5 slice ships it** | Make all browser/API/scanner execution consume declarations |
+| Tool gateway | Shipped and consumed by browser/API/static execution | Extend only through named capabilities; never add a generic shell |
 | Business logic | Specialist graph exists | Add idempotency/race/payment/webhook/state-machine fixtures |
 | Multi-agent graph | Live graph exists | Converge names on V5 specialist graph; verifier stays separate |
-| Evidence store | Run/engagement artifacts exist | Canonical finding evidence envelope + dedupe fingerprints |
+| Evidence store | Run/engagement artifacts + exact scanner dedupe shipped | Add conservative correlation hints, then canonical finding evidence envelope/root-cause grouping |
 | Fix/retest | Methodology exists | Executable fix command + original-proof replay |
 | CI | Static Action/SARIF shipped | PR_SECURITY + scheduled STAGING_PENTEST |
 | Evaluation | Protocol + CVE/blind suites | Dynamic vulnerable/decoy benchmark and cost/time metrics |
@@ -68,13 +68,21 @@ update this file and the public capability matrix as slices become measured.
 
 ## Current slice acceptance criteria
 
-The policy-aware tool gateway is the mandatory choke point contract for V5. Each
-operation declares tool, target, risk, destructive/network flags,
-authentication-context reference, purpose, and evidence output. It denies
-unknown tools, destructive operations, HIGH-risk operations pending reviewed
-policy, out-of-scope network targets, and filesystem escapes. Decisions can be
-written as append-only JSONL evidence without credential values.
+Scanner evidence now has two deliberately different noise controls:
 
-Next focused slice: integrate this gateway into every live browser/scanner call
-and add pinned Semgrep/Gitleaks/Trivy/dependency-audit execution inside the
-isolated Docker runtime.
+1. exact normalized duplicate observations are collapsed while preserving a
+   duplicate count; and
+2. separate observations may be **correlated** only when they share an exact
+   source location plus an explicit catalog hypothesis, CWE mapping, or exact
+   normalized claim.
+
+Correlation never removes the original evidence, never invents a root cause,
+never becomes `VERIFIED`, and never treats two tools as independent verifiers.
+The output exists to reduce repeated navigation/reasoning while preserving
+provenance.
+
+Next focused slice: make remediation/retest executable in a scratch workspace
+without exposing a generic shell — replay the original proof/regression through
+named, policy-gated capabilities, run existing tests, perform differential
+security review, and require independent verification before a patch can become
+`READY_FOR_REVIEW`.
