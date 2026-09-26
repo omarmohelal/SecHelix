@@ -163,3 +163,18 @@ The blind label suite has one run that satisfies this protocol
 (`evals/results/claude-sonnet-5-blind-2026-09-02.json`). Until a run exercises the
 full workflow, applicability accuracy, regression-proof rate and release-gate
 accuracy remain `NOT_MEASURED`.
+
+
+### Arena workflow booleans are evidence-backed
+
+A publishable full-workflow Arena observation may no longer be a naked
+`true`/`false` assertion. Each scored metric must point to an evidence record
+containing:
+
+- a human-readable basis long enough to explain the judgment;
+- one or more stable evidence references;
+- a SHA-256 digest binding the cited artifact bundle.
+
+`NOT_APPLICABLE` remains excluded from the denominator and does not require
+fabricated evidence. This does not make SecHelix its own independent evaluator:
+the existing independence/attestation and contamination gates still apply.

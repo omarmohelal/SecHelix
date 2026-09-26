@@ -49,6 +49,32 @@ BLINDNESS = {
     "prediction_digest": "sha256:" + "2" * 64,
 }
 
+WORKFLOW_FIELDS = (
+    "applicability",
+    "verification",
+    "false_positive_refutation",
+    "root_cause",
+    "regression_proof",
+    "release_gate",
+)
+
+
+def metric_evidence(case_id: str) -> dict[str, dict[str, object]]:
+    return {
+        field: {
+            "basis": (
+                f"Independent assessment of {field} for {case_id} against the "
+                "sealed truth and participant run artifacts."
+            ),
+            "refs": [f"{case_id}:{field}:artifact"],
+            "artifact_digest": "sha256:" + (
+                "a" if case_id == "CASE-A" else "b"
+            ) * 64,
+        }
+        for field in WORKFLOW_FIELDS
+    }
+
+
 ASSESSMENT = {
     "packet_digest": PACKET_DIGEST,
     "assessor": {
@@ -66,6 +92,7 @@ ASSESSMENT = {
             "root_cause": False,
             "regression_proof": True,
             "release_gate": True,
+            "evidence": metric_evidence("CASE-A"),
         },
         {
             "case_id": "CASE-B",
@@ -75,6 +102,7 @@ ASSESSMENT = {
             "root_cause": True,
             "regression_proof": True,
             "release_gate": True,
+            "evidence": metric_evidence("CASE-B"),
         },
     ],
 }
@@ -196,6 +224,53 @@ class ArenaTests(unittest.TestCase):
         self.assertTrue(result["publication"]["eligible"])
         self.assertEqual(result["full_workflow"]["root_cause_accuracy"], 0.5)
         self.assertEqual(result["full_workflow"]["verification_accuracy"], 1.0)
+
+    def test_naked_workflow_boolean_never_measures(self) -> None:
+        assessment = json.loads(json.dumps(ASSESSMENT))
+        assessment["observations"][0]["evidence"].pop("verification")
+        result = finalize_manifest(
+            prepare_manifest(PACKET, PARTICIPANT),
+            run=RUN,
+            blindness=BLINDNESS,
+            assessment=assessment,
+        )
+        self.assertEqual(result["measurement_status"], NOT_MEASURED)
+        self.assertIn(
+            "CASE-A.verification missing evidence record",
+            result["publication"]["blockers"],
+        )
+
+    def test_metric_evidence_requires_basis_reference_and_digest(self) -> None:
+        assessment = json.loads(json.dumps(ASSESSMENT))
+        evidence = assessment["observations"][0]["evidence"]["root_cause"]
+        evidence["basis"] = "too short"
+        evidence["refs"] = []
+        evidence["artifact_digest"] = "not-a-digest"
+        result = finalize_manifest(
+            prepare_manifest(PACKET, PARTICIPANT),
+            run=RUN,
+            blindness=BLINDNESS,
+            assessment=assessment,
+        )
+        blockers = result["publication"]["blockers"]
+        self.assertEqual(result["measurement_status"], NOT_MEASURED)
+        self.assertTrue(any("root_cause.evidence.basis" in item for item in blockers))
+        self.assertTrue(any("root_cause.evidence.refs" in item for item in blockers))
+        self.assertTrue(any("root_cause.evidence.artifact_digest" in item for item in blockers))
+
+    def test_not_applicable_metric_does_not_require_fake_evidence(self) -> None:
+        assessment = json.loads(json.dumps(ASSESSMENT))
+        assessment["observations"][0]["regression_proof"] = "NOT_APPLICABLE"
+        assessment["observations"][0]["evidence"].pop("regression_proof")
+        result = finalize_manifest(
+            prepare_manifest(PACKET, PARTICIPANT),
+            run=RUN,
+            blindness=BLINDNESS,
+            assessment=assessment,
+        )
+        self.assertEqual(result["measurement_status"], MEASURED)
+        self.assertTrue(result["publication"]["eligible"])
+        self.assertEqual(result["full_workflow"]["regression_proof_accuracy"], 1.0)
 
     def test_missing_metric_observation_keeps_record_not_measured(self) -> None:
         prepared = prepare_manifest(PACKET, PARTICIPANT)
