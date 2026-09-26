@@ -414,8 +414,8 @@ measure proof classification without claiming Playwright/browser-engine
 compatibility. Real browser-engine compatibility stays a separate integration
 benchmark.
 
-The benchmark therefore grows from 10 to 18 cases across nine paired proof
-families while preserving the existing result kind,
+The benchmark therefore grows from 10 to 18 benchmark executions spanning nine
+paired proof families while preserving the existing result kind,
 `DYNAMIC_PROOF_PRIMITIVE_BENCHMARK`, and
 `is_full_sechelix_workflow=false`.
 
