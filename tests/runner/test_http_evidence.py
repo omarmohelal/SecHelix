@@ -27,6 +27,14 @@ class _Headers(dict):
     def get(self, key, default=None):
         return super().get(key, default)
 
+    def get_all(self, key):
+        value = super().get(key)
+        if value is None:
+            return None
+        if isinstance(value, (list, tuple)):
+            return list(value)
+        return [value]
+
     def items(self):
         return super().items()
 
@@ -37,7 +45,7 @@ class _Response:
     def __init__(self) -> None:
         self.headers = _Headers({
             "Content-Type": "application/json",
-            "Set-Cookie": "session=super-secret",
+            "Set-Cookie": "__Host-session=super-secret; Path=/; Secure; HttpOnly; SameSite=Lax",
             "X-Trace": "trace-secret",
         })
 
@@ -68,7 +76,7 @@ class HttpEvidenceRecorderTests(unittest.TestCase):
                     "X-Trace": "trace-value",
                 },
                 response_headers={
-                    "Set-Cookie": "session=response-secret",
+                    "Set-Cookie": "__Host-session=response-secret; Path=/; Secure; HttpOnly; SameSite=Lax",
                     "X-Request-Id": "abc",
                 },
                 request_body_bytes=123,
@@ -80,7 +88,8 @@ class HttpEvidenceRecorderTests(unittest.TestCase):
             self.assertNotIn("top-secret", raw)
             self.assertNotIn("Bearer request-secret", raw)
             self.assertNotIn("trace-value", raw)
-            self.assertNotIn("session=response-secret", raw)
+            self.assertNotIn("response-secret", raw)
+            self.assertNotIn("__Host-session", raw)
             self.assertIn("api_key=[REDACTED]", raw)
             self.assertIn("item=[REDACTED]", raw)
             self.assertFalse(record.replayable)
@@ -88,6 +97,59 @@ class HttpEvidenceRecorderTests(unittest.TestCase):
             self.assertIn("request-body-not-persisted", record.replay_blockers)
             self.assertIn("query-values-redacted", record.replay_blockers)
             self.assertIn("sensitive-request-headers-not-persisted", record.replay_blockers)
+            self.assertEqual(len(record.set_cookie_security), 1)
+            cookie = record.set_cookie_security[0]
+            self.assertTrue(cookie.secure)
+            self.assertTrue(cookie.http_only)
+            self.assertEqual(cookie.same_site, "lax")
+            self.assertTrue(cookie.path_is_root)
+            self.assertTrue(cookie.host_prefix)
+            self.assertFalse(cookie.domain_scoped)
+
+    def test_cookie_security_metadata_never_persists_cookie_names_or_values(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "http.jsonl"
+            recorder = HttpEvidenceRecorder(path)
+            record = recorder.record_exchange(
+                method="GET",
+                url="https://app.example.test/session",
+                status=200,
+                content_type="text/html",
+                request_headers={"Accept": "text/html"},
+                response_headers={"Content-Type": "text/html", "Set-Cookie": "redacted-placeholder"},
+                request_body_bytes=0,
+                response_body_bytes=32,
+                authentication_context=None,
+                set_cookie_headers=[
+                    "__Host-session=VERY-SECRET; Path=/; Secure; HttpOnly; SameSite=Strict",
+                    "preferences=blue; Domain=.example.test; SameSite=None; Max-Age=0; Partitioned",
+                ],
+            )
+
+            self.assertEqual(len(record.set_cookie_security), 2)
+            secure_session, preference = record.set_cookie_security
+            self.assertEqual(
+                (
+                    secure_session.secure,
+                    secure_session.http_only,
+                    secure_session.same_site,
+                    secure_session.host_prefix,
+                    secure_session.path_is_root,
+                ),
+                (True, True, "strict", True, True),
+            )
+            self.assertEqual(preference.same_site, "none")
+            self.assertTrue(preference.partitioned)
+            self.assertTrue(preference.domain_scoped)
+            self.assertTrue(preference.max_age_zero)
+
+            raw = path.read_text(encoding="utf-8")
+            self.assertNotIn("VERY-SECRET", raw)
+            self.assertNotIn("__Host-session", raw)
+            self.assertNotIn("preferences", raw)
+            self.assertNotIn("blue", raw)
+            parsed = json.loads(raw)
+            self.assertEqual(len(parsed["set_cookie_security"]), 2)
 
     def test_simple_anonymous_get_can_be_marked_replayable(self) -> None:
         recorder = HttpEvidenceRecorder()
@@ -132,8 +194,12 @@ class HttpEvidenceRecorderTests(unittest.TestCase):
             self.assertNotIn("request-secret", raw)
             self.assertNotIn("response-secret", raw)
             self.assertIn("token=[REDACTED]", raw)
+            self.assertEqual(len(records[0].set_cookie_security), 1)
+            self.assertTrue(records[0].set_cookie_security[0].secure)
+            self.assertTrue(records[0].set_cookie_security[0].http_only)
             parsed = json.loads(raw)
             self.assertFalse(parsed["replayable"])
+            self.assertEqual(parsed["set_cookie_security"][0]["same_site"], "lax")
 
 
 if __name__ == "__main__":

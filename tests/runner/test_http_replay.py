@@ -56,6 +56,29 @@ class HttpSafeReplayTests(unittest.TestCase):
                 "authentication_context": None,
             }])
 
+    def test_legacy_evidence_without_cookie_metadata_remains_loadable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "http.jsonl"
+            recorder = HttpEvidenceRecorder()
+            record = recorder.record_exchange(
+                method="GET",
+                url="https://app.example.test/health",
+                status=200,
+                content_type="application/json",
+                request_headers={},
+                response_headers={"Content-Type": "application/json"},
+                request_body_bytes=0,
+                response_body_bytes=2,
+                authentication_context=None,
+            )
+            payload = record.as_dict()
+            payload.pop("set_cookie_security", None)
+            path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+            replay = load_safe_replay(path, sequence=1)
+            self.assertEqual(replay.method, "GET")
+            self.assertEqual(replay.url, "https://app.example.test/health")
+
     def test_authenticated_context_is_not_replayable_even_if_artifact_flag_is_tampered(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "http.jsonl"
