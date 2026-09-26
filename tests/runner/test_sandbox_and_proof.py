@@ -147,6 +147,7 @@ class ProofPlanTests(unittest.TestCase):
         "local_callback_listener",
         "fixture_filesystem",
         "fixture_authenticated_session",
+        "fixture_session_revocation",
     }
 
     def test_every_class_produces_a_complete_plan(self) -> None:
