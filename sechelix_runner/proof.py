@@ -38,6 +38,7 @@ class ProofClass(str, Enum):
     STATE_TRANSITION = "STATE_TRANSITION"
     PAYMENT_INVARIANT = "PAYMENT_INVARIANT"
     WORKFLOW_SEQUENCE = "WORKFLOW_SEQUENCE"
+    MONEY_FLOW_INVARIANT = "MONEY_FLOW_INVARIANT"
 
 
 class PlanState(str, Enum):
@@ -374,6 +375,31 @@ def _workflow_sequence(finding_id: str) -> ProofPlan:
     )
 
 
+def _money_flow_invariant(finding_id: str) -> ProofPlan:
+    return _plan(
+        ProofClass.MONEY_FLOW_INVARIANT,
+        finding_id,
+        preconditions=[
+            "the local fixture exposes a deterministic readback for every declared financial entity",
+            "one harmless money-moving request has an operator-declared expected delta vector",
+            "any forbidden partial or misrouted delta vector is declared explicitly",
+        ],
+        required_authority=["fixture_write_access", "fixture_financial_readback"],
+        actions=[
+            "read the starting balances for the declared financial entities",
+            "issue one bounded money-flow mutation and compare the exact observed delta vector",
+            "if the expected vector was established, replay the exact same request once",
+            "compare replay deltas for duplicate movement or preserved idempotency",
+        ],
+        expected_secure_behavior=(
+            "the first mutation matches the declared cross-entity delta vector and replay produces no additional movement"
+        ),
+        expected_vulnerable_behavior=(
+            "the first mutation reaches an explicitly forbidden delta vector or replay applies the expected money-flow vector again"
+        ),
+    )
+
+
 def _traversal(finding_id: str) -> ProofPlan:
     return _plan(
         ProofClass.PATH_TRAVERSAL,
@@ -404,4 +430,5 @@ _BUILDERS = {
     ProofClass.STATE_TRANSITION: _state_transition,
     ProofClass.PAYMENT_INVARIANT: _payment_invariant,
     ProofClass.WORKFLOW_SEQUENCE: _workflow_sequence,
+    ProofClass.MONEY_FLOW_INVARIANT: _money_flow_invariant,
 }
