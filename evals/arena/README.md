@@ -76,6 +76,31 @@ Node output bodies are not copied into the index. The evaluator still opens the
 original redacted workspace artifacts when assessing correctness; the index only
 proves exactly which bytes and role outputs the assessment references.
 
+## 3.3 Bind run telemetry to manifest-verified workspace evidence
+
+Before an independent evaluator scores verifier or release-gate correctness,
+build one fail-closed measurement bundle that proves the operational run record
+and workspace evidence refer to the same SecHelix run:
+
+```bash
+python evals/arena_measurement_bundle.py \
+  --run work/run.json \
+  --workspace-root . \
+  --run-id RUN-EXAMPLE \
+  --agent-host isolated-eval-host \
+  --output work/measurement-bundle.json
+```
+
+The helper builds Arena operational telemetry, verifies the persisted workspace
+manifest, requires both `INDEPENDENT_VERIFIER` and `RELEASE_GATE` evidence,
+and refuses mismatched run ID, target commit, scope, or graph digest. The output
+contains only operational telemetry, artifact digests and digest-only role
+evidence targets.
+
+`READY_FOR_INDEPENDENT_ASSESSMENT` is not a security score. The bundle
+explicitly leaves correctness unscored; an independent evaluator must still
+produce the evidence-backed assessment described below.
+
 ## 4. Independent workflow assessment
 
 An evaluator that did not produce the predictions records applicable observations with these fields:
