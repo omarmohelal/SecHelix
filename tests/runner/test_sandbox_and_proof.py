@@ -149,6 +149,7 @@ class ProofPlanTests(unittest.TestCase):
         "fixture_authenticated_session",
         "fixture_session_revocation",
         "fixture_state_readback",
+        "fixture_financial_readback",
     }
 
     def test_every_class_produces_a_complete_plan(self) -> None:
