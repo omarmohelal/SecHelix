@@ -9,10 +9,15 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl tar \
  && rm -rf /var/lib/apt/lists/*
 
+COPY python-tools.lock /tmp/python-tools.lock
+
 RUN python -m venv /opt/sechelix-runtime \
- && /opt/sechelix-runtime/bin/python -m pip install --no-cache-dir \
-      "semgrep==${SEMGREP_VERSION}" \
-      "pip-audit==${PIP_AUDIT_VERSION}"
+ && /opt/sechelix-runtime/bin/python -m pip install \
+      --disable-pip-version-check \
+      --no-cache-dir \
+      --require-hashes \
+      -r /tmp/python-tools.lock \
+ && rm -f /tmp/python-tools.lock
 
 RUN set -eu; \
     arch="$(dpkg --print-architecture)"; \
