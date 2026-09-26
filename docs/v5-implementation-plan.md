@@ -543,3 +543,22 @@ misreported as a clean security result.
 
 This is still an integration benchmark for a bounded browser/session primitive,
 not end-to-end SecHelix verifier or release-gate accuracy.
+
+
+## Secret-free redirect trace evidence
+
+Authorized API evidence now retains the shape of same-origin redirect chains
+without persisting redirect query values or credential material. Each hop records
+only the 3xx status, source and destination methods, and independently redacted
+source/destination URLs.
+
+The API redirect handler still re-authorizes every hop through scope,
+interaction policy and the tool gateway before following it. Cross-origin
+credential forwarding remains blocked. The evidence recorder validates that the
+declared redirect count exactly matches the supplied hop sequence and refuses
+non-3xx hop records.
+
+This makes method-changing redirects such as POST -> GET visible to later
+analysis while preserving the existing evidence boundary: query values, header
+values, cookies and bodies are not stored. Redirect traces are observations, not
+security verdicts.
