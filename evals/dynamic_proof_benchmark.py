@@ -20,10 +20,12 @@ from typing import Callable, Sequence
 
 from sechelix_runner.proof import ProofClass, build_plan
 from sechelix_runner.proof_exec import (
+    CsrfHttpSpec,
     LocalProofExecutor,
     MoneyFlowInvariantHttpSpec,
     PaymentInvariantHttpSpec,
     ProofBehavior,
+    SessionRevocationHttpSpec,
     SettlementRefundSequenceHttpSpec,
     StateTransitionHttpSpec,
     WorkflowSequenceHttpSpec,
@@ -54,10 +56,49 @@ class _Handler(BaseHTTPRequestHandler):
     settlement_refund_vulnerable_refund_count = 0
     settlement_refund_clean_settle_count = 0
     settlement_refund_clean_refund_count = 0
+    session_clean_active = True
+    session_vulnerable_active = True
+
+    def do_GET(self) -> None:  # noqa: N802
+        if self.path == "/session/vulnerable":
+            if self.headers.get("Cookie") != "session=fixture-auth":
+                self._send(401)
+                return
+            # Intentionally vulnerable sibling: protected access ignores the
+            # authoritative revoked flag after the control request.
+            self._send(200)
+            return
+        if self.path == "/session/clean":
+            if self.headers.get("Cookie") != "session=fixture-auth":
+                self._send(401)
+                return
+            if not type(self).session_clean_active:
+                self._send(401)
+                return
+            self._send(200)
+            return
+        self._send(404)
 
     def do_POST(self) -> None:  # noqa: N802
         length = int(self.headers.get("Content-Length", "0"))
         self.rfile.read(length)
+
+        if self.path == "/csrf/vulnerable":
+            if self.headers.get("Cookie") != "session=fixture-auth":
+                self._send(401)
+                return
+            self._send(200)
+            return
+        if self.path == "/csrf/clean":
+            if self.headers.get("Cookie") != "session=fixture-auth":
+                self._send(401)
+                return
+            expected_origin = f"http://127.0.0.1:{self.server.server_port}"
+            if self.headers.get("Origin") != expected_origin:
+                self._send(403)
+                return
+            self._send(200)
+            return
 
         if self.path == "/state/vulnerable":
             type(self).state_vulnerable = "completed"
@@ -188,9 +229,83 @@ def _reset() -> None:
     _Handler.settlement_refund_vulnerable_refund_count = 0
     _Handler.settlement_refund_clean_settle_count = 0
     _Handler.settlement_refund_clean_refund_count = 0
+    _Handler.session_clean_active = True
+    _Handler.session_vulnerable_active = True
 
 
 def _cases() -> tuple[BenchmarkCase, ...]:
+    def csrf_vulnerable(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.CSRF_REQUEST,
+            "BENCH-CSRF-VULN",
+            available_authority={"fixture_authenticated_session", "fixture_write_access"},
+        )
+        return executor.execute(
+            plan,
+            CsrfHttpSpec(
+                url=base + "/csrf/vulnerable",
+                authenticated_headers={"Cookie": "session=fixture-auth"},
+            ),
+        )
+
+    def csrf_clean(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.CSRF_REQUEST,
+            "BENCH-CSRF-CLEAN",
+            available_authority={"fixture_authenticated_session", "fixture_write_access"},
+        )
+        return executor.execute(
+            plan,
+            CsrfHttpSpec(
+                url=base + "/csrf/clean",
+                authenticated_headers={"Cookie": "session=fixture-auth"},
+            ),
+        )
+
+    def session_vulnerable(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.SESSION_REVOCATION,
+            "BENCH-SESSION-VULN",
+            available_authority={
+                "fixture_authenticated_session",
+                "fixture_session_revocation",
+            },
+        )
+
+        def revoke_fixture() -> None:
+            _Handler.session_vulnerable_active = False
+
+        return executor.execute(
+            plan,
+            SessionRevocationHttpSpec(
+                url=base + "/session/vulnerable",
+                authenticated_headers={"Cookie": "session=fixture-auth"},
+                revoke_session=revoke_fixture,
+            ),
+        )
+
+    def session_clean(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.SESSION_REVOCATION,
+            "BENCH-SESSION-CLEAN",
+            available_authority={
+                "fixture_authenticated_session",
+                "fixture_session_revocation",
+            },
+        )
+
+        def revoke_fixture() -> None:
+            _Handler.session_clean_active = False
+
+        return executor.execute(
+            plan,
+            SessionRevocationHttpSpec(
+                url=base + "/session/clean",
+                authenticated_headers={"Cookie": "session=fixture-auth"},
+                revoke_session=revoke_fixture,
+            ),
+        )
+
     def state_vulnerable(base: str, executor: LocalProofExecutor):
         plan = build_plan(
             ProofClass.STATE_TRANSITION,
@@ -394,6 +509,10 @@ def _cases() -> tuple[BenchmarkCase, ...]:
         )
 
     return (
+        BenchmarkCase("CSRF-VULNERABLE", "csrf-request", ProofBehavior.VULNERABLE_BEHAVIOR, csrf_vulnerable),
+        BenchmarkCase("CSRF-CLEAN", "csrf-request", ProofBehavior.SECURE_BEHAVIOR, csrf_clean),
+        BenchmarkCase("SESSION-VULNERABLE", "session-revocation", ProofBehavior.VULNERABLE_BEHAVIOR, session_vulnerable),
+        BenchmarkCase("SESSION-CLEAN", "session-revocation", ProofBehavior.SECURE_BEHAVIOR, session_clean),
         BenchmarkCase("STATE-VULNERABLE", "state-transition", ProofBehavior.VULNERABLE_BEHAVIOR, state_vulnerable),
         BenchmarkCase("STATE-CLEAN", "state-transition", ProofBehavior.SECURE_BEHAVIOR, state_clean),
         BenchmarkCase("PAYMENT-VULNERABLE", "payment-invariant", ProofBehavior.VULNERABLE_BEHAVIOR, payment_vulnerable),
