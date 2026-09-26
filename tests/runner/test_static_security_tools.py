@@ -52,6 +52,19 @@ class StaticSecurityRunnerTests(unittest.TestCase):
         self.assertIn("pinned issuer", rules)
         self.assertNotIn("VERIFIED", rules)
 
+    def test_session_token_rules_trace_split_payload_across_intermediate_variables(self) -> None:
+        rules = (
+            Path(__file__).resolve().parents[2]
+            / "rules"
+            / "session-token-trust.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("sechelix.jwt.unverified-payload-flow", rules)
+        self.assertIn("mode: taint", rules)
+        self.assertIn('String($TOKEN).split(".")[1]', rules)
+        self.assertIn("pattern: JSON.parse($PAYLOAD)", rules)
+        self.assertIn("CANDIDATE only", rules)
+        self.assertNotIn("promotes_finding: true", rules)
+
     def test_cli_exposes_session_token_trust_scout(self) -> None:
         args = build_parser().parse_args(
             ["scout", ".", "--capability", "session-token-trust", "--json"]
