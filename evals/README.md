@@ -60,13 +60,12 @@ them, attach live credentials, or point them at external targets.
 ## Dynamic proof primitive benchmark
 
 `dynamic_proof_benchmark.py` executes paired vulnerable/clean LOCAL fixtures for
-SecHelix's deterministic proof primitives. It currently measures four
-business-logic families:
-
-- one-step forbidden state transition;
-- duplicate payment/refund effect;
-- multi-step workflow prerequisite enforcement;
-- cross-entity money-flow idempotency.
+SecHelix's deterministic proof primitives. It now covers every bounded `ProofClass` currently implemented by the LOCAL
+proof executor, with one vulnerable and one clean sibling per class. Coverage
+includes authorization/IDOR, race/idempotency, webhook signature/replay, XSS,
+SSRF callback, path traversal, CSRF, session revocation, state transition,
+payment invariants, workflow sequencing, cross-entity money flow, and
+settlement/refund sequencing.
 
 Run it with:
 
@@ -74,9 +73,10 @@ Run it with:
 python evals/dynamic_proof_benchmark.py --sechelix-commit <commit> --output work/dynamic-proof-result.json
 ```
 
-The artifact records per-case expected/observed behavior, request count and
-elapsed time, plus aggregate case accuracy, vulnerable-behavior recall,
-clean-behavior rejection rate and inconclusive rate.
+The artifact records per-case proof class, expected/observed behavior, request
+count and elapsed time, plus aggregate case accuracy, vulnerable-behavior
+recall, clean-behavior rejection rate, inconclusive rate, and explicit proof
+class coverage. CI requires the missing-proof-class list to stay empty.
 
 This is deliberately **not** a full SecHelix benchmark. It does not exercise
 candidate discovery, model reasoning, independent verification, remediation,
