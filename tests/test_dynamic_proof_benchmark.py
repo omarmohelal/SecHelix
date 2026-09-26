@@ -17,6 +17,8 @@ class DynamicProofBenchmarkTests(unittest.TestCase):
         self.assertEqual(result["run"]["execution_mode"], "LOCAL")
         self.assertEqual(result["run"]["network_scope"], "literal-loopback-only")
         self.assertEqual(result["run"]["case_count"], 26)
+        self.assertEqual(result["run"]["artificial_latency_ms"], 0)
+        self.assertEqual(result["run"]["race_concurrency"], 2)
         self.assertEqual(result["metrics"]["case_accuracy"], 1.0)
         self.assertEqual(result["metrics"]["vulnerable_behavior_recall"], 1.0)
         self.assertEqual(result["metrics"]["clean_behavior_rejection_rate"], 1.0)
@@ -75,6 +77,26 @@ class DynamicProofBenchmarkTests(unittest.TestCase):
             self.assertFalse(row["promotes_finding"])
             self.assertGreaterEqual(row["request_count"], 1)
             self.assertGreaterEqual(row["elapsed_ms"], 0)
+
+    def test_benchmark_supports_declared_latency_and_race_concurrency_profiles(self) -> None:
+        result = run_dynamic_proof_benchmark(
+            artificial_latency_ms=2,
+            race_concurrency=4,
+        )
+        self.assertEqual(result["run"]["artificial_latency_ms"], 2)
+        self.assertEqual(result["run"]["race_concurrency"], 4)
+        self.assertEqual(result["metrics"]["case_accuracy"], 1.0)
+        race_rows = [
+            row for row in result["cases"]
+            if row["family"] == "race-idempotency"
+        ]
+        self.assertEqual({row["request_count"] for row in race_rows}, {4})
+
+    def test_benchmark_rejects_unbounded_profile_parameters(self) -> None:
+        with self.assertRaises(ValueError):
+            run_dynamic_proof_benchmark(artificial_latency_ms=501)
+        with self.assertRaises(ValueError):
+            run_dynamic_proof_benchmark(race_concurrency=16)
 
     def test_benchmark_artifact_contains_no_fixture_credentials_or_raw_secret_inputs(self) -> None:
         rendered = json.dumps(run_dynamic_proof_benchmark())
