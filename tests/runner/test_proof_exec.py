@@ -27,6 +27,8 @@ class _FixtureHandler(BaseHTTPRequestHandler):
     redeem_count = 0
     csrf_vulnerable_count = 0
     csrf_secure_count = 0
+    webhook_vulnerable_count = 0
+    webhook_idempotent_count = 0
     session_secure_active = True
     session_vulnerable_active = True
     sentinel = b"SECHELIX_SENTINEL_93B1"
@@ -84,6 +86,23 @@ class _FixtureHandler(BaseHTTPRequestHandler):
         if self.path == "/webhook":
             signature = self.headers.get("X-Demo-Signature")
             self._send(200 if signature == "valid" else 401, b"ok" if signature == "valid" else b"no")
+            return
+        if self.path == "/webhook-state-vulnerable":
+            signature = self.headers.get("X-Demo-Signature")
+            if signature != "valid":
+                self._send(401, b"no")
+                return
+            type(self).webhook_vulnerable_count += 1
+            self._send(200, b"applied")
+            return
+        if self.path == "/webhook-state-idempotent":
+            signature = self.headers.get("X-Demo-Signature")
+            if signature != "valid":
+                self._send(401, b"no")
+                return
+            if type(self).webhook_idempotent_count == 0:
+                type(self).webhook_idempotent_count = 1
+            self._send(200, b"accepted")
             return
         if self.path == "/csrf-vulnerable":
             if self.headers.get("Cookie") != "session=fixture-auth":
@@ -174,6 +193,8 @@ class LocalProofExecutionTests(unittest.TestCase):
         _FixtureHandler.redeem_count = 0
         _FixtureHandler.csrf_vulnerable_count = 0
         _FixtureHandler.csrf_secure_count = 0
+        _FixtureHandler.webhook_vulnerable_count = 0
+        _FixtureHandler.webhook_idempotent_count = 0
         _FixtureHandler.session_secure_active = True
         _FixtureHandler.session_vulnerable_active = True
         self.policy = NetworkPolicy(ExecutionMode.LOCAL)
@@ -265,6 +286,52 @@ class LocalProofExecutionTests(unittest.TestCase):
         self.assertEqual(result.behavior, ProofBehavior.INCONCLUSIVE)
         self.assertEqual(result.request_count, 4)
         self.assertNotIn("valid_signature", json.dumps(result.to_dict()))
+
+    def test_webhook_state_readback_proves_duplicate_replay_effect(self) -> None:
+        plan = build_plan(
+            ProofClass.WEBHOOK_SIGNATURE,
+            "F-WEBHOOK-STATE-VULN",
+            available_authority={"fixture_endpoint_access"},
+        )
+        result = self.executor.execute(
+            plan,
+            WebhookHttpSpec(
+                url=self.base + "/webhook-state-vulnerable",
+                body=b'{"event":"demo"}',
+                signature_header="X-Demo-Signature",
+                valid_signature="valid",
+                read_state=lambda: _FixtureHandler.webhook_vulnerable_count,
+                expected_single_state=1,
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.VULNERABLE_BEHAVIOR)
+        self.assertEqual(result.request_count, 4)
+        self.assertEqual(_FixtureHandler.webhook_vulnerable_count, 2)
+        rendered = json.dumps(result.to_dict())
+        self.assertNotIn("valid", rendered)
+        self.assertIn("after_replay_sha256=", " ".join(result.notes))
+
+    def test_webhook_state_readback_proves_idempotent_replay(self) -> None:
+        plan = build_plan(
+            ProofClass.WEBHOOK_SIGNATURE,
+            "F-WEBHOOK-STATE-SAFE",
+            available_authority={"fixture_endpoint_access"},
+        )
+        result = self.executor.execute(
+            plan,
+            WebhookHttpSpec(
+                url=self.base + "/webhook-state-idempotent",
+                body=b'{"event":"demo"}',
+                signature_header="X-Demo-Signature",
+                valid_signature="valid",
+                read_state=lambda: _FixtureHandler.webhook_idempotent_count,
+                expected_single_state=1,
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.SECURE_BEHAVIOR)
+        self.assertEqual(result.request_count, 4)
+        self.assertEqual(_FixtureHandler.webhook_idempotent_count, 1)
+        self.assertIn("no additional side effect", " ".join(result.notes))
 
     def test_csrf_local_fixture_distinguishes_foreign_origin_acceptance(self) -> None:
         plan = build_plan(
