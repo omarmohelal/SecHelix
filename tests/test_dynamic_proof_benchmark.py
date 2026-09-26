@@ -15,7 +15,7 @@ class DynamicProofBenchmarkTests(unittest.TestCase):
         self.assertFalse(result["is_full_sechelix_workflow"])
         self.assertEqual(result["run"]["execution_mode"], "LOCAL")
         self.assertEqual(result["run"]["network_scope"], "literal-loopback-only")
-        self.assertEqual(result["run"]["case_count"], 10)
+        self.assertEqual(result["run"]["case_count"], 18)
         self.assertEqual(result["metrics"]["case_accuracy"], 1.0)
         self.assertEqual(result["metrics"]["vulnerable_behavior_recall"], 1.0)
         self.assertEqual(result["metrics"]["clean_behavior_rejection_rate"], 1.0)
@@ -24,11 +24,32 @@ class DynamicProofBenchmarkTests(unittest.TestCase):
         families = {row["family"] for row in result["cases"]}
         self.assertEqual(
             families,
-            {"state-transition", "payment-invariant", "money-flow-invariant", "settlement-refund-sequence", "workflow-sequence"},
+            {
+                "state-transition",
+                "payment-invariant",
+                "money-flow-invariant",
+                "settlement-refund-sequence",
+                "workflow-sequence",
+                "authorization-idor",
+                "csrf-request",
+                "session-revocation",
+                "xss-browser-marker",
+            },
         )
         case_ids = {row["case_id"] for row in result["cases"]}
         self.assertIn("SETTLEMENT-REFUND-VULNERABLE", case_ids)
         self.assertIn("SETTLEMENT-REFUND-CLEAN", case_ids)
+        for expected_case in (
+            "IDOR-VULNERABLE",
+            "IDOR-CLEAN",
+            "CSRF-VULNERABLE",
+            "CSRF-CLEAN",
+            "SESSION-VULNERABLE",
+            "SESSION-CLEAN",
+            "XSS-VULNERABLE",
+            "XSS-CLEAN",
+        ):
+            self.assertIn(expected_case, case_ids)
 
         for row in result["cases"]:
             self.assertTrue(row["correct"])
@@ -55,6 +76,11 @@ class DynamicProofBenchmarkTests(unittest.TestCase):
         self.assertIn("release-gate", limitations)
         self.assertNotIn("verified_precision", result["metrics"])
         self.assertNotIn("release_gate_accuracy", result["metrics"])
+        self.assertIn("deterministic browser fixture adapter", limitations)
+        self.assertEqual(
+            result["run"]["browser_backend"],
+            "deterministic-fixture-adapter-for-xss-pair",
+        )
 
 
 if __name__ == "__main__":
