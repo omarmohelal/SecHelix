@@ -425,6 +425,133 @@ def cmd_scout(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+
+def _load_json_object(path: str, *, label: str) -> dict[str, Any]:
+    source = Path(path).resolve()
+    try:
+        payload = json.loads(source.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"{label} is not readable JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError(f"{label} must contain a JSON object")
+    return payload
+
+
+def _load_stage_result(path: str, *, expected_name: str):
+    from sechelix_core.remediation import FAIL, NOT_RUN, PASS, StageResult
+
+    payload = _load_json_object(path, label=expected_name)
+    stage = str(payload.get("stage", "")).strip()
+    status = str(payload.get("status", "")).strip().upper()
+    if stage != expected_name:
+        raise ValueError(
+            f"{expected_name} evidence declares stage {stage!r}; expected {expected_name!r}"
+        )
+    if status not in {PASS, FAIL, NOT_RUN}:
+        raise ValueError(
+            f"{expected_name} status must be PASS, FAIL, or NOT_RUN"
+        )
+    evidence_ids_raw = payload.get("evidence_ids") or []
+    if not isinstance(evidence_ids_raw, list) or not all(
+        isinstance(item, str) and item.strip() for item in evidence_ids_raw
+    ):
+        raise ValueError(f"{expected_name} evidence_ids must be a list of strings")
+    return StageResult(
+        expected_name,
+        status,
+        str(payload.get("detail", "")),
+        tuple(evidence_ids_raw),
+    )
+
+
+def cmd_fix_check(args: argparse.Namespace) -> int:
+    """Execute the bounded remediation gates that SecHelix can prove locally.
+
+    The command never applies a patch. It operates only on an explicit scratch
+    workspace, runs fixed-shape named tests in the network-disabled sandbox, and
+    combines them with separately supplied differential-review / independent-
+    verification evidence. READY_FOR_REVIEW still means human review is required.
+    """
+
+    from sechelix_core.remediation import VERIFIED, run_loop
+    from .remediation_exec import (
+        NamedTestSpec,
+        RemediationCheckRunner,
+        RemediationExecutionError,
+    )
+
+    workspace = Path(args.workspace).resolve()
+    if workspace == Path.cwd().resolve():
+        print(
+            "error: --workspace must be a separate scratch workspace, not the current working tree",
+            file=sys.stderr,
+        )
+        return EXIT_USAGE
+
+    try:
+        runner = RemediationCheckRunner(workspace)
+        existing = None
+        if args.existing_test:
+            existing = runner.run_test(
+                "existing_tests",
+                NamedTestSpec(
+                    "python-unittest",
+                    tuple(args.existing_test),
+                    args.timeout,
+                ),
+            ).stage
+
+        regression = None
+        if args.regression_test:
+            regression = runner.run_test(
+                "vulnerability_regression",
+                NamedTestSpec(
+                    "python-unittest",
+                    tuple(args.regression_test),
+                    args.timeout,
+                ),
+            ).stage
+
+        patch_review = (
+            _load_json_object(args.patch_review, label="patch review")
+            if args.patch_review
+            else None
+        )
+        independent = (
+            _load_stage_result(
+                args.independent_verification,
+                expected_name="independent_verification",
+            )
+            if args.independent_verification
+            else None
+        )
+        result = run_loop(
+            {"finding_id": args.finding_id, "status": VERIFIED},
+            workspace=str(workspace),
+            existing_tests=existing,
+            vulnerability_regression=regression,
+            patch_diff_review=patch_review,
+            independent_verification=independent,
+        )
+    except (RemediationExecutionError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+
+    payload = result.as_dict()
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"fix-check {result.finding_id}")
+        print(f"  outcome    {result.outcome}")
+        print(f"  workspace  {result.workspace}")
+        for stage in result.stages:
+            print(f"  {stage.name:26} {stage.status:8} {stage.detail}")
+        if result.blocked_at:
+            print(f"  blocked at {result.blocked_at}")
+        print("  applied    false (human review required)")
+    return EXIT_OK if result.ready else EXIT_NOT_CLEAN
+
+
 # -- entry point -------------------------------------------------------------
 
 
@@ -474,6 +601,47 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _common(scout)
     scout.set_defaults(func=cmd_scout)
+
+    fix_check = sub.add_parser(
+        "fix-check",
+        help="run bounded remediation/retest gates in a separate scratch workspace",
+    )
+    fix_check.add_argument("finding_id", help="VERIFIED finding identifier being remediated")
+    fix_check.add_argument(
+        "--workspace",
+        required=True,
+        help="separate scratch workspace; the current working tree is refused",
+    )
+    fix_check.add_argument(
+        "--existing-test",
+        action="append",
+        default=[],
+        help="python unittest module/file target to run; repeatable",
+    )
+    fix_check.add_argument(
+        "--regression-test",
+        action="append",
+        default=[],
+        help="security regression unittest module/file target to run; repeatable",
+    )
+    fix_check.add_argument(
+        "--patch-review",
+        default=None,
+        help="JSON differential-review evidence; omission keeps the loop incomplete",
+    )
+    fix_check.add_argument(
+        "--independent-verification",
+        default=None,
+        help="JSON StageResult for independent_verification; omission keeps the loop incomplete",
+    )
+    fix_check.add_argument(
+        "--timeout",
+        type=float,
+        default=180.0,
+        help="seconds allowed for each named test stage (1..900)",
+    )
+    _common(fix_check)
+    fix_check.set_defaults(func=cmd_fix_check)
 
     runs = sub.add_parser("runs", help="list recorded runs and their integrity")
     runs.add_argument("path", nargs="?", default=".")
