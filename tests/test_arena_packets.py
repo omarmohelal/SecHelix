@@ -94,14 +94,14 @@ class ArenaAssessmentPacketTests(unittest.TestCase):
             artifact = root / "artifacts" / "case-a.json"
             artifact.parent.mkdir(parents=True)
             artifact.write_text(
-                '{"token":"SUPER-SECRET-NEVER-PERSIST","result":"verified"}',
+                '{"private_marker":"DO-NOT-COPY-MARKER","result":"verified"}',
                 encoding="utf-8",
             )
 
             packet = build_assessment_packet(make_spec(), base_dir=root)
             rendered = json.dumps(packet, sort_keys=True)
 
-            self.assertNotIn("SUPER-SECRET-NEVER-PERSIST", rendered)
+            self.assertNotIn("DO-NOT-COPY-MARKER", rendered)
             self.assertNotIn(str(root), rendered)
             self.assertNotIn("artifacts/case-a.json", rendered)
             observation = packet["observations"][0]
