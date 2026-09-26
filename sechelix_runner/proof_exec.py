@@ -174,6 +174,26 @@ class SessionRevocationHttpSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class StateTransitionHttpSpec:
+    """One operator-declared forbidden LOCAL state transition.
+
+    The executor issues exactly one POST request and compares local readback
+    against explicit start, safe and forbidden state invariants. Raw state
+    values and request headers never enter the proof artifact.
+    """
+
+    url: str
+    body: bytes = b""
+    headers: Mapping[str, str] = field(default_factory=dict)
+    read_state: Callable[[], Any] | None = None
+    expected_start_state: Any = None
+    expected_secure_state: Any = None
+    forbidden_state: Any = None
+    accepted_statuses: tuple[int, ...] = (200, 201, 202, 204)
+    denial_statuses: tuple[int, ...] = (400, 401, 403, 409, 422)
+
+
+@dataclass(frozen=True, slots=True)
 class XssBrowserSpec:
     """One reflected LOCAL browser sink with a fixed benign marker payload.
 
@@ -267,6 +287,7 @@ class LocalProofExecutor:
             ProofClass.SSRF_CALLBACK: self._ssrf,
             ProofClass.CSRF_REQUEST: self._csrf,
             ProofClass.SESSION_REVOCATION: self._session_revocation,
+            ProofClass.STATE_TRANSITION: self._state_transition,
         }
         if plan.proof_class is ProofClass.XSS_EXECUTION:
             return self._xss(plan, spec)
@@ -566,6 +587,69 @@ class LocalProofExecutor:
         else:
             behavior = ProofBehavior.INCONCLUSIVE
             notes = ["post-revocation response was neither an expected denial nor a normal accepted outcome"]
+        return ProofExecutionResult(
+            plan.finding_id,
+            plan.proof_class,
+            behavior,
+            observations,
+            notes=notes,
+        )
+
+    def _state_transition(self, plan: ProofPlan, spec: Any) -> ProofExecutionResult:
+        if not isinstance(spec, StateTransitionHttpSpec):
+            raise ProofExecutionError("state transition plan requires StateTransitionHttpSpec")
+        if spec.read_state is None or not callable(spec.read_state):
+            raise ProofExecutionError("state transition proof requires a fixture state readback")
+        if spec.expected_secure_state == spec.forbidden_state:
+            raise ProofExecutionError("secure and forbidden state invariants must differ")
+
+        before = spec.read_state()
+        if before != spec.expected_start_state:
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.INCONCLUSIVE,
+                notes=[
+                    "fixture did not begin in the declared starting state",
+                    f"observed_start_sha256={_value_digest(before)}",
+                    f"expected_start_sha256={_value_digest(spec.expected_start_state)}",
+                ],
+            )
+
+        attempt = self._request(
+            "forbidden-state-transition",
+            spec.url,
+            "POST",
+            spec.headers,
+            spec.body,
+        )
+        after = spec.read_state()
+        observations = [attempt.to_dict()]
+        notes = [
+            f"before_sha256={_value_digest(before)}",
+            f"after_sha256={_value_digest(after)}",
+            f"secure_state_sha256={_value_digest(spec.expected_secure_state)}",
+            f"forbidden_state_sha256={_value_digest(spec.forbidden_state)}",
+        ]
+
+        if attempt.status is None:
+            behavior = ProofBehavior.INCONCLUSIVE
+            notes.insert(0, "transition request did not produce an HTTP response")
+        elif after == spec.forbidden_state:
+            behavior = ProofBehavior.VULNERABLE_BEHAVIOR
+            notes.insert(0, "operator-declared forbidden target state was reached")
+        elif after == spec.expected_secure_state and (
+            attempt.status in spec.denial_statuses
+            or attempt.status in spec.accepted_statuses
+        ):
+            behavior = ProofBehavior.SECURE_BEHAVIOR
+            notes.insert(0, "forbidden target state was not reached; supplied safe state invariant held")
+        else:
+            behavior = ProofBehavior.INCONCLUSIVE
+            notes.insert(
+                0,
+                "post-request state matched neither the declared safe nor forbidden invariant",
+            )
         return ProofExecutionResult(
             plan.finding_id,
             plan.proof_class,
