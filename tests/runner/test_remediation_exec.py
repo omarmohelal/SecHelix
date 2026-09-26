@@ -4,6 +4,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from sechelix_runner.cli import build_parser
+
 from sechelix_core.remediation import FAIL, NOT_RUN, PASS
 from sechelix_runner.proof import ProofClass
 from sechelix_runner.proof_exec import ProofBehavior, ProofExecutionResult
@@ -145,6 +147,35 @@ class ProofReplayTranslationTests(unittest.TestCase):
             with self.subTest(behavior=behavior):
                 stage = regression_stage_from_proof(self.result(behavior))
                 self.assertEqual(stage.status, NOT_RUN)
+
+
+class RemediationCliParserTests(unittest.TestCase):
+    def test_fix_check_cli_parses_bounded_inputs(self) -> None:
+        args = build_parser().parse_args([
+            "fix-check",
+            "SHX-F-1",
+            "--workspace",
+            "/tmp/sechelix-fix",
+            "--existing-test",
+            "tests.test_remediation",
+            "--regression-test",
+            "tests.test_security_regression",
+            "--patch-review",
+            "patch-review.json",
+            "--independent-verification",
+            "verify.json",
+            "--json",
+        ])
+        self.assertEqual(args.command, "fix-check")
+        self.assertEqual(args.finding_id, "SHX-F-1")
+        self.assertEqual(args.existing_test, ["tests.test_remediation"])
+        self.assertEqual(args.regression_test, ["tests.test_security_regression"])
+
+    def test_fix_check_cli_has_no_generic_command_argument(self) -> None:
+        parser = build_parser()
+        help_text = parser.format_help()
+        self.assertNotIn("--command", help_text)
+        self.assertNotIn("--shell", help_text)
 
 
 if __name__ == "__main__":
