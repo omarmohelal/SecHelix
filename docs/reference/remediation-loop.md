@@ -40,13 +40,25 @@ did not check" and "we checked and it was fine" are different sentences.
 itself* and reports newly introduced authorization, validation or availability defects. A risk class
 that was not assessed is not a clean one, and the record names which.
 
-## Execution stays outside
+## Execution stays outside the core
 
-The module runs no tests and shells out to nothing. The caller executes each stage in its own
-sandbox and reports the outcome; the loop decides what the combination means.
+`sechelix_core.remediation` still runs no tests and shells out to nothing. The optional runner
+now has a first executable bridge in `sechelix_runner.remediation_exec`:
 
-That is what makes "never touches main" a property of the design rather than a promise in a
-docstring.
+- only named test capabilities are accepted (the first slice is `python-unittest`);
+- flag-shaped, absolute and traversal targets are refused;
+- execution happens in the network-disabled sandbox with only the supplied scratch workspace
+  writable;
+- the policy gateway records the `remediation-test` authority decision;
+- a bounded original proof can be translated into the canonical
+  `vulnerability_regression` stage: secure behavior is PASS, vulnerable behavior is FAIL, and
+  blocked/inconclusive evidence is NOT_RUN.
+
+This does **not** apply a patch and it does not execute independent verification. Differential
+review, remediation-risk assessment and the independent verifier remain separate mandatory gates.
+
+That separation keeps "never touches main" and "a stage that did not run did not pass" as design
+properties rather than promises in prose.
 
 ## Usage
 
