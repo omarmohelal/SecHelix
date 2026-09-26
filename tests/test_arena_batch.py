@@ -132,6 +132,16 @@ class ArenaBatchHandoffTests(unittest.TestCase):
             "agent_host": "isolated-eval-host",
         }
 
+    def _rewrite_run(self, row: dict, mutate) -> None:
+        path = self.root / row["run_path"]
+        run = json.loads(path.read_text(encoding="utf-8"))
+        mutate(run)
+        path.write_text(
+            json.dumps(run, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        RunWorkspace(self.root, row["run_id"]).write_manifest()
+
     def test_complete_packet_builds_manifest_verified_handoff_without_scoring(self) -> None:
         run_map = {
             "cases": [
@@ -156,9 +166,76 @@ class ArenaBatchHandoffTests(unittest.TestCase):
         self.assertFalse(result["measurement_scope"]["reveals_ground_truth"])
         self.assertTrue(result["measurement_scope"]["requires_independent_assessor"])
 
+        operational = result["operational_summary"]
+        self.assertEqual(operational["case_count"], 2)
+        self.assertEqual(operational["agent_hosts"], ["isolated-eval-host"])
+        self.assertEqual(operational["providers"], ["provider-a"])
+        self.assertEqual(operational["models"], ["model-a"])
+        self.assertEqual(operational["case_elapsed_seconds"]["total"], 10.0)
+        self.assertEqual(operational["case_elapsed_seconds"]["mean"], 5.0)
+        # Both fixture runs occupy the same five-second window. Their summed
+        # case wall time is ten seconds, while observed packet span is five.
+        self.assertEqual(operational["observed_packet_span_seconds"], 5.0)
+        self.assertEqual(operational["input_tokens"]["total"], 200)
+        self.assertEqual(operational["output_tokens"]["total"], 40)
+        self.assertEqual(operational["cost_usd"]["total"], 0.02)
+        self.assertTrue(operational["cost_usd"]["complete"])
+        self.assertFalse(operational["measurement_scope"]["scores_correctness"])
+
         rendered = json.dumps(result)
         self.assertNotIn("redacted-workflow-output", rendered)
         self.assertNotIn('"decision": "PASS"', rendered)
+
+    def test_incomplete_cost_stays_not_measured_without_hiding_other_metrics(self) -> None:
+        first = self._case("CASE-AAA111", "RUN-COST_A")
+        second = self._case("CASE-BBB222", "RUN-COST_B")
+
+        def remove_verifier_cost(run: dict) -> None:
+            run["records"]["verifier"].pop("cost_usd", None)
+
+        self._rewrite_run(second, remove_verifier_cost)
+        result = build_batch_handoff(
+            self.manifest,
+            {"cases": [first, second]},
+            base_dir=self.root,
+        )
+        operational = result["operational_summary"]
+
+        self.assertEqual(operational["cost_usd"]["total"], "NOT_MEASURED")
+        self.assertFalse(operational["cost_usd"]["complete"])
+        self.assertEqual(operational["cost_usd"]["measured_cases"], 1)
+        self.assertEqual(operational["cost_usd"]["applicable_cases"], 2)
+        self.assertEqual(operational["input_tokens"]["total"], 200)
+        self.assertEqual(operational["output_tokens"]["total"], 40)
+        self.assertEqual(operational["case_elapsed_seconds"]["total"], 10.0)
+        self.assertEqual(result["measurement_status"], "NOT_MEASURED")
+
+    def test_provider_metrics_are_not_applicable_when_no_case_executed_provider_work(self) -> None:
+        first = self._case("CASE-AAA111", "RUN-BLOCKED_A")
+        second = self._case("CASE-BBB222", "RUN-BLOCKED_B")
+
+        def block_provider_nodes(run: dict) -> None:
+            run["records"]["verifier"]["status"] = "BLOCKED"
+            run["records"]["gate"]["status"] = "BLOCKED"
+
+        self._rewrite_run(first, block_provider_nodes)
+        self._rewrite_run(second, block_provider_nodes)
+        result = build_batch_handoff(
+            self.manifest,
+            {"cases": [first, second]},
+            base_dir=self.root,
+        )
+        operational = result["operational_summary"]
+
+        for field in ("input_tokens", "output_tokens", "cost_usd"):
+            self.assertEqual(operational[field]["total"], "NOT_APPLICABLE")
+            self.assertTrue(operational[field]["complete"])
+            self.assertEqual(operational[field]["measured_cases"], 0)
+            self.assertEqual(operational[field]["applicable_cases"], 0)
+
+        # Wall-clock run telemetry still exists even when provider work did not.
+        self.assertEqual(operational["case_elapsed_seconds"]["total"], 10.0)
+        self.assertEqual(operational["observed_packet_span_seconds"], 5.0)
 
     def test_missing_or_extra_case_fails_closed(self) -> None:
         only_one = {"cases": [self._case("CASE-AAA111", "RUN-ONLY_ONE")]}
