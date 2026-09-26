@@ -131,6 +131,23 @@ class WebhookHttpSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class CsrfHttpSpec:
+    """One harmless, authenticated state-changing request against a LOCAL fixture.
+
+    The foreign origin is fixed by default and never contacted. Session headers
+    are ephemeral request inputs and never enter the result artifact.
+    """
+
+    url: str
+    body: bytes = b"sechelix_fixture=1"
+    authenticated_headers: Mapping[str, str] = field(default_factory=dict)
+    same_origin: str = ""
+    foreign_origin: str = "https://csrf-attacker.invalid"
+    accepted_statuses: tuple[int, ...] = (200, 201, 202, 204)
+    denial_statuses: tuple[int, ...] = (400, 401, 403, 409, 422)
+
+
+@dataclass(frozen=True, slots=True)
 class SsrfHttpSpec:
     """Submit a loopback callback URL through one bounded target request.
 
@@ -203,6 +220,7 @@ class LocalProofExecutor:
             ProofClass.RACE_IDEMPOTENCY: self._race,
             ProofClass.WEBHOOK_SIGNATURE: self._webhook,
             ProofClass.SSRF_CALLBACK: self._ssrf,
+            ProofClass.CSRF_REQUEST: self._csrf,
         }
         if plan.proof_class is ProofClass.XSS_EXECUTION:
             return ProofExecutionResult(
@@ -343,6 +361,76 @@ class LocalProofExecutor:
             behavior = ProofBehavior.SECURE_BEHAVIOR
             notes = ["unsigned and incorrectly signed payloads were rejected; replay was not accepted"]
         return ProofExecutionResult(plan.finding_id, plan.proof_class, behavior, observations, notes=notes)
+
+    def _csrf(self, plan: ProofPlan, spec: Any) -> ProofExecutionResult:
+        if not isinstance(spec, CsrfHttpSpec):
+            raise ProofExecutionError("CSRF plan requires CsrfHttpSpec")
+        if not spec.authenticated_headers:
+            raise ProofExecutionError("CSRF proof requires an authenticated fixture session")
+        parsed = urllib.parse.urlsplit(spec.url)
+        expected_origin = f"{parsed.scheme}://{parsed.hostname}"
+        if parsed.port is not None:
+            expected_origin += f":{parsed.port}"
+        same_origin = spec.same_origin or expected_origin
+        if urllib.parse.urlsplit(same_origin).scheme not in {"http", "https"}:
+            raise ProofExecutionError("same_origin must be absolute HTTP(S)")
+        foreign = urllib.parse.urlsplit(spec.foreign_origin)
+        if foreign.scheme != "https" or not foreign.hostname:
+            raise ProofExecutionError("foreign_origin must be an absolute HTTPS origin")
+        if foreign.hostname in {parsed.hostname, "127.0.0.1", "::1", "localhost"}:
+            raise ProofExecutionError("foreign_origin must be distinct from the LOCAL target")
+
+        base_headers = dict(spec.authenticated_headers)
+        # The controlled payload is form-like on purpose: a browser can submit
+        # this class cross-site without requiring a CORS preflight.
+        base_headers.setdefault("Content-Type", "application/x-www-form-urlencoded")
+
+        same_headers = {**base_headers, "Origin": same_origin}
+        foreign_headers = {**base_headers, "Origin": spec.foreign_origin}
+
+        control = self._request(
+            "same-origin-control",
+            spec.url,
+            "POST",
+            same_headers,
+            spec.body,
+        )
+        cross_site = self._request(
+            "foreign-origin-request",
+            spec.url,
+            "POST",
+            foreign_headers,
+            spec.body,
+        )
+        observations = [control.to_dict(), cross_site.to_dict()]
+
+        if control.status not in spec.accepted_statuses:
+            behavior = ProofBehavior.INCONCLUSIVE
+            notes = [
+                "same-origin authenticated control was not accepted; CSRF conclusion would be ambiguous"
+            ]
+        elif cross_site.status in spec.denial_statuses:
+            behavior = ProofBehavior.SECURE_BEHAVIOR
+            notes = [
+                "foreign-origin authenticated request was denied while the same-origin control succeeded"
+            ]
+        elif cross_site.status in spec.accepted_statuses:
+            behavior = ProofBehavior.VULNERABLE_BEHAVIOR
+            notes = [
+                "foreign-origin form-compatible request was accepted with the authenticated fixture session"
+            ]
+        else:
+            behavior = ProofBehavior.INCONCLUSIVE
+            notes = [
+                "foreign-origin response was neither an expected denial nor a normal accepted outcome"
+            ]
+        return ProofExecutionResult(
+            plan.finding_id,
+            plan.proof_class,
+            behavior,
+            observations,
+            notes=notes,
+        )
 
     def _ssrf(self, plan: ProofPlan, spec: Any) -> ProofExecutionResult:
         if not isinstance(spec, SsrfHttpSpec):
