@@ -1,5 +1,5 @@
 {
-  "schema_version": "sechelix-security-runtime-lock/v1",
+  "schema_version": "sechelix-security-runtime-lock/v2",
   "base_image": {
     "reference": "python:3.12.11-slim-bookworm@sha256:519591d6871b7bc437060736b9f7456b8731f1499a57e22e6c285135ae657bf7",
     "index_sha256": "519591d6871b7bc437060736b9f7456b8731f1499a57e22e6c285135ae657bf7"
@@ -7,12 +7,14 @@
   "python_tools": {
     "semgrep": {
       "version": "1.140.0",
-      "pinning": "version-only"
+      "pinning": "sha256-python-lock",
+      "dependency_lock": "python-tools.lock"
     },
     "dependency-audit": {
       "package": "pip-audit",
       "version": "2.9.0",
-      "pinning": "version-only"
+      "pinning": "sha256-python-lock",
+      "dependency_lock": "python-tools.lock"
     }
   },
   "binary_tools": {
@@ -47,7 +49,15 @@
   },
   "notes": [
     "Binary release archives are verified before extraction.",
+    "Python security-tool roots and every resolved transitive Python distribution are exact-version and SHA-256 hash locked in python-tools.lock; the runtime installs them with pip --require-hashes.",
     "The final runtime image does not include curl or tar from the builder stage.",
-    "Python tool versions are exact but transitive wheel hashes are not yet locked; do not describe them as artifact-pinned."
-  ]
+    "The repository lock is generated for Python 3.12.11; the security-runtime CI build verifies the current Linux amd64 image. Published multi-architecture image provenance is a separate release concern."
+  ],
+  "python_dependency_lock": {
+    "input": "python-tools.in",
+    "requirements": "python-tools.lock",
+    "generator": "pip-tools==7.6.1",
+    "python": "3.12.11",
+    "install_mode": "pip --require-hashes"
+  }
 }
