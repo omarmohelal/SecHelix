@@ -165,8 +165,10 @@ state.
 The proof establishes the valid signed control first, then sends unsigned,
 incorrectly signed and replayed deliveries. The raw fixture state never enters
 the artifact. SecHelix records only digests and classifies additional
-side-effects after the valid control as VULNERABLE_BEHAVIOR evidence. If state
-remains at the supplied single-application invariant, the proof records
-SECURE_BEHAVIOR for this bounded replay check. Without readback, the existing
-conservative status-only behavior remains unchanged and an accepted replay stays
-INCONCLUSIVE.
+side-effects after the valid control as VULNERABLE_BEHAVIOR evidence. If
+unsigned/invalid deliveries are rejected and state remains at the supplied
+single-application invariant through replay, the bounded replay check records
+SECURE_BEHAVIOR. A bad-signature delivery that returns an accepted status but
+produces no observed state change remains INCONCLUSIVE rather than being called
+secure. Without readback, the existing conservative status-only behavior remains
+unchanged and an accepted replay stays INCONCLUSIVE.
