@@ -101,6 +101,47 @@ evidence targets.
 explicitly leaves correctness unscored; an independent evaluator must still
 produce the evidence-backed assessment described below.
 
+## 3.4 Build a complete manifest-verified batch handoff
+
+When each blind case has its own SecHelix run workspace, bind the full prepared
+packet before an evaluator starts scoring:
+
+```bash
+python evals/arena_batch.py \
+  --manifest work/arena-prepared.json \
+  --run-map work/run-map.json \
+  --base-dir work \
+  --output work/arena-batch-handoff.json
+```
+
+The batch handoff requires every prepared CASE- identifier exactly once and
+requires each case workspace to pass manifest verification plus measurement
+bundle validation. It still contains no workflow correctness score.
+
+## 3.5 Bind independent judgments to the verified batch
+
+After predictions are frozen and the independent evaluator has made explicit
+workflow judgments, bind those judgments to the exact manifest-verified bytes
+for each case:
+
+```bash
+python evals/arena_batch_assessor.py \
+  --handoff work/arena-batch-handoff.json \
+  --spec work/assessment-spec.json \
+  --base-dir work \
+  --output work/assessment.json
+```
+
+Each scored judgment must cite an `artifact_ref` that already exists in that
+case's measurement-bundle `workspace_artifacts` map plus a relative local path
+to the same file. The builder re-hashes the file and rejects digest drift,
+unmanifested artifacts, path escapes, duplicate/missing cases, or a spec bound to
+another handoff/packet.
+
+The resulting assessment is compatible with Arena finalization. This step does
+**not** decide correctness or establish evaluator independence; it only proves
+which verified run bytes each assessor-supplied judgment cites.
+
 ## 4. Independent workflow assessment
 
 An evaluator that did not produce the predictions records applicable observations with these fields:
