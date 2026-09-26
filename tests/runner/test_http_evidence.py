@@ -240,6 +240,96 @@ class HttpEvidenceRecorderTests(unittest.TestCase):
         self.assertTrue(record.response_security.cache_public)
         self.assertFalse(record.response_security.cache_private)
 
+    def test_redirect_trace_redacts_query_values_and_preserves_method_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "http.jsonl"
+            recorder = HttpEvidenceRecorder(path)
+            record = recorder.record_exchange(
+                method="POST",
+                url="https://app.example.test/final",
+                status=200,
+                content_type="application/json",
+                request_headers={"Authorization": "Bearer secret"},
+                response_headers={"Content-Type": "application/json"},
+                request_body_bytes=10,
+                response_body_bytes=12,
+                authentication_context="persona:buyer",
+                redirect_count=2,
+                redirect_hops=[
+                    {
+                        "status": 302,
+                        "from_method": "POST",
+                        "to_method": "GET",
+                        "from_url": "https://app.example.test/start?token=never-store",
+                        "to_url": "https://app.example.test/next?code=never-store-either",
+                    },
+                    {
+                        "status": 307,
+                        "from_method": "GET",
+                        "to_method": "GET",
+                        "from_url": "https://app.example.test/next?code=never-store-either",
+                        "to_url": "https://app.example.test/final?state=also-secret",
+                    },
+                ],
+            )
+
+            self.assertEqual(record.redirect_count, 2)
+            self.assertEqual(len(record.redirect_hops), 2)
+            self.assertEqual(record.redirect_hops[0].from_method, "POST")
+            self.assertEqual(record.redirect_hops[0].to_method, "GET")
+            self.assertIn("token=[REDACTED]", record.redirect_hops[0].from_url)
+            self.assertIn("code=[REDACTED]", record.redirect_hops[0].to_url)
+            self.assertIn("state=[REDACTED]", record.redirect_hops[1].to_url)
+
+            raw = path.read_text(encoding="utf-8")
+            self.assertNotIn("never-store", raw)
+            self.assertNotIn("never-store-either", raw)
+            self.assertNotIn("also-secret", raw)
+            parsed = json.loads(raw)
+            self.assertEqual(len(parsed["redirect_hops"]), 2)
+
+    def test_redirect_trace_rejects_count_mismatch_and_non_redirect_status(self) -> None:
+        recorder = HttpEvidenceRecorder()
+        common = dict(
+            method="GET",
+            url="https://app.example.test/final",
+            status=200,
+            content_type="text/plain",
+            request_headers={},
+            response_headers={},
+            request_body_bytes=0,
+            response_body_bytes=0,
+            authentication_context=None,
+        )
+        with self.assertRaises(ValueError):
+            recorder.record_exchange(
+                **common,
+                redirect_count=2,
+                redirect_hops=[
+                    {
+                        "status": 302,
+                        "from_method": "GET",
+                        "to_method": "GET",
+                        "from_url": "https://app.example.test/a",
+                        "to_url": "https://app.example.test/b",
+                    }
+                ],
+            )
+        with self.assertRaises(ValueError):
+            recorder.record_exchange(
+                **common,
+                redirect_count=1,
+                redirect_hops=[
+                    {
+                        "status": 200,
+                        "from_method": "GET",
+                        "to_method": "GET",
+                        "from_url": "https://app.example.test/a",
+                        "to_url": "https://app.example.test/b",
+                    }
+                ],
+            )
+
     def test_simple_anonymous_get_can_be_marked_replayable(self) -> None:
         recorder = HttpEvidenceRecorder()
         record = recorder.record_exchange(
