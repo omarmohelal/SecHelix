@@ -1,0 +1,5 @@
+# Direct Python tools installed into the dedicated V5 security runtime.
+# Keep direct versions in sync with runtime-lock.json and runtime_manifest.py.
+# Transitive versions and artifact hashes are generated into python-tools.lock.
+semgrep==1.140.0
+pip-audit==2.9.0
