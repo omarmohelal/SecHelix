@@ -7,6 +7,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from sechelix_runner.proof import ProofClass, build_plan
 from sechelix_runner.proof_exec import (
+    CsrfHttpSpec,
     IdorHttpSpec,
     LocalProofExecutor,
     ProofBehavior,
@@ -21,6 +22,8 @@ from sechelix_runner.sandbox import ExecutionMode, NetworkPolicy
 
 class _FixtureHandler(BaseHTTPRequestHandler):
     redeem_count = 0
+    csrf_vulnerable_count = 0
+    csrf_secure_count = 0
     sentinel = b"SECHELIX_SENTINEL_93B1"
 
     def do_GET(self) -> None:  # noqa: N802
@@ -59,6 +62,24 @@ class _FixtureHandler(BaseHTTPRequestHandler):
             signature = self.headers.get("X-Demo-Signature")
             self._send(200 if signature == "valid" else 401, b"ok" if signature == "valid" else b"no")
             return
+        if self.path == "/csrf-vulnerable":
+            if self.headers.get("Cookie") != "session=fixture-auth":
+                self._send(401, b"no session")
+                return
+            type(self).csrf_vulnerable_count += 1
+            self._send(200, b"changed")
+            return
+        if self.path == "/csrf-secure":
+            if self.headers.get("Cookie") != "session=fixture-auth":
+                self._send(401, b"no session")
+                return
+            expected_origin = f"http://127.0.0.1:{self.server.server_port}"
+            if self.headers.get("Origin") != expected_origin:
+                self._send(403, b"csrf denied")
+                return
+            type(self).csrf_secure_count += 1
+            self._send(200, b"changed")
+            return
         self._send(404, b"missing")
 
     def _send(self, status: int, body: bytes) -> None:
@@ -88,6 +109,8 @@ class LocalProofExecutionTests(unittest.TestCase):
 
     def setUp(self) -> None:
         _FixtureHandler.redeem_count = 0
+        _FixtureHandler.csrf_vulnerable_count = 0
+        _FixtureHandler.csrf_secure_count = 0
         self.policy = NetworkPolicy(ExecutionMode.LOCAL)
         self.policy.grant(
             "127.0.0.1",
@@ -177,6 +200,70 @@ class LocalProofExecutionTests(unittest.TestCase):
         self.assertEqual(result.behavior, ProofBehavior.INCONCLUSIVE)
         self.assertEqual(result.request_count, 4)
         self.assertNotIn("valid_signature", json.dumps(result.to_dict()))
+
+    def test_csrf_local_fixture_distinguishes_foreign_origin_acceptance(self) -> None:
+        plan = build_plan(
+            ProofClass.CSRF_REQUEST,
+            "F-CSRF",
+            available_authority={"fixture_authenticated_session", "fixture_write_access"},
+        )
+        result = self.executor.execute(
+            plan,
+            CsrfHttpSpec(
+                url=self.base + "/csrf-vulnerable",
+                authenticated_headers={"Cookie": "session=fixture-auth"},
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.VULNERABLE_BEHAVIOR)
+        self.assertEqual(result.request_count, 2)
+        self.assertEqual(_FixtureHandler.csrf_vulnerable_count, 2)
+        rendered = json.dumps(result.to_dict())
+        self.assertNotIn("fixture-auth", rendered)
+        self.assertNotIn("Cookie", rendered)
+
+    def test_csrf_local_fixture_recognizes_origin_enforcement(self) -> None:
+        plan = build_plan(
+            ProofClass.CSRF_REQUEST,
+            "F-CSRF-SAFE",
+            available_authority={"fixture_authenticated_session", "fixture_write_access"},
+        )
+        result = self.executor.execute(
+            plan,
+            CsrfHttpSpec(
+                url=self.base + "/csrf-secure",
+                authenticated_headers={"Cookie": "session=fixture-auth"},
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.SECURE_BEHAVIOR)
+        self.assertEqual(result.request_count, 2)
+        self.assertEqual(_FixtureHandler.csrf_secure_count, 1)
+
+    def test_csrf_requires_explicit_fixture_session_and_local_authority(self) -> None:
+        plan = build_plan(
+            ProofClass.CSRF_REQUEST,
+            "F-CSRF-NOAUTH",
+            available_authority={"fixture_authenticated_session", "fixture_write_access"},
+        )
+        with self.assertRaises(ProofExecutionError):
+            self.executor.execute(
+                plan,
+                CsrfHttpSpec(url=self.base + "/csrf-vulnerable"),
+            )
+
+        blocked = build_plan(
+            ProofClass.CSRF_REQUEST,
+            "F-CSRF-BLOCKED",
+            available_authority={"fixture_write_access"},
+        )
+        result = self.executor.execute(
+            blocked,
+            CsrfHttpSpec(
+                url=self.base + "/csrf-vulnerable",
+                authenticated_headers={"Cookie": "session=fixture-auth"},
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.BLOCKED)
+        self.assertIn("fixture_authenticated_session", result.blocker)
 
     def test_ssrf_proof_uses_loopback_callback_not_public_oob(self) -> None:
         plan = build_plan(
