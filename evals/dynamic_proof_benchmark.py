@@ -24,6 +24,7 @@ from sechelix_runner.proof_exec import (
     MoneyFlowInvariantHttpSpec,
     PaymentInvariantHttpSpec,
     ProofBehavior,
+    SettlementRefundSequenceHttpSpec,
     StateTransitionHttpSpec,
     WorkflowSequenceHttpSpec,
 )
@@ -47,6 +48,12 @@ class _Handler(BaseHTTPRequestHandler):
     workflow_clean = "created"
     money_flow_vulnerable = {"buyer": 10_000, "seller": 2_000, "platform": 500}
     money_flow_clean = {"buyer": 10_000, "seller": 2_000, "platform": 500}
+    settlement_refund_vulnerable = {"customer": 10_000, "worker": 1_000, "platform": 500}
+    settlement_refund_clean = {"customer": 10_000, "worker": 1_000, "platform": 500}
+    settlement_refund_vulnerable_settle_count = 0
+    settlement_refund_vulnerable_refund_count = 0
+    settlement_refund_clean_settle_count = 0
+    settlement_refund_clean_refund_count = 0
 
     def do_POST(self) -> None:  # noqa: N802
         length = int(self.headers.get("Content-Length", "0"))
@@ -83,6 +90,45 @@ class _Handler(BaseHTTPRequestHandler):
                 state["buyer"] -= 1000
                 state["seller"] += 900
                 state["platform"] += 100
+            self._send(200)
+            return
+
+        if self.path == "/settlement-refund/vulnerable/settle":
+            state = type(self).settlement_refund_vulnerable
+            if type(self).settlement_refund_vulnerable_settle_count == 0:
+                state["customer"] -= 1000
+                state["worker"] += 800
+                state["platform"] += 200
+            type(self).settlement_refund_vulnerable_settle_count += 1
+            self._send(200)
+            return
+        if self.path == "/settlement-refund/vulnerable/refund":
+            state = type(self).settlement_refund_vulnerable
+            # Settlement is idempotent enough for the control path, but the
+            # partial refund is incorrectly applied on every replay.
+            if type(self).settlement_refund_vulnerable_refund_count >= 0:
+                state["customer"] += 400
+                state["worker"] -= 320
+                state["platform"] -= 80
+            type(self).settlement_refund_vulnerable_refund_count += 1
+            self._send(200)
+            return
+        if self.path == "/settlement-refund/clean/settle":
+            state = type(self).settlement_refund_clean
+            if type(self).settlement_refund_clean_settle_count == 0:
+                state["customer"] -= 1000
+                state["worker"] += 800
+                state["platform"] += 200
+            type(self).settlement_refund_clean_settle_count += 1
+            self._send(200)
+            return
+        if self.path == "/settlement-refund/clean/refund":
+            state = type(self).settlement_refund_clean
+            if type(self).settlement_refund_clean_refund_count == 0:
+                state["customer"] += 400
+                state["worker"] -= 320
+                state["platform"] -= 80
+            type(self).settlement_refund_clean_refund_count += 1
             self._send(200)
             return
 
@@ -136,6 +182,12 @@ def _reset() -> None:
     _Handler.workflow_clean = "created"
     _Handler.money_flow_vulnerable = {"buyer": 10_000, "seller": 2_000, "platform": 500}
     _Handler.money_flow_clean = {"buyer": 10_000, "seller": 2_000, "platform": 500}
+    _Handler.settlement_refund_vulnerable = {"customer": 10_000, "worker": 1_000, "platform": 500}
+    _Handler.settlement_refund_clean = {"customer": 10_000, "worker": 1_000, "platform": 500}
+    _Handler.settlement_refund_vulnerable_settle_count = 0
+    _Handler.settlement_refund_vulnerable_refund_count = 0
+    _Handler.settlement_refund_clean_settle_count = 0
+    _Handler.settlement_refund_clean_refund_count = 0
 
 
 def _cases() -> tuple[BenchmarkCase, ...]:
@@ -233,6 +285,56 @@ def _cases() -> tuple[BenchmarkCase, ...]:
             ),
         )
 
+    def settlement_refund_vulnerable(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.SETTLEMENT_REFUND_SEQUENCE,
+            "BENCH-SETTLEMENT-REFUND-VULN",
+            available_authority={"fixture_write_access", "fixture_financial_readback"},
+        )
+        return executor.execute(
+            plan,
+            SettlementRefundSequenceHttpSpec(
+                settlement_url=base + "/settlement-refund/vulnerable/settle",
+                refund_url=base + "/settlement-refund/vulnerable/refund",
+                read_balances_minor=lambda: dict(_Handler.settlement_refund_vulnerable),
+                expected_settlement_deltas_minor={
+                    "customer": -1000,
+                    "worker": 800,
+                    "platform": 200,
+                },
+                expected_refund_deltas_minor={
+                    "customer": 400,
+                    "worker": -320,
+                    "platform": -80,
+                },
+            ),
+        )
+
+    def settlement_refund_clean(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.SETTLEMENT_REFUND_SEQUENCE,
+            "BENCH-SETTLEMENT-REFUND-CLEAN",
+            available_authority={"fixture_write_access", "fixture_financial_readback"},
+        )
+        return executor.execute(
+            plan,
+            SettlementRefundSequenceHttpSpec(
+                settlement_url=base + "/settlement-refund/clean/settle",
+                refund_url=base + "/settlement-refund/clean/refund",
+                read_balances_minor=lambda: dict(_Handler.settlement_refund_clean),
+                expected_settlement_deltas_minor={
+                    "customer": -1000,
+                    "worker": 800,
+                    "platform": 200,
+                },
+                expected_refund_deltas_minor={
+                    "customer": 400,
+                    "worker": -320,
+                    "platform": -80,
+                },
+            ),
+        )
+
     def workflow_vulnerable(base: str, executor: LocalProofExecutor):
         plan = build_plan(
             ProofClass.WORKFLOW_SEQUENCE,
@@ -298,6 +400,8 @@ def _cases() -> tuple[BenchmarkCase, ...]:
         BenchmarkCase("PAYMENT-CLEAN", "payment-invariant", ProofBehavior.SECURE_BEHAVIOR, payment_clean),
         BenchmarkCase("MONEY-FLOW-VULNERABLE", "money-flow-invariant", ProofBehavior.VULNERABLE_BEHAVIOR, money_flow_vulnerable),
         BenchmarkCase("MONEY-FLOW-CLEAN", "money-flow-invariant", ProofBehavior.SECURE_BEHAVIOR, money_flow_clean),
+        BenchmarkCase("SETTLEMENT-REFUND-VULNERABLE", "settlement-refund-sequence", ProofBehavior.VULNERABLE_BEHAVIOR, settlement_refund_vulnerable),
+        BenchmarkCase("SETTLEMENT-REFUND-CLEAN", "settlement-refund-sequence", ProofBehavior.SECURE_BEHAVIOR, settlement_refund_clean),
         BenchmarkCase("WORKFLOW-VULNERABLE", "workflow-sequence", ProofBehavior.VULNERABLE_BEHAVIOR, workflow_vulnerable),
         BenchmarkCase("WORKFLOW-CLEAN", "workflow-sequence", ProofBehavior.SECURE_BEHAVIOR, workflow_clean),
     )
