@@ -40,6 +40,7 @@ class _FixtureHandler(BaseHTTPRequestHandler):
     payment_vulnerable_balance = 10_000
     payment_idempotent_balance = 10_000
     payment_wrong_delta_balance = 10_000
+    refund_idempotent_balance = 5_000
     sentinel = b"SECHELIX_SENTINEL_93B1"
 
     def do_GET(self) -> None:  # noqa: N802
@@ -147,6 +148,12 @@ class _FixtureHandler(BaseHTTPRequestHandler):
             type(self).payment_wrong_delta_balance -= 100
             self._send(200, b"charged")
             return
+        if self.path == "/refund-idempotent":
+            key = self.headers.get("Idempotency-Key")
+            if key == "fixture-refund-1" and type(self).refund_idempotent_balance == 5_000:
+                type(self).refund_idempotent_balance += 300
+            self._send(200, b"accepted")
+            return
         if self.path == "/csrf-vulnerable":
             if self.headers.get("Cookie") != "session=fixture-auth":
                 self._send(401, b"no session")
@@ -247,6 +254,7 @@ class LocalProofExecutionTests(unittest.TestCase):
         _FixtureHandler.payment_vulnerable_balance = 10_000
         _FixtureHandler.payment_idempotent_balance = 10_000
         _FixtureHandler.payment_wrong_delta_balance = 10_000
+        _FixtureHandler.refund_idempotent_balance = 5_000
         self.policy = NetworkPolicy(ExecutionMode.LOCAL)
         self.policy.grant(
             "127.0.0.1",
@@ -726,26 +734,6 @@ class LocalProofExecutionTests(unittest.TestCase):
         self.assertIn("did not match", " ".join(result.notes))
 
     def test_payment_invariant_supports_refund_delta_and_replay_protection(self) -> None:
-        balance = {"minor": 5_000, "seen": False}
-
-        class RefundHandler:
-            pass
-
-        # Use the idempotent fixture endpoint while projecting a positive local
-        # liability/balance delta to prove the primitive is direction-agnostic.
-        def read_refund_balance() -> int:
-            return balance["minor"]
-
-        original_request = self.executor._request
-
-        def wrapped_request(label, url, method="GET", headers=None, body=b"", **kwargs):
-            observation = original_request(label, url, method, headers, body, **kwargs)
-            if not balance["seen"]:
-                balance["minor"] += 300
-                balance["seen"] = True
-            return observation
-
-        self.executor._request = wrapped_request  # type: ignore[method-assign]
         plan = build_plan(
             ProofClass.PAYMENT_INVARIANT,
             "F-PAYMENT-REFUND",
@@ -754,14 +742,15 @@ class LocalProofExecutionTests(unittest.TestCase):
         result = self.executor.execute(
             plan,
             PaymentInvariantHttpSpec(
-                url=self.base + "/payment-idempotent",
-                read_balance_minor=read_refund_balance,
+                url=self.base + "/refund-idempotent",
+                headers={"Idempotency-Key": "fixture-refund-1"},
+                read_balance_minor=lambda: _FixtureHandler.refund_idempotent_balance,
                 expected_single_delta_minor=300,
             ),
         )
         self.assertEqual(result.behavior, ProofBehavior.SECURE_BEHAVIOR)
         self.assertEqual(result.request_count, 2)
-        self.assertEqual(balance["minor"], 5_300)
+        self.assertEqual(_FixtureHandler.refund_idempotent_balance, 5_300)
 
     def test_payment_invariant_requires_integer_minor_units_and_authority(self) -> None:
         plan = build_plan(
