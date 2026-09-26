@@ -126,7 +126,46 @@ Summed case elapsed time is deliberately separate from packet span because
 concurrent cases can overlap. These are operational measurements only. The
 handoff still contains no workflow correctness score.
 
-## 3.5 Bind independent judgments to the verified batch
+## 3.5 Freeze the complete prediction batch before truth reveal
+
+After the complete manifest-verified batch handoff exists, create a deterministic
+prediction-freeze record **before** any evaluator opens blind truth:
+
+```bash
+python evals/arena_freeze.py freeze \
+  --manifest work/arena-prepared.json \
+  --handoff work/arena-batch-handoff.json \
+  --frozen-at 2026-09-26T19:00:00Z \
+  --recorder-identity "Independent Eval Operator" \
+  --recorder-role prediction-custodian \
+  --output work/prediction-freeze.json
+```
+
+The freeze validates the handoff digest, every case bundle digest, packet
+identity, participant identity and complete opaque case set. Its
+`prediction_digest` is derived only from each case ID, run ID and
+manifest-verified bundle digest. Ground truth is not an input and is not emitted.
+
+After truth is actually revealed, build Arena blindness metadata from that exact
+freeze:
+
+```bash
+python evals/arena_freeze.py blindness \
+  --freeze work/prediction-freeze.json \
+  --ground-truth-digest sha256:<digest> \
+  --truth-revealed-at 2026-09-26T19:05:00Z \
+  --evaluator-independent true \
+  --contamination UNCONTAMINATED \
+  --output work/blindness.json
+```
+
+The reveal timestamp must be strictly later than the prediction freeze.
+This helper checks consistency and ordering but cannot prove that the supplied
+timestamps, contamination claim or evaluator-independence claim are true. Arena
+still requires attributable independent-assessor metadata before a result can be
+published as measured.
+
+## 3.6 Bind independent judgments to the verified batch
 
 After predictions are frozen and the independent evaluator has made explicit
 workflow judgments, bind those judgments to the exact manifest-verified bytes
