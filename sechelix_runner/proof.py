@@ -37,6 +37,7 @@ class ProofClass(str, Enum):
     SESSION_REVOCATION = "SESSION_REVOCATION"
     STATE_TRANSITION = "STATE_TRANSITION"
     PAYMENT_INVARIANT = "PAYMENT_INVARIANT"
+    WORKFLOW_SEQUENCE = "WORKFLOW_SEQUENCE"
 
 
 class PlanState(str, Enum):
@@ -341,6 +342,38 @@ def _payment_invariant(finding_id: str) -> ProofPlan:
     )
 
 
+def _workflow_sequence(finding_id: str) -> ProofPlan:
+    return _plan(
+        ProofClass.WORKFLOW_SEQUENCE,
+        finding_id,
+        preconditions=[
+            "the local fixture has a deterministic start, intermediate, and final state",
+            "two harmless ordered mutations form one operator-declared legitimate workflow",
+            "an operator-controlled local reset hook can restore the exact starting state",
+        ],
+        required_authority=[
+            "fixture_write_access",
+            "fixture_state_readback",
+            "fixture_reset",
+        ],
+        actions=[
+            "verify the fixture starts in the declared starting state",
+            "execute step one and require the declared intermediate state",
+            "execute step two and require the declared final state",
+            "reset the local fixture and verify the starting state is restored",
+            "attempt step two directly from the starting state and compare the resulting state",
+        ],
+        expected_secure_behavior=(
+            "the ordered control reaches the final state, while direct step two from the start "
+            "is denied or leaves the fixture in the declared safe bypass state"
+        ),
+        expected_vulnerable_behavior=(
+            "the ordered control is valid and direct step two from the start reaches the final state "
+            "without the required intermediate step"
+        ),
+    )
+
+
 def _traversal(finding_id: str) -> ProofPlan:
     return _plan(
         ProofClass.PATH_TRAVERSAL,
@@ -370,4 +403,5 @@ _BUILDERS = {
     ProofClass.SESSION_REVOCATION: _session_revocation,
     ProofClass.STATE_TRANSITION: _state_transition,
     ProofClass.PAYMENT_INVARIANT: _payment_invariant,
+    ProofClass.WORKFLOW_SEQUENCE: _workflow_sequence,
 }
