@@ -93,6 +93,155 @@ def _prepared_case_ids(manifest: Mapping[str, Any]) -> list[str]:
     return sorted(case_ids)
 
 
+def _numeric_summary(values: list[Any]) -> dict[str, Any]:
+    """Aggregate a complete numeric vector without treating missing data as zero."""
+
+    numeric: list[float] = []
+    for value in values:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return {
+                "complete": False,
+                "measured_count": len(numeric),
+                "applicable_count": len(values),
+                "total": "NOT_MEASURED",
+                "mean": "NOT_MEASURED",
+                "min": "NOT_MEASURED",
+                "max": "NOT_MEASURED",
+            }
+        numeric.append(float(value))
+    if not numeric:
+        return {
+            "complete": True,
+            "measured_count": 0,
+            "applicable_count": 0,
+            "total": "NOT_APPLICABLE",
+            "mean": "NOT_APPLICABLE",
+            "min": "NOT_APPLICABLE",
+            "max": "NOT_APPLICABLE",
+        }
+    total = round(sum(numeric), 6)
+    return {
+        "complete": True,
+        "measured_count": len(numeric),
+        "applicable_count": len(numeric),
+        "total": total,
+        "mean": round(total / len(numeric), 6),
+        "min": round(min(numeric), 6),
+        "max": round(max(numeric), 6),
+    }
+
+
+def _role_runtime_summary(cases: list[dict[str, Any]], role: str) -> dict[str, Any]:
+    nodes: list[Mapping[str, Any]] = []
+    for case in cases:
+        bundle = case.get("bundle")
+        if not isinstance(bundle, Mapping):
+            raise ArenaBatchHandoffError("case bundle missing while summarizing runtime")
+        telemetry = bundle.get("operational_telemetry")
+        if not isinstance(telemetry, Mapping):
+            raise ArenaBatchHandoffError("case operational telemetry missing")
+        role_runtime = telemetry.get("role_runtime")
+        if not isinstance(role_runtime, Mapping):
+            raise ArenaBatchHandoffError("case role runtime telemetry missing")
+        runtime = role_runtime.get(role)
+        if not isinstance(runtime, Mapping) or runtime.get("present") is not True:
+            raise ArenaBatchHandoffError(f"{role} runtime telemetry missing")
+        raw_nodes = runtime.get("nodes")
+        if not isinstance(raw_nodes, list) or not raw_nodes:
+            raise ArenaBatchHandoffError(f"{role} runtime nodes missing")
+        for node in raw_nodes:
+            if not isinstance(node, Mapping):
+                raise ArenaBatchHandoffError(f"{role} runtime node is malformed")
+            nodes.append(node)
+
+    statuses: dict[str, int] = {}
+    for node in nodes:
+        status = str(node.get("status") or "UNKNOWN")
+        statuses[status] = statuses.get(status, 0) + 1
+
+    return {
+        "node_count": len(nodes),
+        "status_counts": dict(sorted(statuses.items())),
+        "duration_seconds": _numeric_summary(
+            [node.get("duration_seconds") for node in nodes]
+        ),
+        "input_tokens": _numeric_summary(
+            [node.get("input_tokens") for node in nodes]
+        ),
+        "output_tokens": _numeric_summary(
+            [node.get("output_tokens") for node in nodes]
+        ),
+        "cost_usd": _numeric_summary(
+            [node.get("cost_usd") for node in nodes]
+        ),
+    }
+
+
+def _batch_operational_summary(cases: list[dict[str, Any]]) -> dict[str, Any]:
+    telemetry_rows: list[Mapping[str, Any]] = []
+    for case in cases:
+        bundle = case.get("bundle")
+        if not isinstance(bundle, Mapping):
+            raise ArenaBatchHandoffError("case bundle missing while summarizing operations")
+        telemetry = bundle.get("operational_telemetry")
+        if not isinstance(telemetry, Mapping):
+            raise ArenaBatchHandoffError("case operational telemetry missing")
+        telemetry_rows.append(telemetry)
+
+    elapsed = _numeric_summary(
+        [row.get("elapsed_seconds") for row in telemetry_rows]
+    )
+    input_tokens = _numeric_summary(
+        [row.get("input_tokens") for row in telemetry_rows]
+    )
+    output_tokens = _numeric_summary(
+        [row.get("output_tokens") for row in telemetry_rows]
+    )
+    cost = _numeric_summary([row.get("cost") for row in telemetry_rows])
+
+    return {
+        "case_count": len(cases),
+        "agent_hosts": sorted(
+            {
+                str(row.get("agent_host"))
+                for row in telemetry_rows
+                if row.get("agent_host") not in (None, "")
+            }
+        ),
+        "providers": sorted(
+            {
+                str(row.get("provider"))
+                for row in telemetry_rows
+                if row.get("provider") not in (None, "")
+            }
+        ),
+        "models": sorted(
+            {
+                str(row.get("model"))
+                for row in telemetry_rows
+                if row.get("model") not in (None, "")
+            }
+        ),
+        "elapsed_seconds": elapsed,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "cost_usd": cost,
+        "independent_verifier": _role_runtime_summary(
+            cases, "independent_verifier"
+        ),
+        "release_gate": _role_runtime_summary(cases, "release_gate"),
+        "measurement_scope": {
+            "operational_only": True,
+            "scores_correctness": False,
+            "note": (
+                "Totals describe manifest-bound Arena run operations across the "
+                "complete packet. Missing token/cost telemetry remains "
+                "NOT_MEASURED and no correctness metric is inferred."
+            ),
+        },
+    }
+
+
 def build_batch_handoff(
     manifest: Mapping[str, Any],
     run_map: Mapping[str, Any],
@@ -190,6 +339,7 @@ def build_batch_handoff(
         "participant": dict(participant) if isinstance(participant, Mapping) else participant,
         "case_count": len(cases),
         "cases": cases,
+        "operational_summary": _batch_operational_summary(cases),
         "measurement_scope": {
             "scores_correctness": False,
             "establishes_evaluator_independence": False,
