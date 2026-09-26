@@ -98,3 +98,41 @@ and therefore the case most favourable to it.
 
 It does not establish performance on an unfamiliar production codebase, and no result from this
 benchmark should be described that way.
+
+
+## Scanner bundle ablation
+
+The same one-variable rule now has an executable scanner-specific comparator in
+`evals/scanner_ablation.py`.
+
+For this experiment the control and treatment packets must match on:
+
+- `ablation_run_id`;
+- model and provider;
+- agent host and execution mode;
+- prompt reference;
+- blind case digest;
+- fixture-suite version.
+
+The control packet declares:
+
+```json
+{"scanner_ablation":{"enabled":false,"sources":[]}}
+```
+
+The treatment packet declares the exact scanner set:
+
+```json
+{"scanner_ablation":{"enabled":true,"sources":["semgrep"]}}
+```
+
+The comparator refuses mismatched model/prompt/case metadata rather than
+publishing a confounded delta. It scores both complete packets through the
+canonical paired-fixture scorer and reports metric deltas plus aggregate changed
+case counts.
+
+A treatment with multiple scanner sources is a **scanner-bundle** measurement.
+It cannot establish which individual tool caused the change. To measure one
+scanner, isolate that scanner as the only treatment source. The result also does
+not inherit full-workflow Arena claims: verifier, remediation and release-gate
+accuracy remain separately assessed.
