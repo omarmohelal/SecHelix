@@ -34,6 +34,7 @@ class ProofClass(str, Enum):
     SSRF_CALLBACK = "SSRF_CALLBACK"
     PATH_TRAVERSAL = "PATH_TRAVERSAL"
     CSRF_REQUEST = "CSRF_REQUEST"
+    SESSION_REVOCATION = "SESSION_REVOCATION"
 
 
 class PlanState(str, Enum):
@@ -267,6 +268,30 @@ def _csrf(finding_id: str) -> ProofPlan:
         ),
     )
 
+
+def _session_revocation(finding_id: str) -> ProofPlan:
+    return _plan(
+        ProofClass.SESSION_REVOCATION,
+        finding_id,
+        preconditions=[
+            "an authenticated fixture session reaches one harmless protected read",
+            "the fixture exposes a deterministic operator-controlled revocation hook",
+            "the exact same session can be replayed after revocation",
+        ],
+        required_authority=["fixture_authenticated_session", "fixture_session_revocation"],
+        actions=[
+            "request the protected fixture resource with the authenticated session and record the control",
+            "revoke that exact fixture session through the operator-supplied local revocation hook",
+            "replay the same session against the same protected resource",
+        ],
+        expected_secure_behavior=(
+            "the pre-revocation control succeeds and the exact same session is denied after revocation"
+        ),
+        expected_vulnerable_behavior=(
+            "the exact same revoked session continues to reach the protected resource"
+        ),
+    )
+
 def _traversal(finding_id: str) -> ProofPlan:
     return _plan(
         ProofClass.PATH_TRAVERSAL,
@@ -293,4 +318,5 @@ _BUILDERS = {
     ProofClass.SSRF_CALLBACK: _ssrf,
     ProofClass.PATH_TRAVERSAL: _traversal,
     ProofClass.CSRF_REQUEST: _csrf,
+    ProofClass.SESSION_REVOCATION: _session_revocation,
 }
