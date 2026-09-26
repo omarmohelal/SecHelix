@@ -81,8 +81,4 @@ never becomes `VERIFIED`, and never treats two tools as independent verifiers.
 The output exists to reduce repeated navigation/reasoning while preserving
 provenance.
 
-Next focused slice: make remediation/retest executable in a scratch workspace
-without exposing a generic shell — replay the original proof/regression through
-named, policy-gated capabilities, run existing tests, perform differential
-security review, and require independent verification before a patch can become
-`READY_FOR_REVIEW`.
+Current focused slice: remediation/retest now has an executable `sechelix fix-check` surface over the existing scratch-workspace runner. It runs only named, policy-gated tests in the network-disabled sandbox, consumes explicit differential-review and independent-verification evidence, refuses the caller's current working tree, and can reach `READY_FOR_REVIEW` only when every canonical remediation stage passed. It never applies the patch.\n\nNext focused slice: add a replayable HTTP interception/evidence adapter behind the same policy gateway, preserving scope enforcement, same-origin credential boundaries, redaction, and no generic proxy-control surface.
