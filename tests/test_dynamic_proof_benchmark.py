@@ -4,6 +4,7 @@ import json
 import unittest
 
 from evals.dynamic_proof_benchmark import run_dynamic_proof_benchmark
+from sechelix_runner.proof import ProofClass
 
 
 class DynamicProofBenchmarkTests(unittest.TestCase):
@@ -15,11 +16,17 @@ class DynamicProofBenchmarkTests(unittest.TestCase):
         self.assertFalse(result["is_full_sechelix_workflow"])
         self.assertEqual(result["run"]["execution_mode"], "LOCAL")
         self.assertEqual(result["run"]["network_scope"], "literal-loopback-only")
-        self.assertEqual(result["run"]["case_count"], 18)
+        self.assertEqual(result["run"]["case_count"], 26)
         self.assertEqual(result["metrics"]["case_accuracy"], 1.0)
         self.assertEqual(result["metrics"]["vulnerable_behavior_recall"], 1.0)
         self.assertEqual(result["metrics"]["clean_behavior_rejection_rate"], 1.0)
         self.assertEqual(result["metrics"]["inconclusive_rate"], 0.0)
+        self.assertEqual(result["metrics"]["proof_class_coverage"], 1.0)
+        self.assertEqual(result["coverage"]["missing_proof_classes"], [])
+        self.assertEqual(
+            set(result["coverage"]["covered_proof_classes"]),
+            {item.value for item in ProofClass},
+        )
 
         families = {row["family"] for row in result["cases"]}
         self.assertEqual(
@@ -34,6 +41,10 @@ class DynamicProofBenchmarkTests(unittest.TestCase):
                 "csrf-request",
                 "session-revocation",
                 "xss-browser-marker",
+                "race-idempotency",
+                "webhook-signature-replay",
+                "path-traversal",
+                "ssrf-callback",
             },
         )
         case_ids = {row["case_id"] for row in result["cases"]}
@@ -48,6 +59,14 @@ class DynamicProofBenchmarkTests(unittest.TestCase):
             "SESSION-CLEAN",
             "XSS-VULNERABLE",
             "XSS-CLEAN",
+            "RACE-VULNERABLE",
+            "RACE-CLEAN",
+            "WEBHOOK-VULNERABLE",
+            "WEBHOOK-CLEAN",
+            "TRAVERSAL-VULNERABLE",
+            "TRAVERSAL-CLEAN",
+            "SSRF-VULNERABLE",
+            "SSRF-CLEAN",
         ):
             self.assertIn(expected_case, case_ids)
 

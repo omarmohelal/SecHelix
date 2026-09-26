@@ -36,7 +36,7 @@ is a hard boundary outside model control.
 | Evidence store | Run/engagement artifacts + exact scanner dedupe shipped | Add conservative correlation hints, then canonical finding evidence envelope/root-cause grouping |
 | Fix/retest | Methodology exists | Executable fix command + original-proof replay |
 | CI | Static Action/SARIF shipped | PR_SECURITY + scheduled STAGING_PENTEST |
-| Evaluation | Protocol + CVE/blind suites + deterministic paired dynamic proof benchmark + evidence-backed Arena assessment packet builder shipped | Expand paired auth/session/browser proof coverage, then measure full workflow cost/time and verifier/gate metrics |
+| Evaluation | Protocol + CVE/blind suites + paired LOCAL benchmark covering every bounded proof class + real-browser XSS/session integrations + evidence-backed Arena assessment packet builder shipped | Measure full workflow cost/time and verifier/gate metrics, then add production-like latency/concurrency fixture tiers |
 | Cost control | Budgets/routing exist | Provider tiers, repository-map cache, per-run token/cost ledger |
 | UX | CLI + live pentest CLI exist | Unify audit/pentest/fix/replay/report/coverage and TUI status |
 
@@ -562,3 +562,22 @@ This makes method-changing redirects such as POST -> GET visible to later
 analysis while preserving the existing evidence boundary: query values, header
 values, cookies and bodies are not stored. Redirect traces are observations, not
 security verdicts.
+
+
+## Complete bounded proof-class benchmark coverage
+
+The deterministic LOCAL dynamic benchmark now has paired vulnerable/clean
+fixtures for every bounded proof class implemented by `LocalProofExecutor`.
+The benchmark adds race/idempotency, webhook signature/replay, path traversal
+and SSRF callback pairs to the existing authorization, browser/session,
+business-logic and money-flow families.
+
+Each case records the actual proof class emitted by the executor. The result
+contains an explicit covered-class list, missing-class list and
+`proof_class_coverage` metric; CI expects coverage to remain 1.0 as new proof
+classes are added. This prevents feature growth from silently outrunning the
+dynamic measurement suite.
+
+The result remains a proof-primitive benchmark, not a full SecHelix workflow
+score. It does not inherit claims about candidate discovery, model reasoning,
+independent verification, remediation or release-gate accuracy.

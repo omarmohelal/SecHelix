@@ -13,6 +13,8 @@ import argparse
 import json
 import threading
 import time
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
@@ -23,13 +25,17 @@ from sechelix_runner.proof import ProofClass, build_plan
 from sechelix_runner.proof_exec import (
     CsrfHttpSpec,
     IdorHttpSpec,
+    RaceHttpSpec,
     LocalProofExecutor,
     MoneyFlowInvariantHttpSpec,
     PaymentInvariantHttpSpec,
     ProofBehavior,
     SessionRevocationHttpSpec,
     SettlementRefundSequenceHttpSpec,
+    SsrfHttpSpec,
     StateTransitionHttpSpec,
+    TraversalHttpSpec,
+    WebhookHttpSpec,
     WorkflowSequenceHttpSpec,
     XssBrowserSpec,
 )
@@ -63,8 +69,42 @@ class _Handler(BaseHTTPRequestHandler):
     session_clean_active = True
     csrf_vulnerable_count = 0
     csrf_clean_count = 0
+    race_vulnerable_count = 0
+    race_clean_count = 0
+    race_clean_lock = threading.Lock()
+    webhook_vulnerable_count = 0
+    webhook_clean_count = 0
+    traversal_sentinel = b"SECHELIX_DYNAMIC_TRAVERSAL_SENTINEL"
 
     def do_GET(self) -> None:  # noqa: N802
+        parsed = urllib.parse.urlsplit(self.path)
+        if parsed.path == "/traversal/vulnerable":
+            requested = urllib.parse.parse_qs(parsed.query).get("path", [""])[0]
+            if "sentinel" in requested:
+                self._send(200, type(self).traversal_sentinel)
+            else:
+                self._send(200, b"safe")
+            return
+        if parsed.path == "/traversal/clean":
+            requested = urllib.parse.parse_qs(parsed.query).get("path", [""])[0]
+            if ".." in requested or "sentinel" in requested:
+                self._send(403, b"denied")
+            else:
+                self._send(200, b"safe")
+            return
+        if parsed.path == "/ssrf/vulnerable":
+            callback = urllib.parse.parse_qs(parsed.query).get("url", [""])[0]
+            try:
+                with urllib.request.urlopen(callback, timeout=1) as response:
+                    response.read()
+                self._send(200, b"fetched")
+            except Exception:
+                self._send(502, b"failed")
+            return
+        if parsed.path == "/ssrf/clean":
+            self._send(400, b"url fetch disabled")
+            return
+
         if self.path == "/idor/vulnerable/1":
             if self.headers.get("X-Bench-Identity") not in {"owner", "foreign"}:
                 self._send(401)
@@ -101,6 +141,35 @@ class _Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         length = int(self.headers.get("Content-Length", "0"))
         self.rfile.read(length)
+
+        if self.path == "/race/vulnerable":
+            type(self).race_vulnerable_count += 1
+            self._send(200)
+            return
+        if self.path == "/race/clean":
+            with type(self).race_clean_lock:
+                if type(self).race_clean_count == 0:
+                    type(self).race_clean_count = 1
+            self._send(200)
+            return
+
+        if self.path == "/webhook/vulnerable":
+            signature = self.headers.get("X-Bench-Signature")
+            if signature != "bench-valid":
+                self._send(401)
+                return
+            type(self).webhook_vulnerable_count += 1
+            self._send(200)
+            return
+        if self.path == "/webhook/clean":
+            signature = self.headers.get("X-Bench-Signature")
+            if signature != "bench-valid":
+                self._send(401)
+                return
+            if type(self).webhook_clean_count == 0:
+                type(self).webhook_clean_count = 1
+            self._send(200)
+            return
 
         if self.path == "/csrf/vulnerable":
             if self.headers.get("X-Bench-Session") != "fixture-session":
@@ -253,6 +322,10 @@ def _reset() -> None:
     _Handler.session_clean_active = True
     _Handler.csrf_vulnerable_count = 0
     _Handler.csrf_clean_count = 0
+    _Handler.race_vulnerable_count = 0
+    _Handler.race_clean_count = 0
+    _Handler.webhook_vulnerable_count = 0
+    _Handler.webhook_clean_count = 0
 
 
 class _BenchmarkXssBrowser:
@@ -295,6 +368,134 @@ class _BenchmarkXssBrowser:
 
 
 def _cases() -> tuple[BenchmarkCase, ...]:
+    def race_vulnerable(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.RACE_IDEMPOTENCY,
+            "BENCH-RACE-VULN",
+            available_authority={"fixture_write_access"},
+        )
+        return executor.execute(
+            plan,
+            RaceHttpSpec(
+                url=base + "/race/vulnerable",
+                concurrency=2,
+                read_state=lambda: _Handler.race_vulnerable_count,
+                expected_single_state=1,
+            ),
+        )
+
+    def race_clean(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.RACE_IDEMPOTENCY,
+            "BENCH-RACE-CLEAN",
+            available_authority={"fixture_write_access"},
+        )
+        return executor.execute(
+            plan,
+            RaceHttpSpec(
+                url=base + "/race/clean",
+                concurrency=2,
+                read_state=lambda: _Handler.race_clean_count,
+                expected_single_state=1,
+            ),
+        )
+
+    def webhook_vulnerable(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.WEBHOOK_SIGNATURE,
+            "BENCH-WEBHOOK-VULN",
+            available_authority={"fixture_endpoint_access"},
+        )
+        return executor.execute(
+            plan,
+            WebhookHttpSpec(
+                url=base + "/webhook/vulnerable",
+                body=b'{"event":"benchmark"}',
+                signature_header="X-Bench-Signature",
+                valid_signature="bench-valid",
+                read_state=lambda: _Handler.webhook_vulnerable_count,
+                expected_single_state=1,
+            ),
+        )
+
+    def webhook_clean(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.WEBHOOK_SIGNATURE,
+            "BENCH-WEBHOOK-CLEAN",
+            available_authority={"fixture_endpoint_access"},
+        )
+        return executor.execute(
+            plan,
+            WebhookHttpSpec(
+                url=base + "/webhook/clean",
+                body=b'{"event":"benchmark"}',
+                signature_header="X-Bench-Signature",
+                valid_signature="bench-valid",
+                read_state=lambda: _Handler.webhook_clean_count,
+                expected_single_state=1,
+            ),
+        )
+
+    def traversal_vulnerable(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.PATH_TRAVERSAL,
+            "BENCH-TRAVERSAL-VULN",
+            available_authority={"fixture_filesystem"},
+        )
+        return executor.execute(
+            plan,
+            TraversalHttpSpec(
+                url_template=base + "/traversal/vulnerable?path={path}",
+                safe_path="public/readme.txt",
+                traversal_path="../sentinel.txt",
+                sentinel_marker=_Handler.traversal_sentinel,
+            ),
+        )
+
+    def traversal_clean(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.PATH_TRAVERSAL,
+            "BENCH-TRAVERSAL-CLEAN",
+            available_authority={"fixture_filesystem"},
+        )
+        return executor.execute(
+            plan,
+            TraversalHttpSpec(
+                url_template=base + "/traversal/clean?path={path}",
+                safe_path="public/readme.txt",
+                traversal_path="../sentinel.txt",
+                sentinel_marker=_Handler.traversal_sentinel,
+            ),
+        )
+
+    def ssrf_vulnerable(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.SSRF_CALLBACK,
+            "BENCH-SSRF-VULN",
+            available_authority={"local_callback_listener"},
+        )
+        return executor.execute(
+            plan,
+            SsrfHttpSpec(
+                submit_url_template=base + "/ssrf/vulnerable?url={callback}",
+                callback_timeout_seconds=1,
+            ),
+        )
+
+    def ssrf_clean(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.SSRF_CALLBACK,
+            "BENCH-SSRF-CLEAN",
+            available_authority={"local_callback_listener"},
+        )
+        return executor.execute(
+            plan,
+            SsrfHttpSpec(
+                submit_url_template=base + "/ssrf/clean?url={callback}",
+                callback_timeout_seconds=0.2,
+            ),
+        )
+
     def state_vulnerable(base: str, executor: LocalProofExecutor):
         plan = build_plan(
             ProofClass.STATE_TRANSITION,
@@ -645,6 +846,14 @@ def _cases() -> tuple[BenchmarkCase, ...]:
         )
 
     return (
+        BenchmarkCase("RACE-VULNERABLE", "race-idempotency", ProofBehavior.VULNERABLE_BEHAVIOR, race_vulnerable),
+        BenchmarkCase("RACE-CLEAN", "race-idempotency", ProofBehavior.SECURE_BEHAVIOR, race_clean),
+        BenchmarkCase("WEBHOOK-VULNERABLE", "webhook-signature-replay", ProofBehavior.VULNERABLE_BEHAVIOR, webhook_vulnerable),
+        BenchmarkCase("WEBHOOK-CLEAN", "webhook-signature-replay", ProofBehavior.SECURE_BEHAVIOR, webhook_clean),
+        BenchmarkCase("TRAVERSAL-VULNERABLE", "path-traversal", ProofBehavior.VULNERABLE_BEHAVIOR, traversal_vulnerable),
+        BenchmarkCase("TRAVERSAL-CLEAN", "path-traversal", ProofBehavior.SECURE_BEHAVIOR, traversal_clean),
+        BenchmarkCase("SSRF-VULNERABLE", "ssrf-callback", ProofBehavior.VULNERABLE_BEHAVIOR, ssrf_vulnerable),
+        BenchmarkCase("SSRF-CLEAN", "ssrf-callback", ProofBehavior.SECURE_BEHAVIOR, ssrf_clean),
         BenchmarkCase("STATE-VULNERABLE", "state-transition", ProofBehavior.VULNERABLE_BEHAVIOR, state_vulnerable),
         BenchmarkCase("STATE-CLEAN", "state-transition", ProofBehavior.SECURE_BEHAVIOR, state_clean),
         BenchmarkCase("PAYMENT-VULNERABLE", "payment-invariant", ProofBehavior.VULNERABLE_BEHAVIOR, payment_vulnerable),
@@ -700,6 +909,7 @@ def run_dynamic_proof_benchmark(*, sechelix_commit: str = "NOT_MEASURED") -> dic
                 {
                     "case_id": case.case_id,
                     "family": case.family,
+                    "proof_class": result.proof_class.value,
                     "expected_behavior": case.expected.value,
                     "observed_behavior": behavior.value,
                     "correct": behavior is case.expected,
@@ -718,6 +928,9 @@ def run_dynamic_proof_benchmark(*, sechelix_commit: str = "NOT_MEASURED") -> dic
     clean_rows = [row for row in rows if row["expected_behavior"] == ProofBehavior.SECURE_BEHAVIOR.value]
     inconclusive = sum(row["observed_behavior"] == ProofBehavior.INCONCLUSIVE.value for row in rows)
     correct = sum(bool(row["correct"]) for row in rows)
+    covered_proof_classes = sorted({str(row["proof_class"]) for row in rows})
+    all_proof_classes = sorted(item.value for item in ProofClass)
+    missing_proof_classes = sorted(set(all_proof_classes) - set(covered_proof_classes))
 
     return {
         "schema_version": "sechelix-dynamic-proof-benchmark/v1",
@@ -746,6 +959,14 @@ def run_dynamic_proof_benchmark(*, sechelix_commit: str = "NOT_MEASURED") -> dic
                 len(clean_rows),
             ),
             "inconclusive_rate": _ratio(inconclusive, len(rows)),
+            "proof_class_coverage": _ratio(
+                len(covered_proof_classes),
+                len(all_proof_classes),
+            ),
+        },
+        "coverage": {
+            "covered_proof_classes": covered_proof_classes,
+            "missing_proof_classes": missing_proof_classes,
         },
         "cases": rows,
         "limitations": [
