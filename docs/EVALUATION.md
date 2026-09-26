@@ -91,6 +91,19 @@ found 2 cleanly under the pre-registered rule and 3 with hand adjudication; no f
 `VERIFIED` was a known defect. See `docs/research/cve-pairs-2026-09-21.md`. It cannot measure
 precision, and says so.
 
+## Dynamic proof primitive measurement
+
+`evals/dynamic_proof_benchmark.py` is a narrower executable measurement for
+bounded LOCAL proof primitives. Its vulnerable/clean pairs have explicit ground
+truth and may report primitive-level case accuracy, vulnerable-behavior recall,
+clean-behavior rejection rate, inconclusive rate, request count and elapsed
+time.
+
+Those numbers must be labeled `DYNAMIC_PROOF_PRIMITIVE_BENCHMARK`. They are
+not verified precision, end-to-end detection recall, independent-verifier
+accuracy, regression-proof rate or release-gate accuracy. A perfect primitive
+run cannot be described as a perfect SecHelix audit.
+
 ## Real-repository case studies
 
 Real repositories are separate from synthetic benchmark scores. A public case study must include:
