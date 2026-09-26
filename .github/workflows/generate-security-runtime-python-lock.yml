@@ -22,7 +22,7 @@ jobs:
       - name: Generate hash-locked transitive requirements
         run: |
           python -m pip install --disable-pip-version-check --no-cache-dir 'pip-tools==7.6.1'
-          python -m piptools compile             --resolver=backtracking             --generate-hashes             --strip-extras             --no-emit-index-url             --no-emit-trusted-host             --output-file=/tmp/python-tools.lock             containers/security-runtime/python-tools.in
+          python -m piptools compile             --resolver=backtracking             --generate-hashes             --allow-unsafe             --strip-extras             --no-emit-index-url             --no-emit-trusted-host             --output-file=/tmp/python-tools.lock             containers/security-runtime/python-tools.in
           echo '<<<SECHELIX_PYTHON_LOCK_BEGIN>>>'
           cat /tmp/python-tools.lock
           echo '<<<SECHELIX_PYTHON_LOCK_END>>>'
