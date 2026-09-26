@@ -229,6 +229,27 @@ class MoneyFlowInvariantHttpSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class SettlementRefundSequenceHttpSpec:
+    """Validate exactly-once settlement then refund across multiple LOCAL entities.
+
+    Both operations use explicit operator-declared delta vectors over the same
+    stable entity labels. Raw balances, headers and bodies never enter the
+    serialized proof artifact.
+    """
+
+    settlement_url: str
+    refund_url: str
+    settlement_body: bytes = b""
+    refund_body: bytes = b""
+    settlement_headers: Mapping[str, str] = field(default_factory=dict)
+    refund_headers: Mapping[str, str] = field(default_factory=dict)
+    read_balances_minor: Callable[[], Mapping[str, int]] | None = None
+    expected_settlement_deltas_minor: Mapping[str, int] = field(default_factory=dict)
+    expected_refund_deltas_minor: Mapping[str, int] = field(default_factory=dict)
+    accepted_statuses: tuple[int, ...] = (200, 201, 202, 204)
+
+
+@dataclass(frozen=True, slots=True)
 class WorkflowSequenceHttpSpec:
     """Prove one declared prerequisite edge in a LOCAL multi-step workflow.
 
@@ -351,6 +372,7 @@ class LocalProofExecutor:
             ProofClass.PAYMENT_INVARIANT: self._payment_invariant,
             ProofClass.WORKFLOW_SEQUENCE: self._workflow_sequence,
             ProofClass.MONEY_FLOW_INVARIANT: self._money_flow_invariant,
+            ProofClass.SETTLEMENT_REFUND_SEQUENCE: self._settlement_refund_sequence,
         }
         if plan.proof_class is ProofClass.XSS_EXECUTION:
             return self._xss(plan, spec)
@@ -954,6 +976,192 @@ class LocalProofExecutor:
                 0,
                 "replay changed financial state by a vector outside the declared secure and vulnerable outcomes",
             )
+
+        return ProofExecutionResult(
+            plan.finding_id,
+            plan.proof_class,
+            behavior,
+            observations,
+            notes=notes,
+        )
+
+    def _settlement_refund_sequence(self, plan: ProofPlan, spec: Any) -> ProofExecutionResult:
+        if not isinstance(spec, SettlementRefundSequenceHttpSpec):
+            raise ProofExecutionError("settlement/refund sequence plan requires SettlementRefundSequenceHttpSpec")
+        if spec.read_balances_minor is None or not callable(spec.read_balances_minor):
+            raise ProofExecutionError("settlement/refund sequence proof requires a financial readback")
+
+        def normalize_vector(value: Mapping[str, int], label: str) -> dict[str, int]:
+            if not isinstance(value, Mapping):
+                raise ProofExecutionError(f"{label} must be a mapping of entity labels to integer minor units")
+            normalized: dict[str, int] = {}
+            for raw_key, raw_amount in value.items():
+                key = str(raw_key).strip()
+                if not key or len(key) > 80:
+                    raise ProofExecutionError(f"{label} contains an invalid entity label")
+                if isinstance(raw_amount, bool) or not isinstance(raw_amount, int):
+                    raise ProofExecutionError(f"{label} values must be integer minor units")
+                if abs(raw_amount) > 100_000_000_000:
+                    raise ProofExecutionError(f"{label} contains an amount outside the bounded fixture limit")
+                normalized[key] = raw_amount
+            if not 2 <= len(normalized) <= 8:
+                raise ProofExecutionError(f"{label} must declare between 2 and 8 financial entities")
+            return normalized
+
+        expected_settlement = normalize_vector(
+            spec.expected_settlement_deltas_minor,
+            "expected_settlement_deltas_minor",
+        )
+        expected_refund = normalize_vector(
+            spec.expected_refund_deltas_minor,
+            "expected_refund_deltas_minor",
+        )
+        if set(expected_settlement) != set(expected_refund):
+            raise ProofExecutionError("settlement and refund vectors must use identical entity labels")
+        if not any(expected_settlement.values()):
+            raise ProofExecutionError("settlement vector must include at least one non-zero movement")
+        if not any(expected_refund.values()):
+            raise ProofExecutionError("refund vector must include at least one non-zero movement")
+
+        before = normalize_vector(spec.read_balances_minor(), "financial readback")
+        if set(before) != set(expected_settlement):
+            raise ProofExecutionError("financial readback labels must exactly match declared settlement/refund entities")
+
+        settlement = self._request(
+            "settlement-control",
+            spec.settlement_url,
+            "POST",
+            spec.settlement_headers,
+            spec.settlement_body,
+        )
+        after_settlement = normalize_vector(spec.read_balances_minor(), "financial readback")
+        observed_settlement = {
+            key: after_settlement[key] - before[key]
+            for key in sorted(before)
+        }
+        observations = [settlement.to_dict()]
+        notes = [
+            f"before_sha256={_value_digest(before)}",
+            f"after_settlement_sha256={_value_digest(after_settlement)}",
+            f"expected_settlement_sha256={_value_digest(expected_settlement)}",
+            f"observed_settlement_sha256={_value_digest(observed_settlement)}",
+        ]
+
+        if settlement.status not in spec.accepted_statuses:
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.INCONCLUSIVE,
+                observations,
+                notes=["settlement control was not accepted", *notes],
+            )
+        if observed_settlement != expected_settlement:
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.INCONCLUSIVE,
+                observations,
+                notes=["settlement control did not match the declared delta vector", *notes],
+            )
+
+        settlement_replay = self._request(
+            "settlement-replay",
+            spec.settlement_url,
+            "POST",
+            spec.settlement_headers,
+            spec.settlement_body,
+        )
+        after_settlement_replay = normalize_vector(spec.read_balances_minor(), "financial readback")
+        settlement_replay_delta = {
+            key: after_settlement_replay[key] - after_settlement[key]
+            for key in sorted(before)
+        }
+        observations.append(settlement_replay.to_dict())
+        notes.extend([
+            f"after_settlement_replay_sha256={_value_digest(after_settlement_replay)}",
+            f"settlement_replay_sha256={_value_digest(settlement_replay_delta)}",
+        ])
+        zero_vector = {key: 0 for key in expected_settlement}
+        if settlement_replay_delta == expected_settlement:
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.VULNERABLE_BEHAVIOR,
+                observations,
+                notes=["settlement replay applied the declared movement a second time", *notes],
+            )
+        if settlement_replay_delta != zero_vector:
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.INCONCLUSIVE,
+                observations,
+                notes=["settlement replay produced an unexpected cross-entity delta vector", *notes],
+            )
+
+        refund = self._request(
+            "refund-control",
+            spec.refund_url,
+            "POST",
+            spec.refund_headers,
+            spec.refund_body,
+        )
+        after_refund = normalize_vector(spec.read_balances_minor(), "financial readback")
+        observed_refund = {
+            key: after_refund[key] - after_settlement_replay[key]
+            for key in sorted(before)
+        }
+        observations.append(refund.to_dict())
+        notes.extend([
+            f"after_refund_sha256={_value_digest(after_refund)}",
+            f"expected_refund_sha256={_value_digest(expected_refund)}",
+            f"observed_refund_sha256={_value_digest(observed_refund)}",
+        ])
+
+        if refund.status not in spec.accepted_statuses:
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.INCONCLUSIVE,
+                observations,
+                notes=["refund control was not accepted", *notes],
+            )
+        if observed_refund != expected_refund:
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.INCONCLUSIVE,
+                observations,
+                notes=["refund control did not match the declared delta vector", *notes],
+            )
+
+        refund_replay = self._request(
+            "refund-replay",
+            spec.refund_url,
+            "POST",
+            spec.refund_headers,
+            spec.refund_body,
+        )
+        after_refund_replay = normalize_vector(spec.read_balances_minor(), "financial readback")
+        refund_replay_delta = {
+            key: after_refund_replay[key] - after_refund[key]
+            for key in sorted(before)
+        }
+        observations.append(refund_replay.to_dict())
+        notes.extend([
+            f"after_refund_replay_sha256={_value_digest(after_refund_replay)}",
+            f"refund_replay_sha256={_value_digest(refund_replay_delta)}",
+        ])
+
+        if refund_replay_delta == expected_refund:
+            behavior = ProofBehavior.VULNERABLE_BEHAVIOR
+            notes.insert(0, "refund replay applied the declared movement a second time")
+        elif refund_replay_delta == zero_vector:
+            behavior = ProofBehavior.SECURE_BEHAVIOR
+            notes.insert(0, "settlement and refund each applied exactly once; both replays were idempotent")
+        else:
+            behavior = ProofBehavior.INCONCLUSIVE
+            notes.insert(0, "refund replay produced an unexpected cross-entity delta vector")
 
         return ProofExecutionResult(
             plan.finding_id,

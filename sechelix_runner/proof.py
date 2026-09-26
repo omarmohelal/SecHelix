@@ -39,6 +39,7 @@ class ProofClass(str, Enum):
     PAYMENT_INVARIANT = "PAYMENT_INVARIANT"
     WORKFLOW_SEQUENCE = "WORKFLOW_SEQUENCE"
     MONEY_FLOW_INVARIANT = "MONEY_FLOW_INVARIANT"
+    SETTLEMENT_REFUND_SEQUENCE = "SETTLEMENT_REFUND_SEQUENCE"
 
 
 class PlanState(str, Enum):
@@ -400,6 +401,33 @@ def _money_flow_invariant(finding_id: str) -> ProofPlan:
     )
 
 
+def _settlement_refund_sequence(finding_id: str) -> ProofPlan:
+    return _plan(
+        ProofClass.SETTLEMENT_REFUND_SEQUENCE,
+        finding_id,
+        preconditions=[
+            "the local fixture exposes deterministic balances for every declared financial entity",
+            "one harmless settlement mutation has an operator-declared delta vector",
+            "one harmless refund mutation has an operator-declared delta vector",
+            "replaying either exact request is safe in the local fixture",
+        ],
+        required_authority=["fixture_write_access", "fixture_financial_readback"],
+        actions=[
+            "read the starting balances for all declared entities",
+            "execute one settlement mutation and verify its exact cross-entity delta vector",
+            "replay the settlement once and require zero additional movement",
+            "execute one refund mutation and verify its exact cross-entity delta vector",
+            "replay the refund once and require zero additional movement",
+        ],
+        expected_secure_behavior=(
+            "settlement and refund each apply exactly once with the declared delta vectors, and both exact replays produce zero additional movement"
+        ),
+        expected_vulnerable_behavior=(
+            "a settlement or refund replay applies the same declared money movement again"
+        ),
+    )
+
+
 def _traversal(finding_id: str) -> ProofPlan:
     return _plan(
         ProofClass.PATH_TRAVERSAL,
@@ -431,4 +459,5 @@ _BUILDERS = {
     ProofClass.PAYMENT_INVARIANT: _payment_invariant,
     ProofClass.WORKFLOW_SEQUENCE: _workflow_sequence,
     ProofClass.MONEY_FLOW_INVARIANT: _money_flow_invariant,
+    ProofClass.SETTLEMENT_REFUND_SEQUENCE: _settlement_refund_sequence,
 }
