@@ -17,6 +17,7 @@ from sechelix_runner.proof_exec import (
     ProofExecutionError,
     RaceHttpSpec,
     SessionRevocationHttpSpec,
+    SettlementRefundSequenceHttpSpec,
     SsrfHttpSpec,
     StateTransitionHttpSpec,
     TraversalHttpSpec,
@@ -49,6 +50,9 @@ class _FixtureHandler(BaseHTTPRequestHandler):
     money_flow_duplicate = {"buyer": 10_000, "seller": 2_000, "platform": 500}
     money_flow_idempotent = {"buyer": 10_000, "seller": 2_000, "platform": 500}
     money_flow_misroute = {"buyer": 10_000, "seller": 2_000, "platform": 500}
+    settlement_refund_secure = {"customer": 10_000, "worker": 1_000, "platform": 500, "provider": 0}
+    settlement_refund_vulnerable = {"customer": 10_000, "worker": 1_000, "platform": 500, "provider": 0}
+    settlement_refund_wrong = {"customer": 10_000, "worker": 1_000, "platform": 500, "provider": 0}
     sentinel = b"SECHELIX_SENTINEL_93B1"
 
     def do_GET(self) -> None:  # noqa: N802
@@ -217,6 +221,56 @@ class _FixtureHandler(BaseHTTPRequestHandler):
             state["seller"] += 1000
             self._send(200, b"misrouted")
             return
+        if self.path == "/settlement-refund-secure-settle":
+            state = type(self).settlement_refund_secure
+            if state["customer"] == 10_000:
+                state["customer"] -= 1000
+                state["worker"] += 600
+                state["platform"] += 200
+                state["provider"] += 200
+            self._send(200, b"settled")
+            return
+        if self.path == "/settlement-refund-secure-refund":
+            state = type(self).settlement_refund_secure
+            if state["customer"] == 9_000:
+                state["customer"] += 500
+                state["worker"] -= 300
+                state["platform"] -= 100
+                state["provider"] -= 100
+            self._send(200, b"refunded")
+            return
+        if self.path == "/settlement-refund-vulnerable-settle":
+            state = type(self).settlement_refund_vulnerable
+            if state["customer"] == 10_000:
+                state["customer"] -= 1000
+                state["worker"] += 600
+                state["platform"] += 200
+                state["provider"] += 200
+            self._send(200, b"settled")
+            return
+        if self.path == "/settlement-refund-vulnerable-refund":
+            state = type(self).settlement_refund_vulnerable
+            state["customer"] += 500
+            state["worker"] -= 300
+            state["platform"] -= 100
+            state["provider"] -= 100
+            self._send(200, b"refunded")
+            return
+        if self.path == "/settlement-refund-wrong-settle":
+            state = type(self).settlement_refund_wrong
+            if state["customer"] == 10_000:
+                state["customer"] -= 1000
+                state["worker"] += 600
+                state["platform"] += 200
+                state["provider"] += 200
+            self._send(200, b"settled")
+            return
+        if self.path == "/settlement-refund-wrong-refund":
+            state = type(self).settlement_refund_wrong
+            state["customer"] += 500
+            state["worker"] -= 500
+            self._send(200, b"wrong-refund")
+            return
         if self.path == "/csrf-vulnerable":
             if self.headers.get("Cookie") != "session=fixture-auth":
                 self._send(401, b"no session")
@@ -324,6 +378,9 @@ class LocalProofExecutionTests(unittest.TestCase):
         _FixtureHandler.money_flow_duplicate = {"buyer": 10_000, "seller": 2_000, "platform": 500}
         _FixtureHandler.money_flow_idempotent = {"buyer": 10_000, "seller": 2_000, "platform": 500}
         _FixtureHandler.money_flow_misroute = {"buyer": 10_000, "seller": 2_000, "platform": 500}
+        _FixtureHandler.settlement_refund_secure = {"customer": 10_000, "worker": 1_000, "platform": 500, "provider": 0}
+        _FixtureHandler.settlement_refund_vulnerable = {"customer": 10_000, "worker": 1_000, "platform": 500, "provider": 0}
+        _FixtureHandler.settlement_refund_wrong = {"customer": 10_000, "worker": 1_000, "platform": 500, "provider": 0}
         self.policy = NetworkPolicy(ExecutionMode.LOCAL)
         self.policy.grant(
             "127.0.0.1",
@@ -1215,6 +1272,157 @@ class LocalProofExecutionTests(unittest.TestCase):
                     expected_safe_bypass_state="created",
                 ),
             )
+
+    def test_settlement_refund_sequence_proves_partial_refund_idempotency(self) -> None:
+        plan = build_plan(
+            ProofClass.SETTLEMENT_REFUND_SEQUENCE,
+            "F-SETTLEMENT-REFUND-SAFE",
+            available_authority={"fixture_write_access", "fixture_financial_readback"},
+        )
+        result = self.executor.execute(
+            plan,
+            SettlementRefundSequenceHttpSpec(
+                settlement_url=self.base + "/settlement-refund-secure-settle",
+                refund_url=self.base + "/settlement-refund-secure-refund",
+                settlement_headers={"Idempotency-Key": "settle-1"},
+                refund_headers={"Idempotency-Key": "refund-1"},
+                read_balances_minor=lambda: _FixtureHandler.settlement_refund_secure,
+                expected_settlement_deltas_minor={
+                    "customer": -1000,
+                    "worker": 600,
+                    "platform": 200,
+                    "provider": 200,
+                },
+                expected_refund_deltas_minor={
+                    "customer": 500,
+                    "worker": -300,
+                    "platform": -100,
+                    "provider": -100,
+                },
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.SECURE_BEHAVIOR)
+        self.assertEqual(result.request_count, 4)
+        self.assertEqual(
+            _FixtureHandler.settlement_refund_secure,
+            {"customer": 9_500, "worker": 1_300, "platform": 600, "provider": 100},
+        )
+        rendered = json.dumps(result.to_dict())
+        self.assertNotIn("settle-1", rendered)
+        self.assertNotIn("refund-1", rendered)
+        self.assertNotIn("9500", rendered)
+        self.assertIn("both replays were idempotent", " ".join(result.notes))
+
+    def test_settlement_refund_sequence_detects_duplicate_refund(self) -> None:
+        plan = build_plan(
+            ProofClass.SETTLEMENT_REFUND_SEQUENCE,
+            "F-SETTLEMENT-REFUND-VULN",
+            available_authority={"fixture_write_access", "fixture_financial_readback"},
+        )
+        result = self.executor.execute(
+            plan,
+            SettlementRefundSequenceHttpSpec(
+                settlement_url=self.base + "/settlement-refund-vulnerable-settle",
+                refund_url=self.base + "/settlement-refund-vulnerable-refund",
+                read_balances_minor=lambda: _FixtureHandler.settlement_refund_vulnerable,
+                expected_settlement_deltas_minor={
+                    "customer": -1000,
+                    "worker": 600,
+                    "platform": 200,
+                    "provider": 200,
+                },
+                expected_refund_deltas_minor={
+                    "customer": 500,
+                    "worker": -300,
+                    "platform": -100,
+                    "provider": -100,
+                },
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.VULNERABLE_BEHAVIOR)
+        self.assertEqual(result.request_count, 4)
+        self.assertEqual(
+            _FixtureHandler.settlement_refund_vulnerable,
+            {"customer": 10_000, "worker": 1_000, "platform": 500, "provider": 0},
+        )
+        self.assertIn("refund replay", " ".join(result.notes))
+
+    def test_settlement_refund_sequence_stops_on_wrong_refund_vector(self) -> None:
+        plan = build_plan(
+            ProofClass.SETTLEMENT_REFUND_SEQUENCE,
+            "F-SETTLEMENT-REFUND-WRONG",
+            available_authority={"fixture_write_access", "fixture_financial_readback"},
+        )
+        result = self.executor.execute(
+            plan,
+            SettlementRefundSequenceHttpSpec(
+                settlement_url=self.base + "/settlement-refund-wrong-settle",
+                refund_url=self.base + "/settlement-refund-wrong-refund",
+                read_balances_minor=lambda: _FixtureHandler.settlement_refund_wrong,
+                expected_settlement_deltas_minor={
+                    "customer": -1000,
+                    "worker": 600,
+                    "platform": 200,
+                    "provider": 200,
+                },
+                expected_refund_deltas_minor={
+                    "customer": 500,
+                    "worker": -300,
+                    "platform": -100,
+                    "provider": -100,
+                },
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.INCONCLUSIVE)
+        self.assertEqual(result.request_count, 3)
+        self.assertIn("refund control did not match", " ".join(result.notes))
+
+    def test_settlement_refund_sequence_rejects_label_drift_and_missing_authority(self) -> None:
+        plan = build_plan(
+            ProofClass.SETTLEMENT_REFUND_SEQUENCE,
+            "F-SETTLEMENT-REFUND-BAD",
+            available_authority={"fixture_write_access", "fixture_financial_readback"},
+        )
+        with self.assertRaises(ProofExecutionError):
+            self.executor.execute(
+                plan,
+                SettlementRefundSequenceHttpSpec(
+                    settlement_url=self.base + "/settlement-refund-secure-settle",
+                    refund_url=self.base + "/settlement-refund-secure-refund",
+                    read_balances_minor=lambda: _FixtureHandler.settlement_refund_secure,
+                    expected_settlement_deltas_minor={"customer": -1000, "worker": 1000},
+                    expected_refund_deltas_minor={"customer": 500, "platform": -500},
+                ),
+            )
+
+        blocked = build_plan(
+            ProofClass.SETTLEMENT_REFUND_SEQUENCE,
+            "F-SETTLEMENT-REFUND-BLOCKED",
+            available_authority={"fixture_write_access"},
+        )
+        result = self.executor.execute(
+            blocked,
+            SettlementRefundSequenceHttpSpec(
+                settlement_url=self.base + "/settlement-refund-secure-settle",
+                refund_url=self.base + "/settlement-refund-secure-refund",
+                read_balances_minor=lambda: _FixtureHandler.settlement_refund_secure,
+                expected_settlement_deltas_minor={
+                    "customer": -1000,
+                    "worker": 600,
+                    "platform": 200,
+                    "provider": 200,
+                },
+                expected_refund_deltas_minor={
+                    "customer": 500,
+                    "worker": -300,
+                    "platform": -100,
+                    "provider": -100,
+                },
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.BLOCKED)
+        self.assertIn("fixture_financial_readback", result.blocker)
+        self.assertEqual(result.request_count, 0)
 
     def test_ssrf_proof_uses_loopback_callback_not_public_oob(self) -> None:
         plan = build_plan(
