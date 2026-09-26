@@ -76,7 +76,7 @@ def make_handoff(root: Path) -> tuple[dict, dict[str, str]]:
         run = case_root / "run.json"
         graph = case_root / "graph.json"
         manifest = case_root / "manifest.json"
-        replay.parent.mkdir(parents=True)
+        replay.parent.mkdir(parents=True, exist_ok=True)
         replay.write_text(
             json.dumps({"case": case_id, "role": "verifier", "marker": "PRIVATE-CONTENT"}),
             encoding="utf-8",
