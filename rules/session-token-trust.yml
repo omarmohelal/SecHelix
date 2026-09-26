@@ -40,3 +40,26 @@ rules:
       - pattern-either:
           - pattern: $TOKEN.split(".")[1]
           - pattern: String($TOKEN).split(".")[1]
+
+  - id: sechelix.jwt.unverified-payload-flow
+    languages: [javascript, typescript]
+    mode: taint
+    message: >-
+      Data originating from a JWT payload segment reaches JSON parsing through
+      a manual decode path. This is still a CANDIDATE only: trace every derived
+      identity/account/tenant/role claim to its eventual gate and refute it if a
+      separate cryptographic verification boundary dominates before authority.
+    severity: WARNING
+    metadata:
+      sechelix_family: Authentication / Sessions
+      sechelix_pack: SEC-SESSION-TOKEN-001
+      sechelix_status: CANDIDATE
+      cwe: CWE-347
+      confidence: medium
+    pattern-sources:
+      - pattern-either:
+          - pattern: $TOKEN.split(".")[1]
+          - pattern: String($TOKEN).split(".")[1]
+    pattern-sinks:
+      - pattern: JSON.parse($PAYLOAD)
+
