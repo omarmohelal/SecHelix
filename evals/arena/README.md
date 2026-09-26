@@ -116,7 +116,12 @@ python evals/arena_batch.py \
 
 The batch handoff requires every prepared CASE- identifier exactly once and
 requires each case workspace to pass manifest verification plus measurement
-bundle validation. It still contains no workflow correctness score.
+bundle validation. It now also emits a fail-closed `operational_summary` across
+the complete packet: elapsed time, token totals, cost, host/provider/model sets,
+and separate runtime summaries for the independent verifier and release gate.
+If any applicable case/node is missing token or cost telemetry, that aggregate
+stays `NOT_MEASURED` rather than silently summing only the rows that reported it.
+It still contains no workflow correctness score.
 
 ## 3.5 Bind independent judgments to the verified batch
 
