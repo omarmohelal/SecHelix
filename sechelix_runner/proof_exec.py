@@ -810,10 +810,10 @@ class LocalProofExecutor:
             raise ProofExecutionError("workflow sequence proof requires a fixture reset hook")
         if spec.expected_intermediate_state == spec.expected_start_state:
             raise ProofExecutionError("intermediate state must differ from starting state")
-        if spec.expected_final_state in {
-            spec.expected_start_state,
-            spec.expected_intermediate_state,
-        }:
+        if (
+            spec.expected_final_state == spec.expected_start_state
+            or spec.expected_final_state == spec.expected_intermediate_state
+        ):
             raise ProofExecutionError("final state must differ from start and intermediate states")
         if spec.expected_safe_bypass_state == spec.expected_final_state:
             raise ProofExecutionError("safe bypass state must differ from final state")
