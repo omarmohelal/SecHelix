@@ -83,3 +83,30 @@ candidate discovery, model reasoning, independent verification, remediation,
 regression generation, or release-gate decisions. Those remain governed by the
 full-workflow Arena protocol and must not inherit scores from this primitive
 benchmark.
+
+
+## Real-browser XSS integration benchmark
+
+`real_browser_xss_benchmark.py` is a separate optional integration benchmark
+for the bounded XSS proof. Unlike the deterministic primitive benchmark, it uses
+SecHelix's actual `SafeAuthorizedBrowser` / Playwright Chromium backend by
+default against a literal-loopback vulnerable/clean fixture pair.
+
+Run it with:
+
+```bash
+python evals/real_browser_xss_benchmark.py \
+  --sechelix-commit <commit> \
+  --output work/real-browser-xss.json
+```
+
+If Playwright or Chromium is unavailable, the artifact reports
+`BLOCKED_BY_ENVIRONMENT`; it does not convert missing browser infrastructure
+into a clean result or a benchmark failure. When the browser is available, both
+the executing vulnerable fixture and inert-text clean fixture must classify
+correctly for the integration result to be `MEASURED`.
+
+This result kind is `REAL_BROWSER_XSS_INTEGRATION_BENCHMARK`. It measures a
+browser-engine integration slice only and must not be presented as full
+SecHelix workflow precision/recall, verifier accuracy, remediation quality or
+release-gate accuracy.
