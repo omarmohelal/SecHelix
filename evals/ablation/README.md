@@ -136,3 +136,26 @@ It cannot establish which individual tool caused the change. To measure one
 scanner, isolate that scanner as the only treatment source. The result also does
 not inherit full-workflow Arena claims: verifier, remediation and release-gate
 accuracy remain separately assessed.
+
+
+## Isolated single-scanner matrix
+
+`evals/scanner_ablation_matrix.py` is the fail-closed composition layer for
+testing several scanners without losing attribution. It accepts one scanner-off
+control and repeated treatment packets, but every treatment must declare exactly
+one unique scanner source.
+
+Each treatment is still scored independently through
+`build_scanner_ablation`, so model/provider/host/prompt/case digest,
+fixture-suite version, run ID and scanner provenance must match the control. A
+multi-scanner treatment is rejected rather than being mislabeled as
+per-scanner evidence.
+
+The output contains per-scanner metric deltas and aggregate changed-case counts,
+but no per-case truth or raw scanner output. Operational delta totals are
+reported only when complete across every treatment arm; one missing cost/time or
+token value makes that aggregate `NOT_MEASURED`.
+
+Run separate matrices for repeated trials. Do not pool different models,
+prompts, case packets or execution hosts into one matrix, and do not describe
+summed counterfactual changed-case counts as unique findings.
