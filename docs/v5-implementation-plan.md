@@ -27,7 +27,7 @@ is a hard boundary outside model control.
 | Evidence-first verification | Shipped | Preserve; independent verifier remains mandatory |
 | Scope boundary | Policy gateway shipped for LOCAL/STAGING browser/API/static execution | Keep every new executor behind the same gateway |
 | Browser/auth/personas | Browser/API authority, persona matrix and declared authz probes shipped | Add replayable CSRF/XSS/session fixtures and richer state capture |
-| HTTP/API | Policy-gated request runner + same-origin redirect enforcement shipped | Add interception/proxy evidence adapter and replay fixtures |
+| HTTP/API | Policy-gated request runner + same-origin redirect enforcement + secret-minimized exchange evidence shipped | Add explicit replay executor for evidence-only safe GET/HEAD/OPTIONS cases and richer proxy fixtures |
 | External scanners | Semgrep, curated JWT/session scout, Gitleaks and Trivy run through the gateway | Finish dependency audit/runtime image pinning and measured scanner contribution |
 | Sandbox | Docker policy/executor exists | Build dedicated V5 image with pinned security tools |
 | Tool gateway | Shipped and consumed by browser/API/static execution | Extend only through named capabilities; never add a generic shell |
@@ -86,3 +86,17 @@ without exposing a generic shell — replay the original proof/regression throug
 named, policy-gated capabilities, run existing tests, perform differential
 security review, and require independent verification before a patch can become
 `READY_FOR_REVIEW`.
+
+
+## HTTP evidence adapter
+
+The API client can now emit append-only, secret-minimized exchange evidence.
+Persisted records contain method, redacted URL, status, content type, header
+names, body sizes and authentication-context labels, but never header values,
+cookies, request bodies or response bodies.
+
+Replay is fail-closed: an exchange is marked replayable only when it is a
+read-only GET/HEAD/OPTIONS request with no request body, no query values and no
+sensitive request headers. Everything else is evidence-only and must be
+re-issued from fresh operator-authorized input rather than reconstructed from
+persisted secrets.
