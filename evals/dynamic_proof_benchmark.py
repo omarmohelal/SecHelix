@@ -75,8 +75,11 @@ class _Handler(BaseHTTPRequestHandler):
     webhook_vulnerable_count = 0
     webhook_clean_count = 0
     traversal_sentinel = b"SECHELIX_DYNAMIC_TRAVERSAL_SENTINEL"
+    artificial_latency_ms = 0
 
     def do_GET(self) -> None:  # noqa: N802
+        if type(self).artificial_latency_ms:
+            time.sleep(type(self).artificial_latency_ms / 1000.0)
         parsed = urllib.parse.urlsplit(self.path)
         if parsed.path == "/traversal/vulnerable":
             requested = urllib.parse.parse_qs(parsed.query).get("path", [""])[0]
@@ -139,6 +142,8 @@ class _Handler(BaseHTTPRequestHandler):
         self._send(404)
 
     def do_POST(self) -> None:  # noqa: N802
+        if type(self).artificial_latency_ms:
+            time.sleep(type(self).artificial_latency_ms / 1000.0)
         length = int(self.headers.get("Content-Length", "0"))
         self.rfile.read(length)
 
@@ -367,7 +372,9 @@ class _BenchmarkXssBrowser:
         return "SECHELIX_XSS_MARKER_1" if self.inert_text else "no marker"
 
 
-def _cases() -> tuple[BenchmarkCase, ...]:
+def _cases(*, race_concurrency: int = 2) -> tuple[BenchmarkCase, ...]:
+    if race_concurrency not in {2, 4, 8}:
+        raise ValueError("race_concurrency must be one of 2, 4, or 8")
     def race_vulnerable(base: str, executor: LocalProofExecutor):
         plan = build_plan(
             ProofClass.RACE_IDEMPOTENCY,
@@ -378,7 +385,7 @@ def _cases() -> tuple[BenchmarkCase, ...]:
             plan,
             RaceHttpSpec(
                 url=base + "/race/vulnerable",
-                concurrency=2,
+                concurrency=race_concurrency,
                 read_state=lambda: _Handler.race_vulnerable_count,
                 expected_single_state=1,
             ),
@@ -394,7 +401,7 @@ def _cases() -> tuple[BenchmarkCase, ...]:
             plan,
             RaceHttpSpec(
                 url=base + "/race/clean",
-                concurrency=2,
+                concurrency=race_concurrency,
                 read_state=lambda: _Handler.race_clean_count,
                 expected_single_state=1,
             ),
@@ -879,7 +886,17 @@ def _ratio(numerator: int, denominator: int) -> float:
     return round(numerator / denominator, 6) if denominator else 0.0
 
 
-def run_dynamic_proof_benchmark(*, sechelix_commit: str = "NOT_MEASURED") -> dict[str, object]:
+def run_dynamic_proof_benchmark(
+    *,
+    sechelix_commit: str = "NOT_MEASURED",
+    artificial_latency_ms: int = 0,
+    race_concurrency: int = 2,
+) -> dict[str, object]:
+    if not 0 <= artificial_latency_ms <= 500:
+        raise ValueError("artificial_latency_ms must be between 0 and 500")
+    if race_concurrency not in {2, 4, 8}:
+        raise ValueError("race_concurrency must be one of 2, 4, or 8")
+    _Handler.artificial_latency_ms = artificial_latency_ms
     server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
     port = int(server.server_address[1])
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -899,7 +916,7 @@ def run_dynamic_proof_benchmark(*, sechelix_commit: str = "NOT_MEASURED") -> dic
     rows: list[dict[str, object]] = []
     started = time.perf_counter()
     try:
-        for case in _cases():
+        for case in _cases(race_concurrency=race_concurrency):
             _reset()
             case_started = time.perf_counter()
             result = case.run(base, executor)
@@ -947,6 +964,8 @@ def run_dynamic_proof_benchmark(*, sechelix_commit: str = "NOT_MEASURED") -> dic
             "provider": "NONE",
             "external_scanners": [],
             "browser_backend": "deterministic-fixture-adapter-for-xss-pair",
+            "artificial_latency_ms": artificial_latency_ms,
+            "race_concurrency": race_concurrency,
         },
         "metrics": {
             "case_accuracy": _ratio(correct, len(rows)),
