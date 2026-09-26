@@ -25,6 +25,31 @@ def run_record():
         "scope_id": "SCOPE-1",
         "graph_digest": "graph-1",
         "operational_metrics": {
+            "node_active_seconds": 3.5,
+            "node_time_to_wall_ratio": 0.7,
+            "role_breakdown": {
+                "AUTHORIZATION": {
+                    "node_count": 1,
+                    "node_active_seconds": 1.0,
+                    "input_tokens": 100,
+                    "output_tokens": 20,
+                    "cost_usd": 0.01,
+                },
+                "INDEPENDENT_VERIFIER": {
+                    "node_count": 1,
+                    "node_active_seconds": 2.0,
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "cost_usd": 0.0,
+                },
+                "RELEASE_GATE": {
+                    "node_count": 1,
+                    "node_active_seconds": 0.5,
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "cost_usd": 0.0,
+                },
+            },
             "telemetry_completeness": {
                 "input_tokens": {"complete": True, "measured_nodes": 1, "applicable_nodes": 1},
                 "output_tokens": {"complete": True, "measured_nodes": 1, "applicable_nodes": 1},
@@ -92,6 +117,18 @@ class ArenaMeasurementBundleTests(unittest.TestCase):
         )
         self.assertEqual(
             bundle["assessment_targets"]["release_gate"][0]["node_id"],
+            "gate",
+        )
+        telemetry = bundle["operational_telemetry"]
+        self.assertEqual(telemetry["node_active_seconds"], 3.5)
+        self.assertEqual(telemetry["node_time_to_wall_ratio"], 0.7)
+        self.assertEqual(telemetry["role_breakdown"]["AUTHORIZATION"]["cost_usd"], 0.01)
+        self.assertEqual(
+            telemetry["independent_verifier_runtime"]["nodes"][0]["node_id"],
+            "verifier",
+        )
+        self.assertEqual(
+            telemetry["release_gate_runtime"]["nodes"][0]["node_id"],
             "gate",
         )
         self.assertFalse(bundle["measurement_scope"]["scores_correctness"])
