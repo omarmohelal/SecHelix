@@ -1,5 +1,6 @@
 import json
 import threading
+from types import SimpleNamespace
 import unittest
 import urllib.parse
 import urllib.request
@@ -17,6 +18,7 @@ from sechelix_runner.proof_exec import (
     SsrfHttpSpec,
     TraversalHttpSpec,
     WebhookHttpSpec,
+    XssBrowserSpec,
 )
 from sechelix_runner.sandbox import ExecutionMode, NetworkPolicy
 
@@ -112,6 +114,46 @@ class _FixtureHandler(BaseHTTPRequestHandler):
 
     def log_message(self, _format: str, *args) -> None:
         return
+
+
+class _FakeXssBrowser:
+    def __init__(self, scope, *, interaction_policy, gateway, execute_marker=False, inert_text=False):
+        self.scope = scope
+        self.interaction_policy = interaction_policy
+        self.gateway = gateway
+        self.execute_marker = execute_marker
+        self.inert_text = inert_text
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return None
+
+    def navigate(self, url, *, timeout_ms):
+        self.gateway.authorize(
+            __import__("sechelix_runner.pentest.gateway", fromlist=["ToolOperation"]).ToolOperation(
+                tool="browser",
+                target=url,
+                network=True,
+                risk="LOW",
+                evidence_output="browser-network-events",
+                purpose="authorized browser request",
+                metadata={"method": "GET"},
+            )
+        )
+        return SimpleNamespace(
+            status=200,
+            url=url.split("?", 1)[0] + "?q=[REDACTED]",
+            challenge=SimpleNamespace(value="NONE"),
+            blocked_requests=0,
+        )
+
+    def window_marker_matches(self, name, expected):
+        return self.execute_marker
+
+    def text(self, selector, *, timeout_ms):
+        return "SECHELIX_XSS_MARKER_1" if self.inert_text else "no marker"
 
 
 class LocalProofExecutionTests(unittest.TestCase):
@@ -377,9 +419,106 @@ class LocalProofExecutionTests(unittest.TestCase):
             "F-XSS",
             available_authority={"local_browser_runtime"},
         )
-        result = self.executor.execute(plan, object())
+        executor = LocalProofExecutor(
+            self.policy,
+            timeout_seconds=2,
+            max_requests=8,
+            browser_factory=None,
+        )
+        result = executor.execute(
+            plan,
+            XssBrowserSpec(
+                url_template=self.base + "/xss?q={payload}",
+                injection_selector="#sink",
+            ),
+        )
         self.assertEqual(result.behavior, ProofBehavior.BLOCKED)
         self.assertIn("browser backend", result.blocker)
+
+    def test_xss_fixed_marker_execution_is_vulnerable_behavior(self) -> None:
+        plan = build_plan(
+            ProofClass.XSS_EXECUTION,
+            "F-XSS-VULN",
+            available_authority={"local_browser_runtime"},
+        )
+
+        def factory(scope, **kwargs):
+            return _FakeXssBrowser(scope, execute_marker=True, **kwargs)
+
+        executor = LocalProofExecutor(
+            self.policy,
+            timeout_seconds=2,
+            max_requests=8,
+            browser_factory=factory,
+        )
+        result = executor.execute(
+            plan,
+            XssBrowserSpec(
+                url_template=self.base + "/xss?q={payload}",
+                injection_selector="#sink",
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.VULNERABLE_BEHAVIOR)
+        self.assertEqual(result.request_count, 1)
+        self.assertTrue(result.observations[1]["executed"])
+        self.assertNotIn("<script>", json.dumps(result.to_dict()))
+
+    def test_xss_inert_marker_is_secure_behavior(self) -> None:
+        plan = build_plan(
+            ProofClass.XSS_EXECUTION,
+            "F-XSS-SAFE",
+            available_authority={"local_browser_runtime"},
+        )
+
+        def factory(scope, **kwargs):
+            return _FakeXssBrowser(scope, inert_text=True, **kwargs)
+
+        executor = LocalProofExecutor(
+            self.policy,
+            timeout_seconds=2,
+            max_requests=8,
+            browser_factory=factory,
+        )
+        result = executor.execute(
+            plan,
+            XssBrowserSpec(
+                url_template=self.base + "/xss?q={payload}",
+                injection_selector="#sink",
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.SECURE_BEHAVIOR)
+        self.assertTrue(result.observations[1]["inert_text_observed"])
+
+    def test_xss_rejects_caller_defined_script_marker(self) -> None:
+        plan = build_plan(
+            ProofClass.XSS_EXECUTION,
+            "F-XSS-MARKER",
+            available_authority={"local_browser_runtime"},
+        )
+        with self.assertRaises(ProofExecutionError):
+            self.executor.execute(
+                plan,
+                XssBrowserSpec(
+                    url_template=self.base + "/xss?q={payload}",
+                    injection_selector="#sink",
+                    marker_name="x;alert(1)//",
+                ),
+            )
+
+    def test_xss_refuses_non_loopback_even_with_browser_backend(self) -> None:
+        plan = build_plan(
+            ProofClass.XSS_EXECUTION,
+            "F-XSS-REMOTE",
+            available_authority={"local_browser_runtime"},
+        )
+        with self.assertRaises(ProofExecutionError):
+            self.executor.execute(
+                plan,
+                XssBrowserSpec(
+                    url_template="https://example.com/xss?q={payload}",
+                    injection_selector="#sink",
+                ),
+            )
 
     def test_executor_rejects_ungranted_or_non_loopback_targets(self) -> None:
         plan = build_plan(

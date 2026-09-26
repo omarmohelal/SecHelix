@@ -83,7 +83,7 @@ provenance.
 
 Current focused slice: remediation/retest now has an executable `sechelix fix-check` surface over the existing scratch-workspace runner. It runs only named, policy-gated tests in the network-disabled sandbox, consumes explicit differential-review and independent-verification evidence, refuses the caller's current working tree, and can reach `READY_FOR_REVIEW` only when every canonical remediation stage passed. It never applies the patch.\n\nCurrent focused slice: the HTTP/API client now has a secret-minimized exchange recorder behind the existing policy/scope controls. It persists method, redacted URL, status, content type, header names, body sizes and auth-context labels, never header values/cookies/bodies. Replayability is marked only for read-only exchanges that can be reconstructed without secret or query data.
 
-Current focused slice: safely reconstructible anonymous GET/HEAD/OPTIONS exchanges can now be replayed through the normal TargetScope, InteractionPolicy, gateway and redirect controls. Persisted replayability is revalidated rather than trusted, and any authentication context, body, sensitive header or redacted query forces a fresh operator-authorized request.\n\nCurrent focused slice: session revocation now has a fixed-shape LOCAL proof using a fresh operator-supplied fixture session plus an explicit local revocation hook. It records a successful protected-read control, revokes that exact fixture session, then replays the same session. Continued access is VULNERABLE_BEHAVIOR evidence; denial is SECURE_BEHAVIOR; a broken control or revocation hook is INCONCLUSIVE. Session headers remain ephemeral and never enter the artifact.\n\nNext focused slice: add explicit Playwright-backed LOCAL XSS marker execution with the same scope/policy/evidence boundaries; then extend authenticated session rotation/revocation coverage beyond the deterministic fixture path.
+Current focused slice: safely reconstructible anonymous GET/HEAD/OPTIONS exchanges can now be replayed through the normal TargetScope, InteractionPolicy, gateway and redirect controls. Persisted replayability is revalidated rather than trusted, and any authentication context, body, sensitive header or redacted query forces a fresh operator-authorized request.\n\nCurrent focused slice: session revocation now has a fixed-shape LOCAL proof using a fresh operator-supplied fixture session plus an explicit local revocation hook. It records a successful protected-read control, revokes that exact fixture session, then replays the same session. Continued access is VULNERABLE_BEHAVIOR evidence; denial is SECURE_BEHAVIOR; a broken control or revocation hook is INCONCLUSIVE. Session headers remain ephemeral and never enter the artifact.\n\nCurrent focused slice: XSS now has an explicit Playwright-backed LOCAL marker proof. The payload is fixed by SecHelix, query-encoded, and limited to writing one deterministic window marker. Target scope is exact-loopback, browser requests pass through the policy gateway and read-only interaction policy, and the proof requires a declared sink selector so non-execution without sink reachability remains INCONCLUSIVE rather than a false clean result.\n\nNext focused slice: extend authenticated session rotation/revocation coverage beyond the deterministic fixture path, then add richer HTTP/proxy state capture for authenticated flows.
 
 
 ## CSRF proof execution
@@ -117,3 +117,19 @@ authority or incomplete revocation propagation. A failed control or revocation
 hook is INCONCLUSIVE. Independent verification is still required before a
 finding can become VERIFIED.
 
+
+
+## XSS browser proof execution
+
+SecHelix now has a bounded LOCAL browser proof for reflected XSS candidates. It
+does not expose an arbitrary JavaScript execution API. The proof owns one fixed
+benign payload that writes a deterministic string marker to a fixed window
+property. The caller provides only the LOCAL URL template and the sink selector.
+
+The target must be literal loopback and covered by the active network policy.
+The browser receives an exact TargetScope plus PolicyToolGateway and read-only
+InteractionPolicy; out-of-scope subresources are blocked. If the fixed marker
+executes, the proof records VULNERABLE_BEHAVIOR. If the marker reaches the
+declared sink only as inert text, it records SECURE_BEHAVIOR. If neither can be
+established, the result remains INCONCLUSIVE. Raw rendered text and the injected
+payload are not persisted in the proof artifact.
