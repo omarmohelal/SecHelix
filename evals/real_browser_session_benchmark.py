@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Optional real-browser integration benchmark for imported session isolation.
+"""Optional real-browser integration benchmark for session isolation and revocation.
 
-The benchmark uses two separate browser contexts against a literal-loopback
-fixture: one receives a valid ephemeral session cookie and must reach a protected
-selector, while the second receives an invalid session and must not. Missing
+The benchmark uses literal-loopback fixtures and ephemeral browser sessions. It
+checks valid/invalid imported-session isolation, then reuses the same real browser
+context before and after an operator-controlled server-side revocation event to
+distinguish immediate revocation from stale browser authority. Missing
 Playwright/Chromium is reported as BLOCKED_BY_ENVIRONMENT.
 """
 
@@ -31,15 +32,21 @@ FAILED = "FAILED"
 
 
 class _Handler(BaseHTTPRequestHandler):
+    clean_session_active = True
+
     def do_GET(self) -> None:  # noqa: N802
-        if self.path != "/protected":
+        if self.path not in {"/protected", "/revocation/vulnerable", "/revocation/clean"}:
             self.send_response(404)
             self.end_headers()
             return
-        if "session=fixture-session-valid" not in str(self.headers.get("Cookie") or ""):
+        valid_cookie = "session=fixture-session-valid" in str(self.headers.get("Cookie") or "")
+        revoked_clean = self.path == "/revocation/clean" and not type(self).clean_session_active
+        if not valid_cookie or revoked_clean:
             body = b"<!doctype html><html><body><div id='login'>login</div></body></html>"
             self.send_response(401)
         else:
+            # The vulnerable revocation fixture intentionally ignores server-side
+            # revocation state; the clean fixture re-checks it on every request.
             body = b"<!doctype html><html><body><div id='protected'>protected</div></body></html>"
             self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -81,6 +88,7 @@ def run_real_browser_session_benchmark(
     port = int(server.server_address[1])
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
+    _Handler.clean_session_active = True
     started = time.monotonic()
     cases: list[dict[str, Any]] = []
     blockers: list[str] = []
@@ -142,6 +150,61 @@ def run_real_browser_session_benchmark(
                         "blocker": str(exc),
                     }
                 )
+
+        for case_id, path, expect_post_revocation in (
+            ("SESSION-REVOCATION-REAL-VULNERABLE", "/revocation/vulnerable", True),
+            ("SESSION-REVOCATION-REAL-CLEAN", "/revocation/clean", False),
+        ):
+            clock = time.monotonic()
+            try:
+                probe = SessionProbe(
+                    url=f"http://127.0.0.1:{port}{path}",
+                    success_selector="#protected",
+                    timeout_ms=5_000,
+                )
+                gateway = PolicyToolGateway(scope=scope)
+                with browser_factory(
+                    scope,
+                    access=_access(valid=True),
+                    interaction_policy=InteractionPolicy(),
+                    gateway=gateway,
+                    authentication_context="persona:revocation-session",
+                ) as browser:
+                    before = browser.verify_session(probe)
+                    _Handler.clean_session_active = False
+                    after = browser.verify_session(probe)
+                elapsed = time.monotonic() - clock
+                matched = bool(before.verified) and (
+                    bool(after.verified) is expect_post_revocation
+                )
+                cases.append(
+                    {
+                        "case_id": case_id,
+                        "expected_pre_revocation_verified": True,
+                        "observed_pre_revocation_verified": bool(before.verified),
+                        "expected_post_revocation_verified": expect_post_revocation,
+                        "observed_post_revocation_verified": bool(after.verified),
+                        "matched": matched,
+                        "elapsed_seconds": round(elapsed, 6),
+                    }
+                )
+            except BrowserUnavailable as exc:
+                elapsed = time.monotonic() - clock
+                blockers.append(str(exc))
+                cases.append(
+                    {
+                        "case_id": case_id,
+                        "expected_pre_revocation_verified": True,
+                        "observed_pre_revocation_verified": None,
+                        "expected_post_revocation_verified": expect_post_revocation,
+                        "observed_post_revocation_verified": None,
+                        "matched": False,
+                        "elapsed_seconds": round(elapsed, 6),
+                        "blocker": str(exc),
+                    }
+                )
+            finally:
+                _Handler.clean_session_active = True
     finally:
         server.shutdown()
         server.server_close()
@@ -172,9 +235,9 @@ def run_real_browser_session_benchmark(
         "credential_material_persisted": False,
         "is_full_sechelix_workflow": False,
         "limitations": [
-            "This measures imported-session browser isolation and verification only.",
+            "This measures imported-session isolation plus browser-path session revocation behavior only.",
             "Session cookie values are ephemeral fixture inputs and are not serialized.",
-            "It is not a session-revocation proof and not a full SecHelix workflow benchmark.",
+            "The revocation cases exercise the real browser transport around a deterministic LOCAL server-side revocation event; they are not full-workflow verifier/gate measurements.",
             "Missing Playwright/Chromium is BLOCKED_BY_ENVIRONMENT rather than a clean result.",
         ],
     }
