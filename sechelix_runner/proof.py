@@ -33,6 +33,7 @@ class ProofClass(str, Enum):
     XSS_EXECUTION = "XSS_EXECUTION"
     SSRF_CALLBACK = "SSRF_CALLBACK"
     PATH_TRAVERSAL = "PATH_TRAVERSAL"
+    CSRF_REQUEST = "CSRF_REQUEST"
 
 
 class PlanState(str, Enum):
@@ -242,6 +243,30 @@ def _ssrf(finding_id: str) -> ProofPlan:
     )
 
 
+
+def _csrf(finding_id: str) -> ProofPlan:
+    return _plan(
+        ProofClass.CSRF_REQUEST,
+        finding_id,
+        preconditions=[
+            "the fixture endpoint performs one harmless state-changing action",
+            "an authenticated fixture session is available",
+            "the endpoint is browser-reachable and cookies would normally accompany the request",
+        ],
+        required_authority=["fixture_authenticated_session", "fixture_write_access"],
+        actions=[
+            "send the harmless action with the expected same-origin Origin header as a control",
+            "send the same harmless action with the same authenticated session but a fixed foreign Origin",
+            "compare whether the foreign-origin request is rejected before the action is applied",
+        ],
+        expected_secure_behavior=(
+            "the same-origin control succeeds and the foreign-origin authenticated request is denied"
+        ),
+        expected_vulnerable_behavior=(
+            "the foreign-origin authenticated request is accepted like the same-origin control"
+        ),
+    )
+
 def _traversal(finding_id: str) -> ProofPlan:
     return _plan(
         ProofClass.PATH_TRAVERSAL,
@@ -267,4 +292,5 @@ _BUILDERS = {
     ProofClass.XSS_EXECUTION: _xss,
     ProofClass.SSRF_CALLBACK: _ssrf,
     ProofClass.PATH_TRAVERSAL: _traversal,
+    ProofClass.CSRF_REQUEST: _csrf,
 }
