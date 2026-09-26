@@ -28,7 +28,7 @@ RUNTIME_DIR = ROOT / "containers" / "security-runtime"
 DEFAULT_RUNTIME_LOCK = RUNTIME_DIR / "runtime-lock.json"
 DEFAULT_PYTHON_LOCK = RUNTIME_DIR / "python-tools.lock"
 NAMESPACE = uuid.uuid5(uuid.NAMESPACE_DNS, "security-runtime.sbom.sechelix.com")
-REQ = re.compile(r"^([A-Za-z0-9_.-]+)==([^\\s\\\\]+)\\s*\\\\?$")
+REQ = re.compile(r"^([A-Za-z0-9_.-]+)==([^\s\\]+)\s*\\?$")
 SHA_LINE = re.compile(r"--hash=sha256:([0-9a-f]{64})")
 
 
