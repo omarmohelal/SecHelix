@@ -160,9 +160,23 @@ class ScannerAblationTests(unittest.TestCase):
             result["scanner_bundle"]["attribution_scope"],
             "single declared scanner",
         )
-        self.assertFalse(
+        self.assertTrue(
             result["scanner_bundle"]["individual_scanner_credit"]
         )
+
+    def test_undeclared_scanner_source_fails_closed(self):
+        control = base_packet(enabled=False, sources=[])
+        treatment = base_packet(enabled=True, sources=["semgrep"])
+        treatment["predictions"][0]["scanner_sources"] = ["other-scanner"]
+        with self.assertRaisesRegex(
+            ScannerAblationError,
+            "undeclared scanner sources",
+        ):
+            build_scanner_ablation(
+                control,
+                treatment,
+                fixtures=fixtures(),
+            )
 
     def test_mismatched_model_fails_closed(self):
         control = base_packet(enabled=False, sources=[])
