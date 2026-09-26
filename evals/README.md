@@ -64,6 +64,26 @@ tool unless that tool is isolated in its own treatment arm. This paired label
 ablation is also not a full-workflow Arena score and does not establish
 production effectiveness.
 
+## Isolated scanner matrix
+
+`scanner_ablation_matrix.py` composes several single-scanner treatment arms
+against one scanner-disabled control. Every treatment must enable exactly one
+unique scanner and must satisfy the same matched-condition checks as the paired
+ablation. This produces one attributable row per isolated scanner without
+pretending a multi-tool bundle identifies which tool caused a change.
+
+```bash
+python evals/scanner_ablation_matrix.py \\
+  --control work/scanner-control.json \\
+  --treatment work/semgrep.json \\
+  --treatment work/session-token-trust.json \\
+  --output work/scanner-matrix.json
+```
+
+Operational delta totals remain `NOT_MEASURED` unless every treatment measured
+the corresponding time/token/cost field. Aggregate changed-case counts sum
+separate counterfactual arms and are not unique findings or a production score.
+
 ## Full-workflow Arena
 
 `arena.py` adds a separate fail-closed protocol for the parts of an AppSec
