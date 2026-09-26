@@ -36,7 +36,7 @@ is a hard boundary outside model control.
 | Evidence store | Run/engagement artifacts + exact scanner dedupe shipped | Add conservative correlation hints, then canonical finding evidence envelope/root-cause grouping |
 | Fix/retest | Methodology exists | Executable fix command + original-proof replay |
 | CI | Static Action/SARIF shipped | PR_SECURITY + scheduled STAGING_PENTEST |
-| Evaluation | Protocol + CVE/blind suites + paired LOCAL benchmark covering every bounded proof class + real-browser XSS/session integrations + evidence-backed Arena assessment packet builder shipped | Measure full workflow cost/time and verifier/gate metrics, then add production-like latency/concurrency fixture tiers |
+| Evaluation | Protocol + CVE/blind suites + complete bounded proof benchmark + real-browser XSS/session integrations + evidence-backed Arena batch assessor + full-packet operational summary shipped | Repeat independent Arena runs and measure workflow correctness together with cost/time distributions |
 | Cost control | Budgets/routing exist | Provider tiers, repository-map cache, per-run token/cost ledger |
 | UX | CLI + live pentest CLI exist | Unify audit/pentest/fix/replay/report/coverage and TUI status |
 
@@ -83,7 +83,7 @@ provenance.
 
 Current focused slice: remediation/retest now has an executable `sechelix fix-check` surface over the existing scratch-workspace runner. It runs only named, policy-gated tests in the network-disabled sandbox, consumes explicit differential-review and independent-verification evidence, refuses the caller's current working tree, and can reach `READY_FOR_REVIEW` only when every canonical remediation stage passed. It never applies the patch.\n\nCurrent focused slice: the HTTP/API client now has a secret-minimized exchange recorder behind the existing policy/scope controls. It persists method, redacted URL, status, content type, header names, body sizes and auth-context labels, never header values/cookies/bodies. Replayability is marked only for read-only exchanges that can be reconstructed without secret or query data.
 
-Current focused slice: safely reconstructible anonymous GET/HEAD/OPTIONS exchanges can now be replayed through the normal TargetScope, InteractionPolicy, gateway and redirect controls. Persisted replayability is revalidated rather than trusted, and any authentication context, body, sensitive header or redacted query forces a fresh operator-authorized request.\n\nCurrent focused slice: session revocation now has a fixed-shape LOCAL proof using a fresh operator-supplied fixture session plus an explicit local revocation hook. It records a successful protected-read control, revokes that exact fixture session, then replays the same session. Continued access is VULNERABLE_BEHAVIOR evidence; denial is SECURE_BEHAVIOR; a broken control or revocation hook is INCONCLUSIVE. Session headers remain ephemeral and never enter the artifact.\n\nCurrent focused slice: XSS now has an explicit Playwright-backed LOCAL marker proof. The payload is fixed by SecHelix, query-encoded, and limited to writing one deterministic window marker. Target scope is exact-loopback, browser requests pass through the policy gateway and read-only interaction policy, and the proof requires a declared sink selector so non-execution without sink reachability remains INCONCLUSIVE rather than a false clean result.\n\nCurrent focused slice: HTTP evidence now extracts security-relevant Set-Cookie attributes in memory while discarding cookie names and values. Evidence can record Secure, HttpOnly, SameSite class, Partitioned, root Path, Domain scoping, __Host-/__Secure- prefix class, deletion Max-Age and Expires presence. Multiple Set-Cookie headers are preserved as separate attribute observations; legacy evidence without this optional field remains readable. These are transport observations only and do not self-promote into session findings.\n\nCurrent focused slice: webhook proof can now accept an operator-supplied local state readback. A valid signed control must establish the declared single-application invariant; unsigned, invalid-signature and replay requests are then checked for additional state changes. HTTP acceptance alone remains inconclusive when no state readback exists. Only state digests enter evidence notes.\n\nCurrent focused slice: business-logic testing now includes a fixed-shape LOCAL state-transition proof. The operator declares the expected start state, the state that should remain safe, and one forbidden target state; SecHelix issues exactly one bounded POST and uses an operator-supplied local readback to decide whether that forbidden edge was reached. Starting-state mismatch or an unexpected intermediate state is INCONCLUSIVE, and only state digests enter evidence. A 2xx no-op is SECURE only for the declared transition invariant; it is not a global authorization or validation verdict.\n\nNext focused slice: broaden full-workflow cost/time measurement and repeat controlled scanner ablations across isolated tools/runs. Synthetic latency/concurrency fixture tiers are shipped for bounded proof stability; they are not production performance claims.
+Current focused slice: safely reconstructible anonymous GET/HEAD/OPTIONS exchanges can now be replayed through the normal TargetScope, InteractionPolicy, gateway and redirect controls. Persisted replayability is revalidated rather than trusted, and any authentication context, body, sensitive header or redacted query forces a fresh operator-authorized request.\n\nCurrent focused slice: session revocation now has a fixed-shape LOCAL proof using a fresh operator-supplied fixture session plus an explicit local revocation hook. It records a successful protected-read control, revokes that exact fixture session, then replays the same session. Continued access is VULNERABLE_BEHAVIOR evidence; denial is SECURE_BEHAVIOR; a broken control or revocation hook is INCONCLUSIVE. Session headers remain ephemeral and never enter the artifact.\n\nCurrent focused slice: XSS now has an explicit Playwright-backed LOCAL marker proof. The payload is fixed by SecHelix, query-encoded, and limited to writing one deterministic window marker. Target scope is exact-loopback, browser requests pass through the policy gateway and read-only interaction policy, and the proof requires a declared sink selector so non-execution without sink reachability remains INCONCLUSIVE rather than a false clean result.\n\nCurrent focused slice: HTTP evidence now extracts security-relevant Set-Cookie attributes in memory while discarding cookie names and values. Evidence can record Secure, HttpOnly, SameSite class, Partitioned, root Path, Domain scoping, __Host-/__Secure- prefix class, deletion Max-Age and Expires presence. Multiple Set-Cookie headers are preserved as separate attribute observations; legacy evidence without this optional field remains readable. These are transport observations only and do not self-promote into session findings.\n\nCurrent focused slice: webhook proof can now accept an operator-supplied local state readback. A valid signed control must establish the declared single-application invariant; unsigned, invalid-signature and replay requests are then checked for additional state changes. HTTP acceptance alone remains inconclusive when no state readback exists. Only state digests enter evidence notes.\n\nCurrent focused slice: business-logic testing now includes a fixed-shape LOCAL state-transition proof. The operator declares the expected start state, the state that should remain safe, and one forbidden target state; SecHelix issues exactly one bounded POST and uses an operator-supplied local readback to decide whether that forbidden edge was reached. Starting-state mismatch or an unexpected intermediate state is INCONCLUSIVE, and only state digests enter evidence. A 2xx no-op is SECURE only for the declared transition invariant; it is not a global authorization or validation verdict.\n\nNext focused slice: repeat controlled scanner ablations across isolated tools/runs and execute independent Arena batches so correctness metrics can be analyzed alongside the now-complete packet cost/time telemetry. Synthetic latency/concurrency tiers remain proof-stability measurements, not production performance claims.
 
 
 ## CSRF proof execution
@@ -682,3 +682,32 @@ individual-tool causal credit without isolating that scanner in its own
 treatment arm. This measurement is label-suite scanner contribution only; it
 does not inherit independent-verifier, remediation, release-gate or production
 effectiveness claims from Arena.
+
+
+## Full-packet Arena operational summary
+
+The manifest-verified Arena batch handoff now aggregates operational telemetry
+over the complete prepared packet instead of leaving cost/time scattered across
+individual case bundles.
+
+The summary records:
+
+- packet-wide elapsed-time total/mean/min/max;
+- input/output token totals and distribution statistics;
+- total cost when every applicable case measured cost;
+- agent-host, provider and model label sets;
+- independent-verifier node counts, statuses, duration, tokens and cost;
+- release-gate node counts, statuses, duration, tokens and cost.
+
+Aggregation is fail-closed. If any applicable case or verifier/gate node lacks a
+token/cost measurement, that aggregate is `NOT_MEASURED`; SecHelix never
+silently sums only the measured subset or converts missing telemetry to zero.
+Elapsed time remains independently measurable when its own vector is complete.
+
+The measurement bundle now carries verifier and release-gate runtime telemetry
+alongside the manifest-verified evidence targets so the batch can compute these
+role-level operational statistics without copying node output bodies.
+
+This is still operational telemetry only. It does not decide whether the
+verifier or release gate was correct and cannot change Arena measurement or
+publication eligibility without the blinded independent assessment.
