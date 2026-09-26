@@ -38,6 +38,7 @@ WORKFLOW_METRICS = (
 )
 
 _MIN_BASIS_CHARS = 24
+_MIN_METRIC_BASIS_CHARS = 24
 _ATTESTATION_SCHEMES = frozenset({"https"})
 
 REQUIRED_PARTICIPANT_FIELDS = (
@@ -183,6 +184,57 @@ def _rate(assessment: Mapping[str, Any], metric: str) -> float | str:
     return round(sum(values) / len(values), 6)
 
 
+def _metric_evidence_blockers(
+    case_id: str,
+    observation: Mapping[str, Any],
+    field: str,
+) -> list[str]:
+    """Require every scored workflow judgment to point at attributable evidence.
+
+    Arena cannot independently inspect arbitrary external artifacts here, but a
+    naked boolean is too weak for a publishable workflow measurement. Every
+    boolean therefore needs a short rationale, one or more stable evidence
+    references, and a digest binding the cited evidence bundle.
+    """
+
+    value = observation.get(field)
+    if value == NA:
+        return []
+    if not isinstance(value, bool):
+        return []
+
+    evidence = observation.get("evidence")
+    if not isinstance(evidence, Mapping):
+        return [f"{case_id}.{field} missing evidence mapping"]
+    item = evidence.get(field)
+    if not isinstance(item, Mapping):
+        return [f"{case_id}.{field} missing evidence record"]
+
+    blockers: list[str] = []
+    basis = item.get("basis")
+    if not isinstance(basis, str) or len(basis.strip()) < _MIN_METRIC_BASIS_CHARS:
+        blockers.append(
+            f"{case_id}.{field}.evidence.basis must explain the scored judgment"
+        )
+
+    refs = item.get("refs")
+    if (
+        not isinstance(refs, list)
+        or not refs
+        or not all(isinstance(ref, str) and ref.strip() for ref in refs)
+    ):
+        blockers.append(
+            f"{case_id}.{field}.evidence.refs must contain at least one stable reference"
+        )
+
+    digest = item.get("artifact_digest")
+    if not _is_digest(digest):
+        blockers.append(
+            f"{case_id}.{field}.evidence.artifact_digest missing or malformed"
+        )
+    return blockers
+
+
 def _assessment_blockers(manifest: Mapping[str, Any], assessment: Mapping[str, Any]) -> list[str]:
     blockers: list[str] = []
     packet = manifest.get("packet")
@@ -215,6 +267,8 @@ def _assessment_blockers(manifest: Mapping[str, Any], assessment: Mapping[str, A
             value = observation[field]
             if value != NA and not isinstance(value, bool):
                 blockers.append(f"{case_id}.{field} must be boolean or {NA}")
+                continue
+            blockers.extend(_metric_evidence_blockers(case_id, observation, field))
     if len(observed_ids) != len(set(observed_ids)):
         blockers.append("assessment contains duplicate case IDs")
     if sorted(observed_ids) != sorted(expected_ids):
