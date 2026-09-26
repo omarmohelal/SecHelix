@@ -11,6 +11,7 @@ from sechelix_runner.proof_exec import (
     CsrfHttpSpec,
     IdorHttpSpec,
     LocalProofExecutor,
+    MoneyFlowInvariantHttpSpec,
     PaymentInvariantHttpSpec,
     ProofBehavior,
     ProofExecutionError,
@@ -45,6 +46,9 @@ class _FixtureHandler(BaseHTTPRequestHandler):
     workflow_sequence_vulnerable_state = "created"
     workflow_sequence_secure_state = "created"
     workflow_sequence_broken_state = "created"
+    money_flow_duplicate = {"buyer": 10_000, "seller": 2_000, "platform": 500}
+    money_flow_idempotent = {"buyer": 10_000, "seller": 2_000, "platform": 500}
+    money_flow_misroute = {"buyer": 10_000, "seller": 2_000, "platform": 500}
     sentinel = b"SECHELIX_SENTINEL_93B1"
 
     def do_GET(self) -> None:  # noqa: N802
@@ -192,6 +196,27 @@ class _FixtureHandler(BaseHTTPRequestHandler):
             type(self).workflow_sequence_broken_state = "completed"
             self._send(200, b"completed")
             return
+        if self.path == "/money-flow-duplicate":
+            state = type(self).money_flow_duplicate
+            state["buyer"] -= 1000
+            state["seller"] += 900
+            state["platform"] += 100
+            self._send(200, b"settled")
+            return
+        if self.path == "/money-flow-idempotent":
+            state = type(self).money_flow_idempotent
+            if state["buyer"] == 10_000:
+                state["buyer"] -= 1000
+                state["seller"] += 900
+                state["platform"] += 100
+            self._send(200, b"accepted")
+            return
+        if self.path == "/money-flow-misroute":
+            state = type(self).money_flow_misroute
+            state["buyer"] -= 1000
+            state["seller"] += 1000
+            self._send(200, b"misrouted")
+            return
         if self.path == "/csrf-vulnerable":
             if self.headers.get("Cookie") != "session=fixture-auth":
                 self._send(401, b"no session")
@@ -296,6 +321,9 @@ class LocalProofExecutionTests(unittest.TestCase):
         _FixtureHandler.workflow_sequence_vulnerable_state = "created"
         _FixtureHandler.workflow_sequence_secure_state = "created"
         _FixtureHandler.workflow_sequence_broken_state = "created"
+        _FixtureHandler.money_flow_duplicate = {"buyer": 10_000, "seller": 2_000, "platform": 500}
+        _FixtureHandler.money_flow_idempotent = {"buyer": 10_000, "seller": 2_000, "platform": 500}
+        _FixtureHandler.money_flow_misroute = {"buyer": 10_000, "seller": 2_000, "platform": 500}
         self.policy = NetworkPolicy(ExecutionMode.LOCAL)
         self.policy.grant(
             "127.0.0.1",
@@ -829,6 +857,159 @@ class LocalProofExecutionTests(unittest.TestCase):
                 url=self.base + "/payment-idempotent",
                 read_balance_minor=lambda: _FixtureHandler.payment_idempotent_balance,
                 expected_single_delta_minor=-250,
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.BLOCKED)
+        self.assertIn("fixture_financial_readback", result.blocker)
+        self.assertEqual(result.request_count, 0)
+
+    def test_money_flow_invariant_detects_duplicate_cross_entity_movement(self) -> None:
+        plan = build_plan(
+            ProofClass.MONEY_FLOW_INVARIANT,
+            "F-MONEY-FLOW-DUPLICATE",
+            available_authority={"fixture_write_access", "fixture_financial_readback"},
+        )
+        expected = {"buyer": -1000, "seller": 900, "platform": 100}
+        result = self.executor.execute(
+            plan,
+            MoneyFlowInvariantHttpSpec(
+                url=self.base + "/money-flow-duplicate",
+                headers={"Authorization": "Bearer money-flow-secret"},
+                read_balances_minor=lambda: dict(_FixtureHandler.money_flow_duplicate),
+                expected_deltas_minor=expected,
+                forbidden_delta_vectors=(
+                    {"buyer": -1000, "seller": 1000, "platform": 0},
+                ),
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.VULNERABLE_BEHAVIOR)
+        self.assertEqual(result.request_count, 2)
+        self.assertEqual(
+            _FixtureHandler.money_flow_duplicate,
+            {"buyer": 8_000, "seller": 3_800, "platform": 700},
+        )
+        rendered = json.dumps(result.to_dict())
+        self.assertNotIn("money-flow-secret", rendered)
+        self.assertNotIn('"buyer": 10000', rendered)
+        self.assertNotIn('"seller": 2000', rendered)
+        self.assertIn("duplicate", " ".join(result.notes))
+
+    def test_money_flow_invariant_accepts_idempotent_multi_entity_replay(self) -> None:
+        plan = build_plan(
+            ProofClass.MONEY_FLOW_INVARIANT,
+            "F-MONEY-FLOW-IDEMPOTENT",
+            available_authority={"fixture_write_access", "fixture_financial_readback"},
+        )
+        result = self.executor.execute(
+            plan,
+            MoneyFlowInvariantHttpSpec(
+                url=self.base + "/money-flow-idempotent",
+                read_balances_minor=lambda: dict(_FixtureHandler.money_flow_idempotent),
+                expected_deltas_minor={"buyer": -1000, "seller": 900, "platform": 100},
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.SECURE_BEHAVIOR)
+        self.assertEqual(result.request_count, 2)
+        self.assertEqual(
+            _FixtureHandler.money_flow_idempotent,
+            {"buyer": 9_000, "seller": 2_900, "platform": 600},
+        )
+        self.assertIn("no additional", " ".join(result.notes))
+
+    def test_money_flow_invariant_matches_explicit_forbidden_misroute(self) -> None:
+        plan = build_plan(
+            ProofClass.MONEY_FLOW_INVARIANT,
+            "F-MONEY-FLOW-MISROUTE",
+            available_authority={"fixture_write_access", "fixture_financial_readback"},
+        )
+        result = self.executor.execute(
+            plan,
+            MoneyFlowInvariantHttpSpec(
+                url=self.base + "/money-flow-misroute",
+                read_balances_minor=lambda: dict(_FixtureHandler.money_flow_misroute),
+                expected_deltas_minor={"buyer": -1000, "seller": 900, "platform": 100},
+                forbidden_delta_vectors=(
+                    {"buyer": -1000, "seller": 1000, "platform": 0},
+                ),
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.VULNERABLE_BEHAVIOR)
+        self.assertEqual(result.request_count, 1)
+        self.assertIn("forbidden delta vector", " ".join(result.notes))
+
+    def test_money_flow_invariant_unexpected_vector_is_inconclusive_without_replay(self) -> None:
+        balances = {"buyer": 10_000, "seller": 2_000, "platform": 500}
+
+        class UnexpectedHandler:
+            pass
+
+        original_request = self.executor._request
+
+        def wrapped_request(label, url, method="GET", headers=None, body=b"", **kwargs):
+            observation = original_request(label, url, method, headers, body, **kwargs)
+            balances["buyer"] -= 1000
+            balances["seller"] += 850
+            balances["platform"] += 150
+            return observation
+
+        self.executor._request = wrapped_request  # type: ignore[method-assign]
+        plan = build_plan(
+            ProofClass.MONEY_FLOW_INVARIANT,
+            "F-MONEY-FLOW-UNKNOWN",
+            available_authority={"fixture_write_access", "fixture_financial_readback"},
+        )
+        result = self.executor.execute(
+            plan,
+            MoneyFlowInvariantHttpSpec(
+                url=self.base + "/money-flow-idempotent",
+                read_balances_minor=lambda: dict(balances),
+                expected_deltas_minor={"buyer": -1000, "seller": 900, "platform": 100},
+                forbidden_delta_vectors=(
+                    {"buyer": -1000, "seller": 1000, "platform": 0},
+                ),
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.INCONCLUSIVE)
+        self.assertEqual(result.request_count, 1)
+        self.assertIn("neither", " ".join(result.notes))
+
+    def test_money_flow_invariant_rejects_bad_vectors_and_missing_authority(self) -> None:
+        plan = build_plan(
+            ProofClass.MONEY_FLOW_INVARIANT,
+            "F-MONEY-FLOW-INVALID",
+            available_authority={"fixture_write_access", "fixture_financial_readback"},
+        )
+        with self.assertRaises(ProofExecutionError):
+            self.executor.execute(
+                plan,
+                MoneyFlowInvariantHttpSpec(
+                    url=self.base + "/money-flow-idempotent",
+                    read_balances_minor=lambda: {"buyer": 10_000, "seller": 2_000},
+                    expected_deltas_minor={"buyer": -1000},
+                ),
+            )
+        with self.assertRaises(ProofExecutionError):
+            self.executor.execute(
+                plan,
+                MoneyFlowInvariantHttpSpec(
+                    url=self.base + "/money-flow-idempotent",
+                    read_balances_minor=lambda: {"buyer": 10_000, "seller": 2_000},
+                    expected_deltas_minor={"buyer": -1000, "seller": 1000},
+                    forbidden_delta_vectors=({"buyer": -1000, "seller": 1000},),
+                ),
+            )
+
+        blocked = build_plan(
+            ProofClass.MONEY_FLOW_INVARIANT,
+            "F-MONEY-FLOW-BLOCKED",
+            available_authority={"fixture_write_access"},
+        )
+        result = self.executor.execute(
+            blocked,
+            MoneyFlowInvariantHttpSpec(
+                url=self.base + "/money-flow-idempotent",
+                read_balances_minor=lambda: dict(_FixtureHandler.money_flow_idempotent),
+                expected_deltas_minor={"buyer": -1000, "seller": 900, "platform": 100},
             ),
         )
         self.assertEqual(result.behavior, ProofBehavior.BLOCKED)
