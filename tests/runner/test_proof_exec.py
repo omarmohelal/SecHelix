@@ -582,6 +582,44 @@ class LocalProofExecutionTests(unittest.TestCase):
         self.assertEqual(result.behavior, ProofBehavior.INCONCLUSIVE)
         self.assertEqual(_FixtureHandler.workflow_ambiguous_state, "manual_review")
 
+    def test_state_transition_wrong_start_is_inconclusive_without_request(self) -> None:
+        plan = build_plan(
+            ProofClass.STATE_TRANSITION,
+            "F-STATE-WRONG-START",
+            available_authority={"fixture_write_access", "fixture_state_readback"},
+        )
+        result = self.executor.execute(
+            plan,
+            StateTransitionHttpSpec(
+                url=self.base + "/state-transition-vulnerable",
+                read_state=lambda: "already-completed",
+                expected_start_state="cancelled",
+                expected_secure_state="cancelled",
+                forbidden_state="completed",
+            ),
+        )
+        self.assertEqual(result.behavior, ProofBehavior.INCONCLUSIVE)
+        self.assertEqual(result.request_count, 0)
+        self.assertIn("did not begin", " ".join(result.notes))
+
+    def test_state_transition_rejects_same_secure_and_forbidden_invariant(self) -> None:
+        plan = build_plan(
+            ProofClass.STATE_TRANSITION,
+            "F-STATE-BAD-INVARIANT",
+            available_authority={"fixture_write_access", "fixture_state_readback"},
+        )
+        with self.assertRaises(ProofExecutionError):
+            self.executor.execute(
+                plan,
+                StateTransitionHttpSpec(
+                    url=self.base + "/state-transition-secure",
+                    read_state=lambda: "cancelled",
+                    expected_start_state="cancelled",
+                    expected_secure_state="cancelled",
+                    forbidden_state="cancelled",
+                ),
+            )
+
     def test_state_transition_requires_declared_readback_authority(self) -> None:
         blocked = build_plan(
             ProofClass.STATE_TRANSITION,
