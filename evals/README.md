@@ -32,9 +32,37 @@ blind spot and keep the literal string, recorded in `results/not-measured.json`.
    ```
 
 The runner reports precision, recall, verified precision, false-positive rate,
-duplicate-root-cause rate, time, token cost, model/provider identity, and
-scanner contribution when supplied. Missing operational measurements remain
+duplicate-root-cause rate, time, token cost, model/provider identity, and raw
+scanner-source mention counts when supplied. Those mention counts are **not** a
+measurement of scanner contribution. Missing operational measurements remain
 `NOT_MEASURED`; they are never converted to zero.
+
+## Controlled scanner contribution ablation
+
+`scanner_ablation.py` measures the delta of a declared scanner bundle only when
+control and treatment runs use the same blind cases, model, provider, host,
+execution mode, prompt reference, fixture-suite version and case digest. The
+control arm must declare scanners disabled; the treatment arm declares the
+scanner source(s) enabled.
+
+```bash
+python evals/scanner_ablation.py \\
+  --control work/scanner-control.json \\
+  --treatment work/scanner-treatment.json \\
+  --output work/scanner-ablation.json
+```
+
+Both packets must share an `ablation_run_id` and include `scanner_ablation`
+metadata. The output reports deltas for precision, detection recall, verified
+precision, false-positive rate, false-positive rejection, and operational
+cost/time/token fields when both arms measured them. It also reports aggregate
+counts of detections gained/lost and clean false positives removed/introduced.
+
+If multiple scanners are enabled together, the result is explicitly
+**bundle-level only**. SecHelix does not assign causal credit to an individual
+tool unless that tool is isolated in its own treatment arm. This paired label
+ablation is also not a full-workflow Arena score and does not establish
+production effectiveness.
 
 ## Full-workflow Arena
 
