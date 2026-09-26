@@ -32,11 +32,25 @@ def run_record():
             },
             "independent_verifier": {
                 "present": True,
-                "nodes": [{"node_id": "verifier", "status": "SUCCEEDED"}],
+                "nodes": [{
+                    "node_id": "verifier",
+                    "status": "SUCCEEDED",
+                    "duration_seconds": 2.0,
+                    "input_tokens": 80,
+                    "output_tokens": 18,
+                    "cost_usd": 0.008,
+                }],
             },
             "release_gate": {
                 "present": True,
-                "nodes": [{"node_id": "gate", "status": "SUCCEEDED"}],
+                "nodes": [{
+                    "node_id": "gate",
+                    "status": "SUCCEEDED",
+                    "duration_seconds": 0.5,
+                    "input_tokens": 20,
+                    "output_tokens": 2,
+                    "cost_usd": 0.002,
+                }],
             },
         },
     }
@@ -96,6 +110,14 @@ class ArenaMeasurementBundleTests(unittest.TestCase):
         )
         self.assertFalse(bundle["measurement_scope"]["scores_correctness"])
         self.assertTrue(bundle["measurement_scope"]["requires_independent_assessor"])
+        self.assertEqual(
+            bundle["operational_telemetry"]["role_runtime"]["independent_verifier"]["nodes"][0]["duration_seconds"],
+            2.0,
+        )
+        self.assertEqual(
+            bundle["operational_telemetry"]["role_runtime"]["release_gate"]["nodes"][0]["duration_seconds"],
+            0.5,
+        )
 
     def test_mismatched_run_identity_fails_closed(self):
         workspace = workspace_index()
