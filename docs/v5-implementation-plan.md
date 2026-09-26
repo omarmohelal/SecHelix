@@ -28,8 +28,8 @@ is a hard boundary outside model control.
 | Scope boundary | Policy gateway shipped for LOCAL/STAGING browser/API/static execution | Keep every new executor behind the same gateway |
 | Browser/auth/personas | Browser/API authority, persona matrix, declared authz probes and bounded LOCAL CSRF proof shipped | Add explicit Playwright XSS execution + session rotation/revocation fixtures and richer state capture |
 | HTTP/API | Policy-gated request runner + same-origin redirect enforcement + secret-minimized exchange evidence + anonymous safe replay + cookie metadata + fresh authenticated-flow correlation + value-free response-security projection shipped | Add browser/proxy parity and richer correlation without persisting credential values |
-| External scanners | Semgrep, curated JWT/session scout, Gitleaks and Trivy run through the gateway; isolated scanner ablations are measurable; Gitleaks/Trivy release archives are SHA-256 pinned | Lock Python transitive artifacts and keep scanner/runtime provenance current |
-| Sandbox | Docker policy/executor + dedicated V5 security runtime exist; base image is digest-pinned and final stage excludes download tooling | Add reproducible Python dependency hashes and published image provenance |
+| External scanners | Semgrep, curated JWT/session scout, Gitleaks and Trivy run through the gateway; isolated scanner ablations are measurable; Gitleaks/Trivy release archives and the Semgrep/pip-audit Python graph are SHA-256 hash locked | Keep scanner/runtime provenance current and publish image provenance |
+| Sandbox | Docker policy/executor + dedicated V5 security runtime exist; base image is digest-pinned, Python dependencies install with `--require-hashes`, and the final stage excludes download tooling | Add published image provenance/SBOM verification |
 | Tool gateway | Shipped and consumed by browser/API/static execution | Extend only through named capabilities; never add a generic shell |
 | Business logic | Race/idempotency, stateful webhook replay, one-step forbidden state-transition, bounded payment duplicate-effect, multi-step prerequisite workflow, and cross-entity money-flow proofs shipped | Expand multi-party settlement/refund fixtures and broader workflow invariants |
 | Multi-agent graph | Live graph exists | Converge names on V5 specialist graph; verifier stays separate |
@@ -83,7 +83,7 @@ provenance.
 
 Current focused slice: remediation/retest now has an executable `sechelix fix-check` surface over the existing scratch-workspace runner. It runs only named, policy-gated tests in the network-disabled sandbox, consumes explicit differential-review and independent-verification evidence, refuses the caller's current working tree, and can reach `READY_FOR_REVIEW` only when every canonical remediation stage passed. It never applies the patch.\n\nCurrent focused slice: the HTTP/API client now has a secret-minimized exchange recorder behind the existing policy/scope controls. It persists method, redacted URL, status, content type, header names, body sizes and auth-context labels, never header values/cookies/bodies. Replayability is marked only for read-only exchanges that can be reconstructed without secret or query data.
 
-Current focused slice: safely reconstructible anonymous GET/HEAD/OPTIONS exchanges can now be replayed through the normal TargetScope, InteractionPolicy, gateway and redirect controls. Persisted replayability is revalidated rather than trusted, and any authentication context, body, sensitive header or redacted query forces a fresh operator-authorized request.\n\nCurrent focused slice: session revocation now has a fixed-shape LOCAL proof using a fresh operator-supplied fixture session plus an explicit local revocation hook. It records a successful protected-read control, revokes that exact fixture session, then replays the same session. Continued access is VULNERABLE_BEHAVIOR evidence; denial is SECURE_BEHAVIOR; a broken control or revocation hook is INCONCLUSIVE. Session headers remain ephemeral and never enter the artifact.\n\nCurrent focused slice: XSS now has an explicit Playwright-backed LOCAL marker proof. The payload is fixed by SecHelix, query-encoded, and limited to writing one deterministic window marker. Target scope is exact-loopback, browser requests pass through the policy gateway and read-only interaction policy, and the proof requires a declared sink selector so non-execution without sink reachability remains INCONCLUSIVE rather than a false clean result.\n\nCurrent focused slice: HTTP evidence now extracts security-relevant Set-Cookie attributes in memory while discarding cookie names and values. Evidence can record Secure, HttpOnly, SameSite class, Partitioned, root Path, Domain scoping, __Host-/__Secure- prefix class, deletion Max-Age and Expires presence. Multiple Set-Cookie headers are preserved as separate attribute observations; legacy evidence without this optional field remains readable. These are transport observations only and do not self-promote into session findings.\n\nCurrent focused slice: webhook proof can now accept an operator-supplied local state readback. A valid signed control must establish the declared single-application invariant; unsigned, invalid-signature and replay requests are then checked for additional state changes. HTTP acceptance alone remains inconclusive when no state readback exists. Only state digests enter evidence notes.\n\nCurrent focused slice: business-logic testing now includes a fixed-shape LOCAL state-transition proof. The operator declares the expected start state, the state that should remain safe, and one forbidden target state; SecHelix issues exactly one bounded POST and uses an operator-supplied local readback to decide whether that forbidden edge was reached. Starting-state mismatch or an unexpected intermediate state is INCONCLUSIVE, and only state digests enter evidence. A 2xx no-op is SECURE only for the declared transition invariant; it is not a global authorization or validation verdict.\n\nNext focused slice: broaden full-workflow cost/time measurement and finish Python transitive dependency locking. Runtime base/binary provenance pinning is shipped; synthetic latency/concurrency tiers remain non-production measurements.
+Current focused slice: safely reconstructible anonymous GET/HEAD/OPTIONS exchanges can now be replayed through the normal TargetScope, InteractionPolicy, gateway and redirect controls. Persisted replayability is revalidated rather than trusted, and any authentication context, body, sensitive header or redacted query forces a fresh operator-authorized request.\n\nCurrent focused slice: session revocation now has a fixed-shape LOCAL proof using a fresh operator-supplied fixture session plus an explicit local revocation hook. It records a successful protected-read control, revokes that exact fixture session, then replays the same session. Continued access is VULNERABLE_BEHAVIOR evidence; denial is SECURE_BEHAVIOR; a broken control or revocation hook is INCONCLUSIVE. Session headers remain ephemeral and never enter the artifact.\n\nCurrent focused slice: XSS now has an explicit Playwright-backed LOCAL marker proof. The payload is fixed by SecHelix, query-encoded, and limited to writing one deterministic window marker. Target scope is exact-loopback, browser requests pass through the policy gateway and read-only interaction policy, and the proof requires a declared sink selector so non-execution without sink reachability remains INCONCLUSIVE rather than a false clean result.\n\nCurrent focused slice: HTTP evidence now extracts security-relevant Set-Cookie attributes in memory while discarding cookie names and values. Evidence can record Secure, HttpOnly, SameSite class, Partitioned, root Path, Domain scoping, __Host-/__Secure- prefix class, deletion Max-Age and Expires presence. Multiple Set-Cookie headers are preserved as separate attribute observations; legacy evidence without this optional field remains readable. These are transport observations only and do not self-promote into session findings.\n\nCurrent focused slice: webhook proof can now accept an operator-supplied local state readback. A valid signed control must establish the declared single-application invariant; unsigned, invalid-signature and replay requests are then checked for additional state changes. HTTP acceptance alone remains inconclusive when no state readback exists. Only state digests enter evidence notes.\n\nCurrent focused slice: business-logic testing now includes a fixed-shape LOCAL state-transition proof. The operator declares the expected start state, the state that should remain safe, and one forbidden target state; SecHelix issues exactly one bounded POST and uses an operator-supplied local readback to decide whether that forbidden edge was reached. Starting-state mismatch or an unexpected intermediate state is INCONCLUSIVE, and only state digests enter evidence. A 2xx no-op is SECURE only for the declared transition invariant; it is not a global authorization or validation verdict.\n\nNext focused slice: publish runtime image provenance/SBOM verification and continue independently assessed full-workflow correctness. Complete-packet cost/time aggregation and Python transitive artifact locking are shipped; synthetic latency/concurrency tiers remain non-production measurements.
 
 
 ## CSRF proof execution
@@ -724,9 +724,9 @@ The aggregator deliberately does not compute p-values, confidence intervals or
 production-effectiveness claims. Repetition reduces dependence on one run but
 does not change the scope of the authored blind fixture suite.
 
-Next focus is Python transitive dependency locking/published runtime provenance
-and independently assessed full-workflow correctness. Complete-packet cost/time
-aggregation is now shipped.
+Next focus is published runtime image provenance/SBOM verification and independently
+assessed full-workflow correctness. Complete-packet cost/time aggregation and
+Python transitive artifact locking are now shipped.
 
 
 ## Security runtime provenance pinning
@@ -751,11 +751,19 @@ record. The runtime manifest exposes whether a tool is artifact-hash pinned or
 only exact-version pinned, and tests fail if the Dockerfile, lock and manifest
 drift.
 
-Semgrep and pip-audit remain exact-version pinned but their transitive wheel
-hashes are not yet locked. SecHelix therefore labels those entries
-`version-only` instead of overstating full artifact reproducibility. The next
-supply-chain slice is a hash-locked Python dependency set plus published runtime
-image provenance/SBOM verification.
+Semgrep and pip-audit now share a generated Python 3.12 lock containing exact
+versions plus SHA-256 hashes for every resolved transitive distribution,
+including pip itself. The Docker builder installs only from that lock with
+`pip --require-hashes`; direct roots remain separately declared in
+`python-tools.in`, and runtime tests fail if their versions drift from the
+manifest/provenance record.
+
+The Python lock is an artifact-integrity boundary, not a claim that every wheel
+for every platform has been executed. The security-runtime CI currently proves
+the digest-pinned Linux amd64 image build and network-disabled smoke path; binary
+Gitleaks/Trivy archives retain explicit amd64/arm64 hashes. Published
+multi-architecture image provenance, attestations and release SBOM verification
+remain separate work rather than being implied by the repository lock.
 
 
 ## Complete-packet Arena operational summary
