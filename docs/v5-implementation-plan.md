@@ -724,8 +724,9 @@ The aggregator deliberately does not compute p-values, confidence intervals or
 production-effectiveness claims. Repetition reduces dependence on one run but
 does not change the scope of the authored blind fixture suite.
 
-Next focus is broader full-workflow cost/time measurement and remaining Python
-transitive dependency locking/published runtime provenance.
+Next focus is Python transitive dependency locking/published runtime provenance
+and independently assessed full-workflow correctness. Complete-packet cost/time
+aggregation is now shipped.
 
 
 ## Security runtime provenance pinning
@@ -755,3 +756,27 @@ hashes are not yet locked. SecHelix therefore labels those entries
 `version-only` instead of overstating full artifact reproducibility. The next
 supply-chain slice is a hash-locked Python dependency set plus published runtime
 image provenance/SBOM verification.
+
+
+## Complete-packet Arena operational summary
+
+The manifest-verified Arena batch handoff now aggregates operational telemetry
+across the complete blind packet instead of requiring an evaluator to sum
+individual case bundles manually.
+
+The packet records summed/mean/min/max per-case elapsed time, input/output
+tokens and cost with explicit measured/applicable case counts. A single missing
+applicable token or cost measurement makes that packet metric `NOT_MEASURED`
+rather than silently summing the remaining cases; when no case executed
+applicable provider work the metric is `NOT_APPLICABLE`.
+
+Timing keeps two different quantities separate. `case_elapsed_seconds.total`
+is the sum of each run's own wall time, while
+`observed_packet_span_seconds` is earliest case start to latest case finish.
+Concurrent case execution can therefore produce a packet span smaller than the
+summed case time without being mistaken for inconsistent telemetry.
+
+The summary also carries observed agent-host/provider/model labels. It remains
+operational-only: top-level Arena correctness stays `NOT_MEASURED` until an
+uncontaminated independent assessor completes the evidence-backed workflow
+assessment.
