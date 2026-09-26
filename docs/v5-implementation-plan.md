@@ -27,7 +27,7 @@ is a hard boundary outside model control.
 | Evidence-first verification | Shipped | Preserve; independent verifier remains mandatory |
 | Scope boundary | Policy gateway shipped for LOCAL/STAGING browser/API/static execution | Keep every new executor behind the same gateway |
 | Browser/auth/personas | Browser/API authority, persona matrix and declared authz probes shipped | Add replayable CSRF/XSS/session fixtures and richer state capture |
-| HTTP/API | Policy-gated request runner + same-origin redirect enforcement shipped | Add interception/proxy evidence adapter and replay fixtures |
+| HTTP/API | Policy-gated request runner + same-origin redirect enforcement + secret-minimized exchange evidence shipped | Add explicit safe replay executor for evidence-only GET/HEAD/OPTIONS cases and richer proxy fixtures |
 | External scanners | Semgrep, curated JWT/session scout, Gitleaks and Trivy run through the gateway | Finish dependency audit/runtime image pinning and measured scanner contribution |
 | Sandbox | Docker policy/executor exists | Build dedicated V5 image with pinned security tools |
 | Tool gateway | Shipped and consumed by browser/API/static execution | Extend only through named capabilities; never add a generic shell |
@@ -81,4 +81,6 @@ never becomes `VERIFIED`, and never treats two tools as independent verifiers.
 The output exists to reduce repeated navigation/reasoning while preserving
 provenance.
 
-Current focused slice: remediation/retest now has an executable `sechelix fix-check` surface over the existing scratch-workspace runner. It runs only named, policy-gated tests in the network-disabled sandbox, consumes explicit differential-review and independent-verification evidence, refuses the caller's current working tree, and can reach `READY_FOR_REVIEW` only when every canonical remediation stage passed. It never applies the patch.\n\nNext focused slice: add a replayable HTTP interception/evidence adapter behind the same policy gateway, preserving scope enforcement, same-origin credential boundaries, redaction, and no generic proxy-control surface.
+Current focused slice: remediation/retest now has an executable `sechelix fix-check` surface over the existing scratch-workspace runner. It runs only named, policy-gated tests in the network-disabled sandbox, consumes explicit differential-review and independent-verification evidence, refuses the caller's current working tree, and can reach `READY_FOR_REVIEW` only when every canonical remediation stage passed. It never applies the patch.\n\nCurrent focused slice: the HTTP/API client now has a secret-minimized exchange recorder behind the existing policy/scope controls. It persists method, redacted URL, status, content type, header names, body sizes and auth-context labels, never header values/cookies/bodies. Replayability is marked only for read-only exchanges that can be reconstructed without secret or query data.
+
+Next focused slice: add an explicit replay executor that accepts only records already marked safely replayable, then add authenticated CSRF/XSS/session fixtures without widening the generic tool surface.
