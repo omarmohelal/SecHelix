@@ -59,7 +59,14 @@ class NamedTestSpec:
             raise RemediationExecutionError("timeout_seconds must be between 1 and 900")
         for target in self.targets:
             value = str(target).strip()
-            if not value or not _TARGET.fullmatch(value) or ".." in Path(value).parts:
+            candidate = Path(value)
+            if (
+                not value
+                or value.startswith("-")
+                or candidate.is_absolute()
+                or not _TARGET.fullmatch(value)
+                or ".." in candidate.parts
+            ):
                 raise RemediationExecutionError(
                     f"unsafe unittest target {target!r}; targets must be simple "
                     "module/file identifiers inside the scratch workspace"
