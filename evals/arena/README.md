@@ -46,9 +46,14 @@ python evals/arena_run.py \
 
 The helper records wall-clock elapsed time, per-status node counts, provider and
 model sets, aggregate tokens/cost when those measurements are complete, and the
-actual `INDEPENDENT_VERIFIER` / `RELEASE_GATE` node records. Missing telemetry
+actual `INDEPENDENT_VERIFIER` / `RELEASE_GATE` node records. It also reports
+per-role node-active time, tokens, cost, provider/model sets and completeness,
+plus a node-time-to-wall ratio that makes parallel/serial execution shape
+visible without pretending it is a critical-path measurement. Missing telemetry
 is `NOT_MEASURED`, never zero. Nodes that were blocked or skipped without
-provider execution do not create fake token/cost gaps.
+provider execution do not create fake token/cost gaps; missing terminal-node
+duration prevents a complete active-time aggregate rather than being treated as
+zero.
 
 It also binds the generated metadata to the source run artifact with SHA-256.
 This is operational telemetry only: it does not score whether the verifier or
