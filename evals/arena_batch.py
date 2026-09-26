@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -25,6 +26,7 @@ from evals.arena_measurement_bundle import (
     ArenaMeasurementBundleError,
     build_bundle_from_workspace,
 )
+from evals.arena_run import NOT_APPLICABLE, NOT_MEASURED
 
 
 SCHEMA_VERSION = "sechelix-arena-batch-handoff/v1"
@@ -91,6 +93,161 @@ def _prepared_case_ids(manifest: Mapping[str, Any]) -> list[str]:
     if len(case_ids) != len(set(case_ids)):
         raise ArenaBatchHandoffError("prepared manifest contains duplicate case IDs")
     return sorted(case_ids)
+
+
+def _metric_summary(values: list[Any], *, field: str) -> dict[str, Any]:
+    """Aggregate one packet-wide operational metric without inventing zeroes."""
+
+    numeric: list[float] = []
+    applicable = 0
+    for value in values:
+        if value == NOT_APPLICABLE:
+            continue
+        applicable += 1
+        if value == NOT_MEASURED:
+            continue
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ArenaBatchHandoffError(
+                f"case operational telemetry field {field} is malformed"
+            )
+        numeric.append(float(value))
+
+    complete = len(numeric) == applicable
+    if applicable == 0:
+        total: int | float | str = NOT_APPLICABLE
+        mean: int | float | str = NOT_APPLICABLE
+        minimum: int | float | str = NOT_APPLICABLE
+        maximum: int | float | str = NOT_APPLICABLE
+    elif not complete:
+        total = mean = minimum = maximum = NOT_MEASURED
+    else:
+        raw_total = sum(numeric)
+        if field in {"input_tokens", "output_tokens"}:
+            total = int(raw_total)
+            mean = round(raw_total / applicable, 6)
+            minimum = int(min(numeric))
+            maximum = int(max(numeric))
+        elif field == "cost":
+            total = round(raw_total, 8)
+            mean = round(raw_total / applicable, 8)
+            minimum = round(min(numeric), 8)
+            maximum = round(max(numeric), 8)
+        else:
+            total = round(raw_total, 6)
+            mean = round(raw_total / applicable, 6)
+            minimum = round(min(numeric), 6)
+            maximum = round(max(numeric), 6)
+
+    return {
+        "complete": complete,
+        "measured_cases": len(numeric),
+        "applicable_cases": applicable,
+        "total": total,
+        "mean": mean,
+        "min": minimum,
+        "max": maximum,
+    }
+
+
+def _parse_iso_timestamp(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    text = value.strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        return datetime.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+def _observed_packet_span_seconds(rows: list[Mapping[str, Any]]) -> int | float | str:
+    """Return earliest-start to latest-finish span when timestamps are comparable."""
+
+    starts = [_parse_iso_timestamp(row.get("started_at")) for row in rows]
+    finishes = [_parse_iso_timestamp(row.get("finished_at")) for row in rows]
+    if any(item is None for item in [*starts, *finishes]):
+        return NOT_MEASURED
+
+    concrete_starts = [item for item in starts if item is not None]
+    concrete_finishes = [item for item in finishes if item is not None]
+    try:
+        span = (max(concrete_finishes) - min(concrete_starts)).total_seconds()
+    except (TypeError, ValueError):
+        return NOT_MEASURED
+    if span < 0:
+        return NOT_MEASURED
+    return round(span, 6)
+
+
+def _batch_operational_summary(cases: list[dict[str, Any]]) -> dict[str, Any]:
+    rows: list[Mapping[str, Any]] = []
+    for case in cases:
+        bundle = case.get("bundle")
+        if not isinstance(bundle, Mapping):
+            raise ArenaBatchHandoffError("case bundle missing while summarizing operations")
+        telemetry = bundle.get("operational_telemetry")
+        if not isinstance(telemetry, Mapping):
+            raise ArenaBatchHandoffError("case operational telemetry missing")
+        rows.append(telemetry)
+
+    return {
+        "case_count": len(cases),
+        "agent_hosts": sorted(
+            {
+                str(row.get("agent_host")).strip()
+                for row in rows
+                if isinstance(row.get("agent_host"), str)
+                and str(row.get("agent_host")).strip()
+            }
+        ),
+        "providers": sorted(
+            {
+                str(row.get("provider")).strip()
+                for row in rows
+                if isinstance(row.get("provider"), str)
+                and str(row.get("provider")).strip()
+                and row.get("provider") != NOT_APPLICABLE
+            }
+        ),
+        "models": sorted(
+            {
+                str(row.get("model")).strip()
+                for row in rows
+                if isinstance(row.get("model"), str)
+                and str(row.get("model")).strip()
+                and row.get("model") != NOT_APPLICABLE
+            }
+        ),
+        "case_elapsed_seconds": _metric_summary(
+            [row.get("elapsed_seconds") for row in rows],
+            field="elapsed_seconds",
+        ),
+        "observed_packet_span_seconds": _observed_packet_span_seconds(rows),
+        "input_tokens": _metric_summary(
+            [row.get("input_tokens") for row in rows],
+            field="input_tokens",
+        ),
+        "output_tokens": _metric_summary(
+            [row.get("output_tokens") for row in rows],
+            field="output_tokens",
+        ),
+        "cost_usd": _metric_summary(
+            [row.get("cost") for row in rows],
+            field="cost",
+        ),
+        "measurement_scope": {
+            "operational_only": True,
+            "scores_correctness": False,
+            "sum_case_elapsed_is_not_packet_wall_clock": True,
+            "note": (
+                "Case elapsed totals sum per-run wall time and may double-count "
+                "concurrent runs. observed_packet_span_seconds is earliest start "
+                "to latest finish. Missing token/cost telemetry remains "
+                "NOT_MEASURED rather than being coerced to zero."
+            ),
+        },
+    }
 
 
 def build_batch_handoff(
@@ -190,6 +347,7 @@ def build_batch_handoff(
         "participant": dict(participant) if isinstance(participant, Mapping) else participant,
         "case_count": len(cases),
         "cases": cases,
+        "operational_summary": _batch_operational_summary(cases),
         "measurement_scope": {
             "scores_correctness": False,
             "establishes_evaluator_independence": False,
