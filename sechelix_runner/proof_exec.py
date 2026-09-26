@@ -211,6 +211,31 @@ class PaymentInvariantHttpSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class WorkflowSequenceHttpSpec:
+    """Prove one declared prerequisite edge in a LOCAL multi-step workflow.
+
+    The ordered control runs step one then step two, after which an
+    operator-supplied local reset hook restores the fixture. The bypass attempt
+    executes step two directly from the declared start state. Raw workflow
+    states, headers and request bodies never enter the proof artifact.
+    """
+
+    step_one_url: str
+    step_two_url: str
+    step_one_body: bytes = b""
+    step_two_body: bytes = b""
+    headers: Mapping[str, str] = field(default_factory=dict)
+    read_state: Callable[[], Any] | None = None
+    reset_fixture: Callable[[], Any] | None = None
+    expected_start_state: Any = None
+    expected_intermediate_state: Any = None
+    expected_final_state: Any = None
+    expected_safe_bypass_state: Any = None
+    accepted_statuses: tuple[int, ...] = (200, 201, 202, 204)
+    denial_statuses: tuple[int, ...] = (400, 401, 403, 409, 422)
+
+
+@dataclass(frozen=True, slots=True)
 class XssBrowserSpec:
     """One reflected LOCAL browser sink with a fixed benign marker payload.
 
@@ -306,6 +331,7 @@ class LocalProofExecutor:
             ProofClass.SESSION_REVOCATION: self._session_revocation,
             ProofClass.STATE_TRANSITION: self._state_transition,
             ProofClass.PAYMENT_INVARIANT: self._payment_invariant,
+            ProofClass.WORKFLOW_SEQUENCE: self._workflow_sequence,
         }
         if plan.proof_class is ProofClass.XSS_EXECUTION:
             return self._xss(plan, spec)
@@ -765,6 +791,158 @@ class LocalProofExecutor:
             notes.insert(
                 0,
                 "replay changed financial state, but not by the declared single-operation delta",
+            )
+
+        return ProofExecutionResult(
+            plan.finding_id,
+            plan.proof_class,
+            behavior,
+            observations,
+            notes=notes,
+        )
+
+    def _workflow_sequence(self, plan: ProofPlan, spec: Any) -> ProofExecutionResult:
+        if not isinstance(spec, WorkflowSequenceHttpSpec):
+            raise ProofExecutionError("workflow sequence plan requires WorkflowSequenceHttpSpec")
+        if spec.read_state is None or not callable(spec.read_state):
+            raise ProofExecutionError("workflow sequence proof requires a fixture state readback")
+        if spec.reset_fixture is None or not callable(spec.reset_fixture):
+            raise ProofExecutionError("workflow sequence proof requires a fixture reset hook")
+        if spec.expected_intermediate_state == spec.expected_start_state:
+            raise ProofExecutionError("intermediate state must differ from starting state")
+        if spec.expected_final_state in {
+            spec.expected_start_state,
+            spec.expected_intermediate_state,
+        }:
+            raise ProofExecutionError("final state must differ from start and intermediate states")
+        if spec.expected_safe_bypass_state == spec.expected_final_state:
+            raise ProofExecutionError("safe bypass state must differ from final state")
+
+        before = spec.read_state()
+        if before != spec.expected_start_state:
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.INCONCLUSIVE,
+                notes=[
+                    "fixture did not begin in the declared workflow start state",
+                    f"observed_start_sha256={_value_digest(before)}",
+                    f"expected_start_sha256={_value_digest(spec.expected_start_state)}",
+                ],
+            )
+
+        step_one = self._request(
+            "workflow-control-step-one",
+            spec.step_one_url,
+            "POST",
+            spec.headers,
+            spec.step_one_body,
+        )
+        after_step_one = spec.read_state()
+        control_observations = [step_one.to_dict()]
+        if step_one.status not in spec.accepted_statuses or after_step_one != spec.expected_intermediate_state:
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.INCONCLUSIVE,
+                control_observations,
+                notes=[
+                    "ordered control step one did not establish the declared intermediate state",
+                    f"after_step_one_sha256={_value_digest(after_step_one)}",
+                    f"expected_intermediate_sha256={_value_digest(spec.expected_intermediate_state)}",
+                ],
+            )
+
+        step_two = self._request(
+            "workflow-control-step-two",
+            spec.step_two_url,
+            "POST",
+            spec.headers,
+            spec.step_two_body,
+        )
+        after_step_two = spec.read_state()
+        control_observations.append(step_two.to_dict())
+        if step_two.status not in spec.accepted_statuses or after_step_two != spec.expected_final_state:
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.INCONCLUSIVE,
+                control_observations,
+                notes=[
+                    "ordered control step two did not establish the declared final state",
+                    f"after_step_two_sha256={_value_digest(after_step_two)}",
+                    f"expected_final_sha256={_value_digest(spec.expected_final_state)}",
+                ],
+            )
+
+        try:
+            reset_result = spec.reset_fixture()
+        except Exception as exc:
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.INCONCLUSIVE,
+                control_observations,
+                notes=[f"fixture reset hook failed: {type(exc).__name__}"],
+            )
+        if reset_result is False:
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.INCONCLUSIVE,
+                control_observations,
+                notes=["fixture reset hook reported failure"],
+            )
+
+        after_reset = spec.read_state()
+        if after_reset != spec.expected_start_state:
+            return ProofExecutionResult(
+                plan.finding_id,
+                plan.proof_class,
+                ProofBehavior.INCONCLUSIVE,
+                control_observations,
+                notes=[
+                    "fixture reset did not restore the declared starting state",
+                    f"after_reset_sha256={_value_digest(after_reset)}",
+                    f"expected_start_sha256={_value_digest(spec.expected_start_state)}",
+                ],
+            )
+
+        bypass = self._request(
+            "workflow-bypass-step-two",
+            spec.step_two_url,
+            "POST",
+            spec.headers,
+            spec.step_two_body,
+        )
+        after_bypass = spec.read_state()
+        observations = [*control_observations, bypass.to_dict()]
+        notes = [
+            f"start_sha256={_value_digest(before)}",
+            f"intermediate_sha256={_value_digest(after_step_one)}",
+            f"final_sha256={_value_digest(after_step_two)}",
+            f"after_reset_sha256={_value_digest(after_reset)}",
+            f"after_bypass_sha256={_value_digest(after_bypass)}",
+            f"safe_bypass_sha256={_value_digest(spec.expected_safe_bypass_state)}",
+        ]
+
+        if after_bypass == spec.expected_final_state:
+            behavior = ProofBehavior.VULNERABLE_BEHAVIOR
+            notes.insert(0, "direct step two bypassed the declared prerequisite and reached the final state")
+        elif (
+            after_bypass == spec.expected_safe_bypass_state
+            and (
+                bypass.status in spec.denial_statuses
+                or bypass.status in spec.accepted_statuses
+            )
+        ):
+            behavior = ProofBehavior.SECURE_BEHAVIOR
+            notes.insert(0, "direct step two did not bypass the declared prerequisite")
+        else:
+            behavior = ProofBehavior.INCONCLUSIVE
+            notes.insert(
+                0,
+                "bypass attempt produced a state outside the declared safe and vulnerable outcomes",
             )
 
         return ProofExecutionResult(
