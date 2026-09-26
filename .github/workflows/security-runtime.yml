@@ -1,0 +1,50 @@
+name: Verify security runtime
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'containers/security-runtime/**'
+      - 'sechelix_runner/pentest/runtime_manifest.py'
+      - 'tests/runner/test_security_runtime.py'
+      - '.github/workflows/security-runtime.yml'
+  pull_request:
+    paths:
+      - 'containers/security-runtime/**'
+      - 'sechelix_runner/pentest/runtime_manifest.py'
+      - 'tests/runner/test_security_runtime.py'
+      - '.github/workflows/security-runtime.yml'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: security-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Validate runtime lock and sandbox policy
+        run: python -m unittest tests.runner.test_security_runtime -v
+
+      - name: Build digest-pinned security runtime
+        run: |
+          docker build --pull --progress=plain             -t sechelix-security-runtime:test             containers/security-runtime
+
+      - name: Smoke pinned tools without runtime network
+        run: |
+          docker run --rm             --network none             --read-only             --tmpfs /tmp:rw,noexec,nosuid,size=64m             --cap-drop ALL             --security-opt no-new-privileges             --user 10001:10001             -e HOME=/tmp/home             -e SEMGREP_SEND_METRICS=off             sechelix-security-runtime:test             sh -ec '
+              mkdir -p "$HOME"
+              test "$(semgrep --version | tail -n 1)" = "1.140.0"
+              gitleaks version | grep -F "8.28.0"
+              trivy --version | grep -F "Version: 0.74.0"
+              pip-audit --version | grep -F "2.9.0"
+            '

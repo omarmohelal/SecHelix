@@ -1,0 +1,53 @@
+{
+  "schema_version": "sechelix-security-runtime-lock/v1",
+  "base_image": {
+    "reference": "python:3.12.11-slim-bookworm@sha256:519591d6871b7bc437060736b9f7456b8731f1499a57e22e6c285135ae657bf7",
+    "index_sha256": "519591d6871b7bc437060736b9f7456b8731f1499a57e22e6c285135ae657bf7"
+  },
+  "python_tools": {
+    "semgrep": {
+      "version": "1.140.0",
+      "pinning": "version-only"
+    },
+    "dependency-audit": {
+      "package": "pip-audit",
+      "version": "2.9.0",
+      "pinning": "version-only"
+    }
+  },
+  "binary_tools": {
+    "gitleaks": {
+      "version": "8.28.0",
+      "release": "https://github.com/gitleaks/gitleaks/releases/tag/v8.28.0",
+      "assets": {
+        "amd64": {
+          "filename": "gitleaks_8.28.0_linux_x64.tar.gz",
+          "sha256": "a65b5253807a68ac0cafa4414031fd740aeb55f54fb7e55f386acb52e6a840eb"
+        },
+        "arm64": {
+          "filename": "gitleaks_8.28.0_linux_arm64.tar.gz",
+          "sha256": "eff65261156100e5d94a6b3dec313d532fddfe19ae1590bf7a2b4f2699128356"
+        }
+      }
+    },
+    "trivy": {
+      "version": "0.74.0",
+      "release": "https://github.com/aquasecurity/trivy/releases/tag/v0.74.0",
+      "assets": {
+        "amd64": {
+          "filename": "trivy_0.74.0_Linux-64bit.tar.gz",
+          "sha256": "2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a"
+        },
+        "arm64": {
+          "filename": "trivy_0.74.0_Linux-ARM64.tar.gz",
+          "sha256": "b94ce1976bbf3c15b514b605ee88be7c6d94a29be2302847ff01cb794d47aad5"
+        }
+      }
+    }
+  },
+  "notes": [
+    "Binary release archives are verified before extraction.",
+    "The final runtime image does not include curl or tar from the builder stage.",
+    "Python tool versions are exact but transitive wheel hashes are not yet locked; do not describe them as artifact-pinned."
+  ]
+}
