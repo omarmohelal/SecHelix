@@ -342,8 +342,74 @@ def _independence_blockers(
     return blockers
 
 
-def _publication_blockers(manifest: Mapping[str, Any], assessment: Mapping[str, Any]) -> list[str]:
+def _prediction_freeze_blockers(
+    manifest: Mapping[str, Any],
+    prediction_freeze: Mapping[str, Any] | None,
+) -> list[str]:
+    """Require publishable Arena results to bind the real prediction freeze.
+
+    arena_freeze.py intentionally owns freeze/blindness validation. Import it
+    lazily here to avoid a module-import cycle because that helper imports
+    Arena's canonical digest implementation.
+    """
+
+    if not isinstance(prediction_freeze, Mapping):
+        return ["prediction freeze evidence missing"]
+
+    blindness = manifest.get("blindness")
+    if not isinstance(blindness, Mapping):
+        return ["blindness record missing"]
+
+    blockers: list[str] = []
+    try:
+        from evals.arena_freeze import (
+            ArenaPredictionFreezeError,
+            validate_blindness_record,
+        )
+
+        run = manifest.get("run")
+        not_before = run.get("finished_at") if isinstance(run, Mapping) else None
+        validate_blindness_record(
+            prediction_freeze,
+            blindness,
+            not_before=not_before if isinstance(not_before, str) else None,
+        )
+    except (ArenaPredictionFreezeError, TypeError, ValueError) as exc:
+        blockers.append(f"prediction freeze/blindness validation failed: {exc}")
+
+    packet = manifest.get("packet")
+    if not isinstance(packet, Mapping) or prediction_freeze.get("packet_digest") != packet.get("digest"):
+        blockers.append("prediction freeze is not bound to the prepared packet digest")
+    elif isinstance(packet.get("case_ids"), list):
+        prediction_set = prediction_freeze.get("prediction_set")
+        frozen_case_ids = (
+            sorted(str(row.get("case_id")) for row in prediction_set)
+            if isinstance(prediction_set, list)
+            and all(isinstance(row, Mapping) for row in prediction_set)
+            else []
+        )
+        if frozen_case_ids != sorted(str(case_id) for case_id in packet["case_ids"]):
+            blockers.append(
+                "prediction freeze does not cover every prepared blind case exactly once"
+            )
+
+    participant = manifest.get("participant")
+    if (
+        not isinstance(participant, Mapping)
+        or prediction_freeze.get("participant_digest") != canonical_digest(participant)
+    ):
+        blockers.append("prediction freeze is not bound to the prepared participant")
+
+    return blockers
+
+
+def _publication_blockers(
+    manifest: Mapping[str, Any],
+    assessment: Mapping[str, Any],
+    prediction_freeze: Mapping[str, Any] | None = None,
+) -> list[str]:
     blockers = _assessment_blockers(manifest, assessment)
+    blockers.extend(_prediction_freeze_blockers(manifest, prediction_freeze))
     run = manifest.get("run")
     if not isinstance(run, Mapping):
         return sorted(set(blockers + ["run metadata missing"]))
@@ -388,6 +454,7 @@ def finalize_manifest(
     run: Mapping[str, Any],
     blindness: Mapping[str, Any],
     assessment: Mapping[str, Any],
+    prediction_freeze: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     if prepared.get("schema_version") != SCHEMA_VERSION or prepared.get("phase") != "PREPARED":
         raise ArenaError("finalize requires a PREPARED sechelix-arena/v1 manifest")
@@ -397,9 +464,14 @@ def finalize_manifest(
     result["participant"] = participant
     result["run"] = dict(run)
     result["blindness"] = dict(blindness)
+    result["prediction_freeze_digest"] = (
+        prediction_freeze.get("freeze_digest")
+        if isinstance(prediction_freeze, Mapping)
+        else None
+    )
     result["assessment_digest"] = canonical_digest(assessment)
     result["full_workflow"] = {metric: _rate(assessment, metric) for metric in WORKFLOW_METRICS}
-    blockers = _publication_blockers(result, assessment)
+    blockers = _publication_blockers(result, assessment, prediction_freeze)
     result["measurement_status"] = MEASURED if not blockers else NOT_MEASURED
     result["publication"] = {
         "eligible": not blockers,
@@ -441,6 +513,7 @@ def _cli() -> int:
     final.add_argument("--manifest", required=True)
     final.add_argument("--run", required=True)
     final.add_argument("--blindness", required=True)
+    final.add_argument("--prediction-freeze", required=True)
     final.add_argument("--assessment", required=True)
     final.add_argument("--output", required=True)
 
@@ -453,6 +526,7 @@ def _cli() -> int:
             run=_read_json(args.run),
             blindness=_read_json(args.blindness),
             assessment=_read_json(args.assessment),
+            prediction_freeze=_read_json(args.prediction_freeze),
         )
     Path(args.output).write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return 0

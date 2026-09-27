@@ -7,9 +7,14 @@ from evals.arena import (
     ArenaError,
     canonical_digest,
     comparable,
-    finalize_manifest,
+    finalize_manifest as arena_finalize_manifest,
     prepare_manifest,
     validate_participant,
+)
+from evals.arena_freeze import (
+    BLINDNESS_SCHEMA_VERSION,
+    FREEZE_SCHEMA_VERSION,
+    FREEZE_STATUS,
 )
 
 
@@ -41,13 +46,86 @@ RUN = {
     "cost": None,
 }
 
-BLINDNESS = {
-    "evaluator_independent": True,
-    "truth_revealed_after_predictions": True,
-    "contamination": "UNCONTAMINATED",
-    "ground_truth_digest": "sha256:" + "1" * 64,
-    "prediction_digest": "sha256:" + "2" * 64,
-}
+def make_prediction_freeze(participant: dict = PARTICIPANT) -> dict:
+    prediction_set = [
+        {
+            "case_id": "CASE-A",
+            "run_id": "RUN-A",
+            "bundle_digest": "sha256:" + "a" * 64,
+        },
+        {
+            "case_id": "CASE-B",
+            "run_id": "RUN-B",
+            "bundle_digest": "sha256:" + "b" * 64,
+        },
+    ]
+    freeze = {
+        "schema_version": FREEZE_SCHEMA_VERSION,
+        "status": FREEZE_STATUS,
+        "measurement_status": NOT_MEASURED,
+        "packet_digest": PACKET_DIGEST,
+        "participant_digest": canonical_digest(participant),
+        "handoff_digest": "sha256:" + "c" * 64,
+        "case_count": len(prediction_set),
+        "prediction_digest": canonical_digest(prediction_set),
+        "frozen_at": "2026-09-03T18:11:00Z",
+        "recorder": {
+            "identity": "independent-eval-operator",
+            "role": "prediction-custodian",
+        },
+        "prediction_set": prediction_set,
+        "scope": {
+            "reveals_ground_truth": False,
+            "establishes_evaluator_independence": False,
+            "scores_correctness": False,
+        },
+    }
+    freeze["freeze_digest"] = canonical_digest(
+        {key: value for key, value in freeze.items() if key != "freeze_digest"}
+    )
+    return freeze
+
+
+def make_blindness(freeze: dict, **overrides: object) -> dict:
+    blindness = {
+        "schema_version": BLINDNESS_SCHEMA_VERSION,
+        "evaluator_independent": True,
+        "truth_revealed_after_predictions": True,
+        "contamination": "UNCONTAMINATED",
+        "ground_truth_digest": "sha256:" + "1" * 64,
+        "prediction_digest": freeze["prediction_digest"],
+        "prediction_freeze_digest": freeze["freeze_digest"],
+        "frozen_at": freeze["frozen_at"],
+        "truth_revealed_at": "2026-09-03T18:12:00Z",
+        "scope": {
+            "ordering_checked": True,
+            "ordering_is_self_or_externally_attested": True,
+            "establishes_evaluator_independence": False,
+        },
+    }
+    blindness.update(overrides)
+    return blindness
+
+
+FREEZE = make_prediction_freeze()
+BLINDNESS = make_blindness(FREEZE)
+
+
+def finalize_manifest(
+    prepared: dict,
+    *,
+    run: dict,
+    blindness: dict,
+    assessment: dict,
+    prediction_freeze: dict = FREEZE,
+) -> dict:
+    return arena_finalize_manifest(
+        prepared,
+        run=run,
+        blindness=blindness,
+        assessment=assessment,
+        prediction_freeze=prediction_freeze,
+    )
 
 WORKFLOW_FIELDS = (
     "applicability",
@@ -225,6 +303,101 @@ class ArenaTests(unittest.TestCase):
         self.assertEqual(result["full_workflow"]["root_cause_accuracy"], 0.5)
         self.assertEqual(result["full_workflow"]["verification_accuracy"], 1.0)
 
+    def test_manual_blindness_without_prediction_freeze_never_measures(self) -> None:
+        result = arena_finalize_manifest(
+            prepare_manifest(PACKET, PARTICIPANT),
+            run=RUN,
+            blindness=BLINDNESS,
+            assessment=ASSESSMENT,
+        )
+        self.assertEqual(result["measurement_status"], NOT_MEASURED)
+        self.assertIn(
+            "prediction freeze evidence missing",
+            result["publication"]["blockers"],
+        )
+
+    def test_blindness_must_be_bound_to_exact_prediction_freeze(self) -> None:
+        blindness = dict(
+            BLINDNESS,
+            prediction_freeze_digest="sha256:" + "9" * 64,
+        )
+        result = finalize_manifest(
+            prepare_manifest(PACKET, PARTICIPANT),
+            run=RUN,
+            blindness=blindness,
+            assessment=ASSESSMENT,
+        )
+        self.assertEqual(result["measurement_status"], NOT_MEASURED)
+        self.assertTrue(
+            any(
+                "prediction_freeze_digest does not match" in blocker
+                for blocker in result["publication"]["blockers"]
+            )
+        )
+
+    def test_prediction_freeze_for_other_packet_never_measures(self) -> None:
+        freeze = dict(FREEZE, packet_digest="sha256:" + "8" * 64)
+        freeze["freeze_digest"] = canonical_digest(
+            {key: value for key, value in freeze.items() if key != "freeze_digest"}
+        )
+        blindness = make_blindness(freeze)
+        result = finalize_manifest(
+            prepare_manifest(PACKET, PARTICIPANT),
+            run=RUN,
+            blindness=blindness,
+            assessment=ASSESSMENT,
+            prediction_freeze=freeze,
+        )
+        self.assertEqual(result["measurement_status"], NOT_MEASURED)
+        self.assertIn(
+            "prediction freeze is not bound to the prepared packet digest",
+            result["publication"]["blockers"],
+        )
+
+    def test_prediction_freeze_must_cover_every_prepared_case(self) -> None:
+        freeze = json.loads(json.dumps(FREEZE))
+        freeze["prediction_set"] = freeze["prediction_set"][:1]
+        freeze["case_count"] = 1
+        freeze["prediction_digest"] = canonical_digest(freeze["prediction_set"])
+        freeze["freeze_digest"] = canonical_digest(
+            {key: value for key, value in freeze.items() if key != "freeze_digest"}
+        )
+        blindness = make_blindness(freeze)
+        result = finalize_manifest(
+            prepare_manifest(PACKET, PARTICIPANT),
+            run=RUN,
+            blindness=blindness,
+            assessment=ASSESSMENT,
+            prediction_freeze=freeze,
+        )
+        self.assertEqual(result["measurement_status"], NOT_MEASURED)
+        self.assertIn(
+            "prediction freeze does not cover every prepared blind case exactly once",
+            result["publication"]["blockers"],
+        )
+
+    def test_prediction_freeze_cannot_predate_declared_run_completion(self) -> None:
+        freeze = json.loads(json.dumps(FREEZE))
+        freeze["frozen_at"] = "2026-09-03T18:09:00Z"
+        freeze["freeze_digest"] = canonical_digest(
+            {key: value for key, value in freeze.items() if key != "freeze_digest"}
+        )
+        blindness = make_blindness(freeze)
+        result = finalize_manifest(
+            prepare_manifest(PACKET, PARTICIPANT),
+            run=RUN,
+            blindness=blindness,
+            assessment=ASSESSMENT,
+            prediction_freeze=freeze,
+        )
+        self.assertEqual(result["measurement_status"], NOT_MEASURED)
+        self.assertTrue(
+            any(
+                "predates the declared run completion" in blocker
+                for blocker in result["publication"]["blockers"]
+            )
+        )
+
     def test_naked_workflow_boolean_never_measures(self) -> None:
         assessment = json.loads(json.dumps(ASSESSMENT))
         assessment["observations"][0]["evidence"].pop("verification")
@@ -303,7 +476,14 @@ class ArenaTests(unittest.TestCase):
     def test_different_scopes_cannot_be_ranked_against_each_other(self) -> None:
         left = finalize_manifest(prepare_manifest(PACKET, PARTICIPANT), run=RUN, blindness=BLINDNESS, assessment=ASSESSMENT)
         other = dict(PARTICIPANT, participant_id="narrow", capability_scope=["security_review"])
-        right = finalize_manifest(prepare_manifest(PACKET, other), run=RUN, blindness=BLINDNESS, assessment=ASSESSMENT)
+        other_freeze = make_prediction_freeze(other)
+        right = finalize_manifest(
+            prepare_manifest(PACKET, other),
+            run=RUN,
+            blindness=make_blindness(other_freeze),
+            assessment=ASSESSMENT,
+            prediction_freeze=other_freeze,
+        )
         ok, reason = comparable(left, right)
         self.assertFalse(ok)
         self.assertIn("capability scopes differ", reason)
@@ -311,7 +491,14 @@ class ArenaTests(unittest.TestCase):
     def test_same_scope_and_packet_are_comparable_after_measurement(self) -> None:
         left = finalize_manifest(prepare_manifest(PACKET, PARTICIPANT), run=RUN, blindness=BLINDNESS, assessment=ASSESSMENT)
         other = dict(PARTICIPANT, participant_id="demo-agent-2", display_name="Demo Agent 2")
-        right = finalize_manifest(prepare_manifest(PACKET, other), run=RUN, blindness=BLINDNESS, assessment=ASSESSMENT)
+        other_freeze = make_prediction_freeze(other)
+        right = finalize_manifest(
+            prepare_manifest(PACKET, other),
+            run=RUN,
+            blindness=make_blindness(other_freeze),
+            assessment=ASSESSMENT,
+            prediction_freeze=other_freeze,
+        )
         ok, reason = comparable(left, right)
         self.assertTrue(ok, reason)
 

@@ -231,11 +231,14 @@ python evals/arena.py finalize \
   --manifest work/arena-prepared.json \
   --run work/run.json \
   --blindness work/blindness.json \
+  --prediction-freeze work/prediction-freeze.json \
   --assessment work/assessment.json \
   --output work/arena-result.json
 ```
 
 The result stays **NOT_MEASURED** unless all required run metadata exists, the evaluator is independently identified, contamination is explicitly `UNCONTAMINATED`, truth was sealed until after predictions, prediction and truth digests are present, every scored workflow judgment is evidence-backed, and every full-workflow metric has at least one applicable assessed observation.
+
+Finalization also validates the supplied prediction-freeze artifact itself. The blindness record must use the exact freeze digest, prediction digest, and freeze timestamp; its truth-reveal timestamp must be timezone-aware and strictly later. The freeze must be bound to the same prepared packet and participant. A manually constructed blindness JSON without that chain remains `NOT_MEASURED`.
 
 ## Comparison rule
 

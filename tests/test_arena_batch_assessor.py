@@ -9,6 +9,7 @@ import unittest
 
 from evals.arena import MEASURED, canonical_digest, finalize_manifest, prepare_manifest
 from evals.arena_batch import READY_STATUS as BATCH_READY_STATUS
+from evals.arena_freeze import build_blindness_record, build_prediction_freeze
 from evals.arena_batch_assessor import (
     ArenaBatchAssessmentError,
     READY_STATUS,
@@ -53,15 +54,6 @@ RUN = {
     "output_tokens": None,
     "cost": None,
 }
-
-BLINDNESS = {
-    "evaluator_independent": True,
-    "truth_revealed_after_predictions": True,
-    "contamination": "UNCONTAMINATED",
-    "ground_truth_digest": "sha256:" + "1" * 64,
-    "prediction_digest": "sha256:" + "2" * 64,
-}
-
 
 def file_digest(path: Path) -> str:
     return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
@@ -212,11 +204,27 @@ class ArenaBatchAssessmentTests(unittest.TestCase):
                 make_spec(handoff, artifacts),
                 base_dir=root,
             )
+            prepared = prepare_manifest(PACKET, PARTICIPANT)
+            freeze = build_prediction_freeze(
+                prepared,
+                handoff,
+                frozen_at="2026-09-26T10:11:00Z",
+                recorder_identity="Independent Eval Operator",
+                recorder_role="prediction-custodian",
+            )
+            blindness = build_blindness_record(
+                freeze,
+                ground_truth_digest="sha256:" + "1" * 64,
+                truth_revealed_at="2026-09-26T10:12:00Z",
+                evaluator_independent=True,
+                contamination="UNCONTAMINATED",
+            )
             result = finalize_manifest(
-                prepare_manifest(PACKET, PARTICIPANT),
+                prepared,
                 run=RUN,
-                blindness=BLINDNESS,
+                blindness=blindness,
                 assessment=assessment,
+                prediction_freeze=freeze,
             )
             self.assertEqual(result["measurement_status"], MEASURED)
             self.assertTrue(result["publication"]["eligible"])
