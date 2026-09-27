@@ -245,3 +245,33 @@ Finalization also validates the supplied prediction-freeze artifact itself. The 
 `arena.comparable(left, right)` only permits an apples-to-apples comparison when both records are `MEASURED`, use the same blind packet, have the same participant category, and declare the same capability scope.
 
 This intentionally prevents a narrow scanner from winning by skipping work and prevents a broad workflow from being penalized for capabilities another participant never attempted.
+
+## 3.0 Bind a production-like LOCAL fixture to the full workflow
+
+Before building the normal manifest-verified Arena measurement bundle for a
+STATEFUL_APPLICATION or COMPOSITE_APPLICATION case, bind the fixture self-test
+to the exact completed SecHelix run:
+
+```bash
+python evals/arena_fixture_run_binding.py \
+  --fixture-result work/fixture-result.json \
+  --run work/run.json \
+  --expected-tier STATEFUL_APPLICATION \
+  --output work/fixture-run-binding.json
+```
+
+The binder is fail-closed. The fixture must have passed every contract check,
+remain literal-loopback only, and retain the explicit
+`production_effectiveness_established=false` /
+`arena_full_workflow_measured=false` disclaimers. The run must have no failed,
+blocked, or unsatisfied mandatory nodes and must contain the exact successful
+dependency chain `INDEPENDENT_VERIFIER → REMEDIATOR → PATCH_VERIFIER →
+RELEASE_GATE`. PATCH_VERIFIER must carry runtime independent-verification
+evidence.
+
+A READY binding is still `NOT_MEASURED`. It reads no blind truth, scores no
+correctness, and does not establish evaluator independence. Continue with the
+manifest-verified measurement/batch handoff, freeze the complete prediction
+packet before truth reveal, and use an independent assessor for the actual Arena
+judgments.
+
