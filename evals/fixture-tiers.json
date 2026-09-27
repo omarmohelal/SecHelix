@@ -93,11 +93,11 @@
       "benchmark_id": "stateful-application-tier",
       "runner": "evals/production_like_fixture.py",
       "tier": "STATEFUL_APPLICATION",
-      "status": "PLANNED",
+      "status": "AVAILABLE",
       "properties": {
         "runtime_execution": true,
         "network_scope": "LOOPBACK_ONLY",
-        "real_browser": true,
+        "real_browser": false,
         "durable_state": true,
         "multi_step_workflow": true,
         "deterministic_reset": true,
@@ -105,10 +105,10 @@
         "service_count": 1,
         "async_boundary": false
       },
-      "reset_strategy": "A future fixture must restore database and session state from a deterministic seed before each case.",
+      "reset_strategy": "The SQLite workflow store is dropped and recreated from a deterministic seed before each self-test run, restoring the order and removing refund state.",
       "limitations": [
-        "Planned tier definition only; no score may be published from this entry.",
-        "Even when implemented, this tier remains a controlled LOCAL fixture and is not a production-effectiveness measurement."
+        "The self-test measures the fixture contract only; it does not score SecHelix discovery, independent verification, remediation, regression generation, or release-gate correctness.",
+        "This is a controlled literal-loopback single-service fixture and does not establish production effectiveness."
       ]
     },
     {

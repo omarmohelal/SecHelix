@@ -119,8 +119,8 @@ security effectiveness:
 - `COMPOSITE_APPLICATION`: the stateful tier plus multiple services and an
   asynchronous boundary.
 
-Higher-tier claims fail closed when required properties are absent. Planned
-tiers remain planned and cannot be presented as measured. Even a measured
+Higher-tier claims fail closed when required properties are absent. Entries
+marked `PLANNED` remain planned and cannot be presented as measured. Even a measured
 composite LOCAL fixture does not establish production effectiveness and does not
 replace the uncontaminated independent full-workflow Arena protocol.
 
@@ -129,6 +129,24 @@ Validate the registry with:
 ```bash
 python evals/fixture_tiers.py
 ```
+
+### Stateful application fixture
+
+The first `STATEFUL_APPLICATION` fixture is now executable through
+`production_like_fixture.py`. It is a literal-loopback HTTP application with
+SQLite durable state, three distinct fixture personas (customer, reviewer and
+finance), a request → approve → settle refund workflow, role/prerequisite
+enforcement and deterministic reset.
+
+```bash
+python evals/production_like_fixture.py \
+  --output work/stateful-fixture.json
+```
+
+The emitted `MEASURED` status applies only to the fixture self-test contract.
+The artifact explicitly keeps `production_effectiveness_established=false`
+and `arena_full_workflow_measured=false`. It is therefore evidence that the
+fixture behaves deterministically, not a SecHelix accuracy or production claim.
 
 
 ## Dynamic proof primitive benchmark
