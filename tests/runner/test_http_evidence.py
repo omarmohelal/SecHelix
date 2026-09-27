@@ -151,6 +151,33 @@ class HttpEvidenceRecorderTests(unittest.TestCase):
             parsed = json.loads(raw)
             self.assertEqual(len(parsed["set_cookie_security"]), 2)
 
+    def test_shared_response_security_projection_matches_recorder(self) -> None:
+        request_headers = {"Origin": "https://portal.example.test"}
+        response_headers = {
+            "Access-Control-Allow-Origin": "https://portal.example.test",
+            "Vary": "Origin",
+            "Cache-Control": "private, no-store",
+            "Content-Security-Policy": "default-src 'self'; frame-ancestors 'none'",
+            "X-Frame-Options": "DENY",
+            "X-Content-Type-Options": "nosniff",
+        }
+        projected = response_security_projection(
+            request_headers=request_headers,
+            response_headers=response_headers,
+        )
+        recorded = HttpEvidenceRecorder().record_exchange(
+            method="GET",
+            url="https://app.example.test/account",
+            status=200,
+            content_type="text/html",
+            request_headers=request_headers,
+            response_headers=response_headers,
+            request_body_bytes=0,
+            response_body_bytes=12,
+            authentication_context=None,
+        )
+        self.assertEqual(recorded.response_security, projected)
+
     def test_response_security_projection_is_rich_but_value_free(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "http.jsonl"
