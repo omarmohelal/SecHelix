@@ -874,3 +874,28 @@ remains `OBSERVATION` context for specialists and the independent verifier.
 
 Browser header-capture failure stays `NOT_MEASURED` rather than being silently
 interpreted as every security header being absent.
+
+
+## Value-free proxy/cache provenance
+
+SecHelix now derives a fixed proxy/cache provenance projection from both direct
+HTTP and browser execution paths. Raw intermediary header values are consumed
+only transiently and are never written into artifacts.
+
+The persisted projection is intentionally coarse. It records:
+
+- whether a Via chain was observed and a bounded hop-count hint;
+- whether Age was present and whether it was positive;
+- a coarse cache outcome class such as hit, miss, bypass, stale/revalidated or
+  other;
+- only allowlisted forwarding request-header names;
+- only fixed intermediary marker classes derived from response-header names.
+
+It does not store Via contents, client/proxy IPs, cache node names, request IDs,
+CDN trace IDs, Authorization/Cookie values, or arbitrary header values.
+
+Fresh authenticated-flow correlation now compares this value-free provenance
+between browser and direct-HTTP evidence. Results are only MATCH, DIFF or
+NOT_MEASURED with differing fixed field names. A difference is contextual
+evidence that paths may differ; it is never a vulnerability verdict and cannot
+promote a finding.

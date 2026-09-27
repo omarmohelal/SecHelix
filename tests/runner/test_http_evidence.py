@@ -10,7 +10,10 @@ from sechelix_runner.pentest.api_client import AuthorizedApiClient
 from sechelix_runner.pentest.gateway import PolicyToolGateway
 from sechelix_runner.pentest.http_evidence import (
     HttpEvidenceRecorder,
+    HttpReplayDenied,
+    record_from_dict,
     response_security_projection,
+    transport_provenance_projection,
 )
 from sechelix_runner.pentest.scope import ScopeEndpoint, TargetScope
 from sechelix_runner.sandbox import ExecutionMode
@@ -269,6 +272,126 @@ class HttpEvidenceRecorderTests(unittest.TestCase):
         self.assertEqual(record.response_security.cors_allow_origin, "wildcard")
         self.assertTrue(record.response_security.cache_public)
         self.assertFalse(record.response_security.cache_private)
+
+    def test_transport_provenance_projection_is_value_free_and_bounded(self) -> None:
+        request_headers = {
+            "X-Forwarded-For": "203.0.113.5, 10.0.0.2",
+            "X-Forwarded-Proto": "https",
+            "Authorization": "Bearer never-persist",
+        }
+        response_headers = {
+            "Via": "1.1 edge-a, 1.1 edge-b",
+            "Age": "42",
+            "CF-Cache-Status": "HIT",
+            "CF-Ray": "secret-ray-id",
+            "X-Cache": "HIT from private-node-name",
+            "Content-Type": "application/json",
+        }
+        projected = transport_provenance_projection(
+            request_headers=request_headers,
+            response_headers=response_headers,
+        )
+        self.assertTrue(projected.via_present)
+        self.assertEqual(projected.via_hop_count, 2)
+        self.assertTrue(projected.age_present)
+        self.assertTrue(projected.age_positive)
+        self.assertEqual(projected.cache_status, "hit")
+        self.assertEqual(
+            projected.forwarding_request_headers,
+            ("x-forwarded-for", "x-forwarded-proto"),
+        )
+        self.assertEqual(
+            set(projected.intermediary_markers),
+            {"cache-proxy", "cloudflare", "via"},
+        )
+        rendered = json.dumps(projected.__dict__)
+        self.assertNotIn("203.0.113.5", rendered)
+        self.assertNotIn("edge-a", rendered)
+        self.assertNotIn("secret-ray-id", rendered)
+        self.assertNotIn("private-node-name", rendered)
+        self.assertNotIn("never-persist", rendered)
+
+    def test_transport_provenance_is_persisted_without_raw_proxy_values(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "http.jsonl"
+            record = HttpEvidenceRecorder(path).record_exchange(
+                method="GET",
+                url="https://app.example.test/api/me",
+                status=200,
+                content_type="application/json",
+                request_headers={
+                    "Forwarded": "for=203.0.113.8;proto=https",
+                    "Cookie": "session=very-secret",
+                },
+                response_headers={
+                    "Via": "1.1 internal-edge-secret",
+                    "Age": "9",
+                    "X-Vercel-Id": "sfo1::private-id",
+                    "X-Cache": "MISS from hidden-cache",
+                },
+                request_body_bytes=0,
+                response_body_bytes=10,
+                authentication_context="persona:buyer",
+            )
+            self.assertEqual(record.transport_provenance.cache_status, "miss")
+            self.assertEqual(record.transport_provenance.via_hop_count, 1)
+            self.assertIn("vercel", record.transport_provenance.intermediary_markers)
+            raw = path.read_text(encoding="utf-8")
+            self.assertNotIn("203.0.113.8", raw)
+            self.assertNotIn("very-secret", raw)
+            self.assertNotIn("internal-edge-secret", raw)
+            self.assertNotIn("private-id", raw)
+            self.assertNotIn("hidden-cache", raw)
+            parsed = json.loads(raw)
+            self.assertEqual(parsed["transport_provenance"]["cache_status"], "miss")
+            self.assertEqual(parsed["transport_provenance"]["via_hop_count"], 1)
+
+    def test_transport_provenance_parser_rejects_untrusted_shape(self) -> None:
+        record = HttpEvidenceRecorder().record_exchange(
+            method="GET",
+            url="https://app.example.test/health",
+            status=200,
+            content_type="text/plain",
+            request_headers={},
+            response_headers={},
+            request_body_bytes=0,
+            response_body_bytes=2,
+            authentication_context=None,
+        )
+        payload = record.as_dict()
+        payload["transport_provenance"]["via_present"] = "yes"
+        with self.assertRaises(HttpReplayDenied):
+            record_from_dict(payload)
+
+        payload = record.as_dict()
+        payload["transport_provenance"]["intermediary_markers"] = ["invented-proxy"]
+        with self.assertRaises(HttpReplayDenied):
+            record_from_dict(payload)
+
+        payload = record.as_dict()
+        payload["transport_provenance"]["via_hop_count"] = True
+        with self.assertRaises(HttpReplayDenied):
+            record_from_dict(payload)
+
+        payload = record.as_dict()
+        payload["transport_provenance"]["via_hop_count"] = 1
+        payload["transport_provenance"]["via_present"] = False
+        with self.assertRaises(HttpReplayDenied):
+            record_from_dict(payload)
+
+        payload = record.as_dict()
+        payload["transport_provenance"]["age_positive"] = True
+        payload["transport_provenance"]["age_present"] = False
+        with self.assertRaises(HttpReplayDenied):
+            record_from_dict(payload)
+
+        payload = record.as_dict()
+        payload["transport_provenance"]["forwarding_request_headers"] = [
+            "forwarded",
+            "forwarded",
+        ]
+        with self.assertRaises(HttpReplayDenied):
+            record_from_dict(payload)
 
     def test_redirect_trace_redacts_query_values_and_preserves_method_changes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
