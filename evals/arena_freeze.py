@@ -161,14 +161,26 @@ def build_prediction_freeze(
     if not isinstance(recorder_role, str) or not recorder_role.strip():
         raise ArenaPredictionFreezeError("recorder_role must be a non-empty string")
 
-    prediction_set = [
-        {
+    prediction_set = []
+    for row in sorted(cases, key=lambda item: str(item["case_id"])):
+        prediction_row = {
             "case_id": str(row["case_id"]),
             "run_id": str(row["run_id"]),
             "bundle_digest": str(row["bundle_digest"]),
         }
-        for row in sorted(cases, key=lambda item: str(item["case_id"]))
-    ]
+        fixture_binding = row.get("fixture_binding")
+        if fixture_binding is not None:
+            if not isinstance(fixture_binding, Mapping):
+                raise ArenaPredictionFreezeError(
+                    f"{row['case_id']} fixture binding metadata is malformed"
+                )
+            fixture_binding_digest = fixture_binding.get("binding_digest")
+            if not _is_digest(fixture_binding_digest):
+                raise ArenaPredictionFreezeError(
+                    f"{row['case_id']} fixture binding digest missing or malformed"
+                )
+            prediction_row["fixture_binding_digest"] = fixture_binding_digest
+        prediction_set.append(prediction_row)
     prediction_digest = canonical_digest(prediction_set)
 
     freeze: dict[str, Any] = {
@@ -251,7 +263,12 @@ def validate_prediction_freeze(freeze: Mapping[str, Any]) -> None:
     for row in prediction_set:
         if not isinstance(row, Mapping):
             raise ArenaPredictionFreezeError("prediction set contains a non-object row")
-        if set(row) != {"case_id", "run_id", "bundle_digest"}:
+        allowed_shape = {"case_id", "run_id", "bundle_digest"}
+        row_keys = set(row)
+        if row_keys not in (
+            allowed_shape,
+            allowed_shape | {"fixture_binding_digest"},
+        ):
             raise ArenaPredictionFreezeError("prediction set row has an invalid shape")
         case_id = row.get("case_id")
         run_id = row.get("run_id")
@@ -266,6 +283,12 @@ def validate_prediction_freeze(freeze: Mapping[str, Any]) -> None:
         if not _is_digest(bundle_digest):
             raise ArenaPredictionFreezeError(
                 f"{case_id} prediction bundle_digest is malformed"
+            )
+        if "fixture_binding_digest" in row and not _is_digest(
+            row.get("fixture_binding_digest")
+        ):
+            raise ArenaPredictionFreezeError(
+                f"{case_id} prediction fixture_binding_digest is malformed"
             )
 
     if canonical_digest(prediction_set) != freeze.get("prediction_digest"):
