@@ -172,6 +172,33 @@ class EvidencePromotionTests(unittest.TestCase):
         self.assertIs(result.records["verify"].status, NodeStatus.SUCCEEDED)
         self.assertIn("candidates", result.context_views["verify"]["source_ids"])
 
+    def test_verifier_assessments_reach_gate_without_becoming_findings(self) -> None:
+        assessment = {
+            "candidate_ref": "sha256:" + "c" * 64,
+            "classification": "VERIFIED",
+            "claim": "cross-account read",
+            "location": "GET /orders/{id}",
+            "why": "the supplied boundary could not be refuted",
+            "refutation_attempt": "reconstructed the ownership path independently",
+        }
+        executor = MockExecutor(
+            {
+                "verify": NodeOutcome(
+                    status=NodeStatus.SUCCEEDED,
+                    output={"assessments": [assessment]},
+                )
+            }
+        )
+        result = runner(executor=executor).run(pipeline(), world())
+
+        self.assertIs(result.records["gate"].status, NodeStatus.SUCCEEDED)
+        self.assertIn(
+            "verifier_assessments",
+            result.context_views["gate"]["source_ids"],
+        )
+        # A typed VERIFIED assessment is still not a canonical finding-v1 record.
+        self.assertEqual(world()["findings"], [])
+
     def test_promotion_does_not_mutate_caller_world(self) -> None:
         original = world()
         original.pop("candidates")
