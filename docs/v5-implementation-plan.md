@@ -27,7 +27,7 @@ is a hard boundary outside model control.
 | Evidence-first verification | Shipped | Preserve; independent verifier remains mandatory |
 | Scope boundary | Policy gateway shipped for LOCAL/STAGING browser/API/static execution | Keep every new executor behind the same gateway |
 | Browser/auth/personas | Browser/API authority, persona matrix, declared authz probes and bounded LOCAL CSRF proof shipped | Add explicit Playwright XSS execution + session rotation/revocation fixtures and richer state capture |
-| HTTP/API | Policy-gated request runner + same-origin redirect enforcement + secret-minimized exchange evidence + anonymous safe replay + cookie metadata + fresh authenticated-flow correlation + value-free response-security projection shipped | Add browser/proxy parity and richer correlation without persisting credential values |
+| HTTP/API | Policy-gated request runner + same-origin redirect enforcement + secret-minimized exchange evidence + anonymous safe replay + cookie metadata + fresh authenticated-flow correlation + shared value-free response-security projection across direct HTTP and browser capture shipped | Add deeper proxy/correlation provenance without persisting credential values |
 | External scanners | Semgrep, curated JWT/session scout, Gitleaks and Trivy run through the gateway; isolated scanner ablations are measurable; Gitleaks/Trivy release archives and the Semgrep/pip-audit Python graph are SHA-256 hash locked | Keep scanner/runtime provenance current and publish image provenance |
 | Sandbox | Docker policy/executor + dedicated V5 security runtime exist; base image is digest-pinned, Python dependencies install with `--require-hashes`, the final stage excludes download tooling, and CI emits a lock-derived CycloneDX runtime SBOM evidence bundle | Add published image provenance/attestation without overstating local CI evidence |
 | Tool gateway | Shipped and consumed by browser/API/static execution | Extend only through named capabilities; never add a generic shell |
@@ -839,3 +839,22 @@ The next correctness milestone is an uncontaminated external/independent Arena
 run that uses this freeze chain and evidence-backed batch assessment to measure
 verifier, false-positive refutation, root-cause, regression-proof and release
 gate accuracy without self-certification.
+
+
+## Browser / HTTP response-security parity
+
+Browser network evidence and direct HTTP evidence now use the same fixed
+value-free response-security projection. Playwright response/request headers are
+consumed only in memory and immediately reduced to transport classes such as
+CORS class, cache directives, CSP/frame-ancestor presence, X-Frame-Options,
+nosniff, HSTS, referrer/permissions policy and cross-origin isolation headers.
+
+No raw header value is retained on `NetworkEvent`. If Playwright cannot expose
+the headers for a response, browser evidence stores `None` rather than
+misrepresenting an unmeasured projection as "all protections absent".
+
+Grouped browser exchanges carry the projection into canonical runtime
+observations, which gives authentication/API specialists browser/direct-HTTP
+parity without exposing Authorization, Cookie, CSP text, HSTS max-age, origins
+or other potentially sensitive header values. This is transport observation
+only and cannot promote a finding without the normal independent verifier.
