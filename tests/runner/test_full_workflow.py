@@ -43,7 +43,7 @@ def chain() -> dict[str, ChainEvidence]:
     return {
         name: ChainEvidence(
             statement=f"{name} established by controlled fixture evidence",
-            evidence_ids=(f"EV-{index:02d}",),
+            evidence_ids=(f"EV-LIVE-{index:02d}",),
         )
         for index, name in enumerate(names, start=1)
     }
@@ -163,7 +163,7 @@ class FullWorkflowTests(unittest.TestCase):
             "evidence": [
                 {"evidence_id": "EV-VERIFY"},
                 *[
-                    {"evidence_id": f"EV-{index:02d}"}
+                    {"evidence_id": f"EV-LIVE-{index:02d}"}
                     for index in range(1, 8)
                 ],
             ],
