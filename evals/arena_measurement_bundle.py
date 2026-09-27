@@ -113,6 +113,7 @@ def build_measurement_bundle(
         },
         "bindings": {
             "arena_run_digest": _canonical_digest(run_record),
+            "run_artifact_digest": run_record.get("run_artifact_digest"),
             "workspace_evidence_digest": _canonical_digest(workspace_index),
             "workspace_artifacts": dict(artifacts),
         },
@@ -163,7 +164,9 @@ def build_bundle_from_workspace(
         artifact_digest=run_digest,
     )
     workspace_index = build_workspace_evidence_index(workspace_root, run_id)
-    return build_measurement_bundle(run_record, workspace_index)
+    bundle = build_measurement_bundle(run_record, workspace_index)
+    bundle["bindings"]["run_payload_digest"] = _canonical_digest(run)
+    return bundle
 
 
 def _cli() -> int:

@@ -97,6 +97,16 @@ and refuses mismatched run ID, target commit, scope, or graph digest. The output
 contains only operational telemetry, artifact digests and digest-only role
 evidence targets.
 
+
+
+For production-like LOCAL fixture cases, add `fixture_binding_path` to the
+corresponding run-map row. The batch builder verifies that the binding uses the
+same run ID, target commit, scope, graph digest, and canonical run-payload digest
+as the manifest-verified Arena bundle, then carries only the fixture tier and
+stable binding/result digests into the blind packet handoff. This makes the
+fixture/run association part of the handoff digest that is frozen before truth
+reveal.
+
 `READY_FOR_INDEPENDENT_ASSESSMENT` is not a security score. The bundle
 explicitly leaves correctness unscored; an independent evaluator must still
 produce the evidence-backed assessment described below.
