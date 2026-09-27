@@ -19,6 +19,12 @@ on:
       - 'scripts/generate_security_runtime_sbom.py'
       - '.github/workflows/security-runtime.yml'
   workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish the verified runtime image to GHCR and attest the pushed digest'
+        required: true
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -88,3 +94,61 @@ jobs:
           path: ${{ runner.temp }}/security-runtime-evidence/
           if-no-files-found: error
           retention-days: 14
+
+  publish-attested-image:
+    needs: build-and-smoke
+    if: github.event_name == 'workflow_dispatch' && inputs.publish == true && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Authenticate to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate deterministic runtime SBOM
+        run: |
+          set -euo pipefail
+          SOURCE_DATE_EPOCH="$(git log -1 --pretty=%ct)" \
+            python scripts/generate_security_runtime_sbom.py \
+              --output "${RUNNER_TEMP}/sechelix-security-runtime.cdx.json"
+
+      - name: Build and publish immutable runtime image
+        id: push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: containers/security-runtime
+          pull: true
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/sechelix-security-runtime:sha-${{ github.sha }}
+
+      - name: Attest SLSA build provenance for pushed digest
+        id: provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-name: ghcr.io/${{ github.repository_owner }}/sechelix-security-runtime
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Attest runtime SBOM for pushed digest
+        id: sbom
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-name: ghcr.io/${{ github.repository_owner }}/sechelix-security-runtime
+          subject-digest: ${{ steps.push.outputs.digest }}
+          sbom-path: ${{ runner.temp }}/sechelix-security-runtime.cdx.json
+          push-to-registry: true
