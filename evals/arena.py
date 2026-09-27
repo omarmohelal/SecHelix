@@ -20,6 +20,10 @@ MEASURED = "MEASURED"
 NOT_MEASURED = "NOT_MEASURED"
 NA = "NOT_APPLICABLE"
 SCHEMA_VERSION = "sechelix-arena/v1"
+_BATCH_ASSESSMENT_SCHEMA_VERSION = "sechelix-arena-batch-assessment/v1"
+_BATCH_ASSESSMENT_READY_STATUS = "READY_FOR_ARENA_FINALIZE"
+_PROTOCOL_BINDING_SCHEMA_VERSION = "sechelix-arena-assessment-protocol-binding/v1"
+_PROTOCOL_BINDING_STATUS = "SEALED_FOR_ARENA_FINALIZE"
 
 PARTICIPANT_CATEGORIES = {
     "AGENT_WORKFLOW",
@@ -403,6 +407,120 @@ def _prediction_freeze_blockers(
     return blockers
 
 
+def _assessment_core_digest(assessment: Mapping[str, Any]) -> str:
+    return canonical_digest(
+        {
+            "packet_digest": assessment.get("packet_digest"),
+            "assessor": assessment.get("assessor"),
+            "observations": assessment.get("observations"),
+        }
+    )
+
+
+def _batch_protocol_blockers(
+    manifest: Mapping[str, Any],
+    assessment: Mapping[str, Any],
+    prediction_freeze: Mapping[str, Any] | None,
+) -> list[str]:
+    """Require batch assessments to be sealed to one exact protocol chain.
+
+    Generic Arena assessment packets remain supported. Once an assessment carries
+    batch_binding metadata, publication requires the stronger binding emitted by
+    arena_batch_assessor.py so the same judgments cannot be replayed against a
+    different handoff, freeze, or post-freeze blindness record.
+    """
+
+    batch_binding = assessment.get("batch_binding")
+    if batch_binding is None:
+        return []
+    if not isinstance(batch_binding, Mapping):
+        return ["assessment batch_binding is malformed"]
+
+    blockers: list[str] = []
+    if batch_binding.get("schema_version") != _BATCH_ASSESSMENT_SCHEMA_VERSION:
+        blockers.append("assessment batch_binding schema is unsupported")
+    if batch_binding.get("status") != _BATCH_ASSESSMENT_READY_STATUS:
+        blockers.append("assessment batch_binding is not ready for Arena finalize")
+
+    core_digest = _assessment_core_digest(assessment)
+    if batch_binding.get("assessment_digest") != core_digest:
+        blockers.append("assessment payload digest does not match batch_binding")
+
+    packet = manifest.get("packet")
+    observations = assessment.get("observations")
+    if not isinstance(packet, Mapping):
+        blockers.append("prepared packet record missing for batch assessment")
+    else:
+        if batch_binding.get("case_id_digest") != packet.get("case_id_digest"):
+            blockers.append("assessment batch_binding case identity digest mismatch")
+    if not isinstance(observations, list):
+        blockers.append("assessment observations missing for batch binding")
+    elif batch_binding.get("case_count") != len(observations):
+        blockers.append("assessment batch_binding case_count mismatch")
+
+    handoff_digest = batch_binding.get("handoff_digest")
+    if not _is_digest(handoff_digest):
+        blockers.append("assessment batch_binding handoff_digest missing or malformed")
+
+    protocol = assessment.get("protocol_binding")
+    if not isinstance(protocol, Mapping):
+        blockers.append("batch assessment protocol binding missing")
+        return blockers
+
+    if protocol.get("schema_version") != _PROTOCOL_BINDING_SCHEMA_VERSION:
+        blockers.append("assessment protocol binding schema is unsupported")
+    if protocol.get("status") != _PROTOCOL_BINDING_STATUS:
+        blockers.append("assessment protocol binding is not sealed for finalize")
+
+    binding_digest = protocol.get("binding_digest")
+    if not _is_digest(binding_digest):
+        blockers.append("assessment protocol binding digest missing or malformed")
+    else:
+        expected_binding_digest = canonical_digest(
+            {key: value for key, value in protocol.items() if key != "binding_digest"}
+        )
+        if binding_digest != expected_binding_digest:
+            blockers.append("assessment protocol binding digest does not match contents")
+
+    if isinstance(packet, Mapping):
+        if protocol.get("packet_digest") != packet.get("digest"):
+            blockers.append("assessment protocol binding packet digest mismatch")
+        if protocol.get("case_id_digest") != packet.get("case_id_digest"):
+            blockers.append("assessment protocol binding case identity digest mismatch")
+
+    if protocol.get("handoff_digest") != handoff_digest:
+        blockers.append("assessment protocol binding handoff digest mismatch")
+    if protocol.get("assessment_digest") != core_digest:
+        blockers.append("assessment protocol binding assessment digest mismatch")
+    if protocol.get("case_count") != batch_binding.get("case_count"):
+        blockers.append("assessment protocol binding case_count mismatch")
+
+    blindness = manifest.get("blindness")
+    if not isinstance(blindness, Mapping):
+        blockers.append("blindness record missing for assessment protocol binding")
+    else:
+        if protocol.get("blindness_digest") != canonical_digest(blindness):
+            blockers.append("assessment protocol binding blindness digest mismatch")
+        if protocol.get("ground_truth_digest") != blindness.get("ground_truth_digest"):
+            blockers.append("assessment protocol binding ground-truth digest mismatch")
+        if protocol.get("truth_revealed_at") != blindness.get("truth_revealed_at"):
+            blockers.append("assessment protocol binding truth-reveal timestamp mismatch")
+
+    if not isinstance(prediction_freeze, Mapping):
+        blockers.append("prediction freeze missing for assessment protocol binding")
+    else:
+        if protocol.get("prediction_freeze_digest") != prediction_freeze.get("freeze_digest"):
+            blockers.append("assessment protocol binding prediction-freeze digest mismatch")
+        if protocol.get("prediction_digest") != prediction_freeze.get("prediction_digest"):
+            blockers.append("assessment protocol binding prediction digest mismatch")
+        if protocol.get("participant_digest") != prediction_freeze.get("participant_digest"):
+            blockers.append("assessment protocol binding participant digest mismatch")
+        if prediction_freeze.get("handoff_digest") != handoff_digest:
+            blockers.append("prediction freeze and assessment batch handoff digest mismatch")
+
+    return blockers
+
+
 def _publication_blockers(
     manifest: Mapping[str, Any],
     assessment: Mapping[str, Any],
@@ -410,6 +528,7 @@ def _publication_blockers(
 ) -> list[str]:
     blockers = _assessment_blockers(manifest, assessment)
     blockers.extend(_prediction_freeze_blockers(manifest, prediction_freeze))
+    blockers.extend(_batch_protocol_blockers(manifest, assessment, prediction_freeze))
     run = manifest.get("run")
     if not isinstance(run, Mapping):
         return sorted(set(blockers + ["run metadata missing"]))
@@ -470,6 +589,12 @@ def finalize_manifest(
         else None
     )
     result["assessment_digest"] = canonical_digest(assessment)
+    protocol_binding = assessment.get("protocol_binding")
+    result["assessment_protocol_binding_digest"] = (
+        protocol_binding.get("binding_digest")
+        if isinstance(protocol_binding, Mapping)
+        else None
+    )
     result["full_workflow"] = {metric: _rate(assessment, metric) for metric in WORKFLOW_METRICS}
     blockers = _publication_blockers(result, assessment, prediction_freeze)
     result["measurement_status"] = MEASURED if not blockers else NOT_MEASURED
