@@ -8,7 +8,10 @@ from unittest.mock import patch
 
 from sechelix_runner.pentest.api_client import AuthorizedApiClient
 from sechelix_runner.pentest.gateway import PolicyToolGateway
-from sechelix_runner.pentest.http_evidence import HttpEvidenceRecorder
+from sechelix_runner.pentest.http_evidence import (
+    HttpEvidenceRecorder,
+    response_security_projection,
+)
 from sechelix_runner.pentest.scope import ScopeEndpoint, TargetScope
 from sechelix_runner.sandbox import ExecutionMode
 
