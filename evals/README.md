@@ -104,6 +104,32 @@ See [`arena/README.md`](arena/README.md) and start from
 Fixtures are synthetic source fragments for static reasoning. Do not deploy
 them, attach live credentials, or point them at external targets.
 
+## Fixture realism tiers
+
+`fixture_tiers.py` validates a conservative registry of benchmark realism in
+`fixture-tiers.json`. The tiers are intentionally about fixture depth, not
+security effectiveness:
+
+- `STATIC_PAIR`: source-only vulnerable/clean siblings;
+- `LOCAL_PRIMITIVE`: deterministic bounded loopback proof execution;
+- `REAL_BROWSER_INTEGRATION`: actual browser-engine integration against
+  literal-loopback fixtures;
+- `STATEFUL_APPLICATION`: a durable multi-step LOCAL application with at least
+  two authenticated personas and deterministic reset;
+- `COMPOSITE_APPLICATION`: the stateful tier plus multiple services and an
+  asynchronous boundary.
+
+Higher-tier claims fail closed when required properties are absent. Planned
+tiers remain planned and cannot be presented as measured. Even a measured
+composite LOCAL fixture does not establish production effectiveness and does not
+replace the uncontaminated independent full-workflow Arena protocol.
+
+Validate the registry with:
+
+```bash
+python evals/fixture_tiers.py
+```
+
 
 ## Dynamic proof primitive benchmark
 
