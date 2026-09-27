@@ -14,6 +14,7 @@ from sechelix_runner.pentest import (
     FullWorkflowGraphExecutor,
     LiveContextBuilder,
     RemediationJobTemplate,
+    parse_full_workflow_spec,
 )
 from sechelix_runner.providers.reasoning import verifier_view
 from sechelix_runner.roles import NodeRole, NodeStatus
@@ -239,6 +240,91 @@ class FullWorkflowGraphTests(unittest.TestCase):
             "remediation templates must match canonical VERIFIED findings exactly",
             result.records["independent-verifier"].error,
         )
+
+    def test_fixed_shape_spec_parser_builds_current_graph_inputs(self) -> None:
+        row = candidate()
+        candidate_ref = verifier_view(row)["candidate_ref"]
+        with tempfile.TemporaryDirectory() as tmp:
+            payload = {
+                "schema_version": "sechelix-full-workflow-spec/v1",
+                "candidates": [
+                    {
+                        "candidate_ref": candidate_ref,
+                        "title": "Cross-account order read",
+                        "severity": "HIGH",
+                        "confidence": "HIGH",
+                        "evidence_chain": {
+                            name: {
+                                "statement": evidence.statement,
+                                "evidence_ids": list(evidence.evidence_ids),
+                            }
+                            for name, evidence in chain().items()
+                        },
+                        "verifier": "independent-verifier-live",
+                        "remediation": {
+                            "patch_id": "PATCH-AUTHZ-1",
+                            "workspace": tmp,
+                            "existing_test_targets": ["tests.test_existing"],
+                            "regression_test_targets": ["tests.test_regression"],
+                            "patch_diff_review": {"deltas": []},
+                            "independent_test_targets": [
+                                "tests.test_independent_verification"
+                            ],
+                        },
+                    }
+                ],
+            }
+            spec = parse_full_workflow_spec(payload)
+
+        self.assertEqual(
+            [item.candidate_ref for item in spec.promotion_specs],
+            [candidate_ref],
+        )
+        self.assertEqual(
+            [item.candidate_ref for item in spec.remediation_templates],
+            [candidate_ref],
+        )
+        self.assertFalse(spec.audit_view()["generic_command_surface"])
+
+    def test_spec_parser_rejects_generic_command_fields(self) -> None:
+        row = candidate()
+        candidate_ref = verifier_view(row)["candidate_ref"]
+        with tempfile.TemporaryDirectory() as tmp:
+            payload = {
+                "schema_version": "sechelix-full-workflow-spec/v1",
+                "candidates": [
+                    {
+                        "candidate_ref": candidate_ref,
+                        "title": "Cross-account order read",
+                        "severity": "HIGH",
+                        "confidence": "HIGH",
+                        "evidence_chain": {
+                            name: {
+                                "statement": evidence.statement,
+                                "evidence_ids": list(evidence.evidence_ids),
+                            }
+                            for name, evidence in chain().items()
+                        },
+                        "verifier": "independent-verifier-live",
+                        "remediation": {
+                            "patch_id": "PATCH-AUTHZ-1",
+                            "workspace": tmp,
+                            "existing_test_targets": ["tests.test_existing"],
+                            "regression_test_targets": ["tests.test_regression"],
+                            "patch_diff_review": {"deltas": []},
+                            "independent_test_targets": [
+                                "tests.test_independent_verification"
+                            ],
+                            "command": "arbitrary-command",
+                        },
+                    }
+                ],
+            }
+            with self.assertRaisesRegex(
+                Exception,
+                "remediation fields mismatch",
+            ):
+                parse_full_workflow_spec(payload)
 
     def test_templates_expose_no_generic_command_surface(self) -> None:
         fields = set(RemediationJobTemplate.__dataclass_fields__)
