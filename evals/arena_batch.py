@@ -31,6 +31,8 @@ from evals.arena_run import NOT_APPLICABLE, NOT_MEASURED
 
 SCHEMA_VERSION = "sechelix-arena-batch-handoff/v1"
 READY_STATUS = "READY_FOR_INDEPENDENT_BATCH_ASSESSMENT"
+FIXTURE_BINDING_SCHEMA = "sechelix-arena-fixture-run-binding/v1"
+FIXTURE_BINDING_READY = "READY_FOR_ARENA_FIXTURE_HANDOFF"
 
 
 class ArenaBatchHandoffError(ValueError):
@@ -73,6 +75,99 @@ def _resolve_inside(base_dir: Path, raw: str, *, expect_dir: bool) -> Path:
     elif not resolved.is_file():
         raise ArenaBatchHandoffError(f"run artifact does not exist: {raw}")
     return resolved
+
+
+
+
+def _fixture_binding_for_case(
+    root: Path,
+    raw: Mapping[str, Any],
+    *,
+    case_id: str,
+    bundle: Mapping[str, Any],
+    run_id: str,
+) -> dict[str, Any] | None:
+    raw_path = raw.get("fixture_binding_path")
+    if raw_path in (None, ""):
+        return None
+    if not isinstance(raw_path, str):
+        raise ArenaBatchHandoffError(
+            f"{case_id}.fixture_binding_path must be a relative path"
+        )
+
+    resolved = _resolve_inside(root, raw_path.strip(), expect_dir=False)
+    binding = _read_object(resolved, f"{case_id} fixture binding")
+    if binding.get("schema_version") != FIXTURE_BINDING_SCHEMA:
+        raise ArenaBatchHandoffError(
+            f"{case_id} fixture binding schema is unsupported"
+        )
+    if binding.get("status") != FIXTURE_BINDING_READY:
+        raise ArenaBatchHandoffError(
+            f"{case_id} fixture binding is not ready for Arena handoff"
+        )
+    if binding.get("measurement_status") != NOT_MEASURED:
+        raise ArenaBatchHandoffError(
+            f"{case_id} fixture binding must remain NOT_MEASURED"
+        )
+
+    binding_identity = binding.get("run_identity")
+    bundle_identity = bundle.get("run_identity")
+    if not isinstance(binding_identity, Mapping) or not isinstance(bundle_identity, Mapping):
+        raise ArenaBatchHandoffError(
+            f"{case_id} fixture/run identity is missing"
+        )
+    for field in ("run_id", "target_commit", "scope_id", "graph_digest"):
+        if binding_identity.get(field) != bundle_identity.get(field):
+            raise ArenaBatchHandoffError(
+                f"{case_id} fixture binding {field} does not match the Arena bundle"
+            )
+    if binding_identity.get("run_id") != run_id:
+        raise ArenaBatchHandoffError(
+            f"{case_id} fixture binding run_id mismatch"
+        )
+
+    bindings = bundle.get("bindings")
+    if not isinstance(bindings, Mapping):
+        raise ArenaBatchHandoffError(
+            f"{case_id} Arena bundle bindings are missing"
+        )
+    bundle_run_digest = bindings.get("run_artifact_digest")
+    binding_run_digest = binding.get("run_artifact_digest")
+    if (
+        not isinstance(bundle_run_digest, str)
+        or not bundle_run_digest.startswith("sha256:")
+        or binding_run_digest != bundle_run_digest
+    ):
+        raise ArenaBatchHandoffError(
+            f"{case_id} fixture binding is not bound to the exact run artifact"
+        )
+
+    fixture = binding.get("fixture")
+    if not isinstance(fixture, Mapping):
+        raise ArenaBatchHandoffError(
+            f"{case_id} fixture binding metadata is missing"
+        )
+    tier = fixture.get("tier")
+    if tier not in {"STATEFUL_APPLICATION", "COMPOSITE_APPLICATION"}:
+        raise ArenaBatchHandoffError(
+            f"{case_id} fixture binding tier is invalid"
+        )
+    binding_digest = binding.get("binding_digest")
+    fixture_result_digest = fixture.get("fixture_result_digest")
+    for label, value in (
+        ("binding_digest", binding_digest),
+        ("fixture_result_digest", fixture_result_digest),
+    ):
+        if not isinstance(value, str) or not value.startswith("sha256:"):
+            raise ArenaBatchHandoffError(
+                f"{case_id} fixture binding {label} is invalid"
+            )
+
+    return {
+        "tier": tier,
+        "binding_digest": binding_digest,
+        "fixture_result_digest": fixture_result_digest,
+    }
 
 
 def _prepared_case_ids(manifest: Mapping[str, Any]) -> list[str]:
@@ -324,14 +419,22 @@ def build_batch_handoff(
         if not isinstance(identity, Mapping) or identity.get("run_id") != run_id:
             raise ArenaBatchHandoffError(f"{case_id} bundle run identity mismatch")
 
-        cases.append(
-            {
-                "case_id": case_id,
-                "run_id": run_id,
-                "bundle_digest": _canonical_digest(bundle),
-                "bundle": bundle,
-            }
+        case_entry = {
+            "case_id": case_id,
+            "run_id": run_id,
+            "bundle_digest": _canonical_digest(bundle),
+            "bundle": bundle,
+        }
+        fixture_binding = _fixture_binding_for_case(
+            root,
+            raw,
+            case_id=case_id,
+            bundle=bundle,
+            run_id=run_id,
         )
+        if fixture_binding is not None:
+            case_entry["fixture_binding"] = fixture_binding
+        cases.append(case_entry)
 
     packet = manifest["packet"]
     participant = manifest.get("participant")
@@ -353,10 +456,15 @@ def build_batch_handoff(
             "establishes_evaluator_independence": False,
             "reveals_ground_truth": False,
             "requires_independent_assessor": True,
+            "fixture_bound_case_count": sum(
+                1 for case in cases if "fixture_binding" in case
+            ),
             "note": (
                 "Every prepared case is bound to manifest-verified SecHelix run evidence. "
-                "The independent evaluator must still judge workflow correctness and "
-                "satisfy Arena blindness/contamination requirements."
+                "Cases with fixture_binding are additionally bound to an exact LOCAL "
+                "stateful/composite fixture-run integrity record. The independent "
+                "evaluator must still judge workflow correctness and satisfy Arena "
+                "blindness/contamination requirements."
             ),
         },
     }
