@@ -362,6 +362,27 @@ class Runner:
                 # are deliberately not promoted to findings.
                 world["verified_candidates"] = list(candidates)
 
+        if node.role is NodeRole.REMEDIATOR:
+            patches = output.get("patches") if isinstance(output, dict) else None
+            remediation_results = (
+                output.get("remediation_results") if isinstance(output, dict) else None
+            )
+            if isinstance(patches, list):
+                world["patches"] = [
+                    dict(item) for item in patches if isinstance(item, dict)
+                ]
+            if isinstance(remediation_results, list):
+                world["remediation_results"] = [
+                    dict(item) for item in remediation_results if isinstance(item, dict)
+                ]
+
+        if node.role is NodeRole.PATCH_VERIFIER:
+            patch_verification = (
+                output.get("patch_verification") if isinstance(output, dict) else None
+            )
+            if isinstance(patch_verification, dict):
+                world["patch_verification"] = dict(patch_verification)
+
         if world.get("_sechelix_manage_node_records") is True:
             world["node_records"] = [
                 record.to_dict()
