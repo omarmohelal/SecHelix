@@ -28,6 +28,8 @@ from evals.arena_batch import (
 
 SCHEMA_VERSION = "sechelix-arena-batch-assessment/v1"
 READY_STATUS = "READY_FOR_ARENA_FINALIZE"
+PROTOCOL_BINDING_SCHEMA_VERSION = "sechelix-arena-assessment-protocol-binding/v1"
+PROTOCOL_BINDING_STATUS = "SEALED_FOR_ARENA_FINALIZE"
 WORKFLOW_FIELDS = tuple(metric.removesuffix("_accuracy") for metric in WORKFLOW_METRICS)
 _MIN_BASIS_CHARS = 24
 
@@ -189,11 +191,102 @@ def _bind_judgment_artifacts(
     return stable_refs, canonical_digest(manifest)
 
 
+def _assessment_core_digest(assessment: Mapping[str, Any]) -> str:
+    return canonical_digest(
+        {
+            "packet_digest": assessment.get("packet_digest"),
+            "assessor": assessment.get("assessor"),
+            "observations": assessment.get("observations"),
+        }
+    )
+
+
+def _seal_protocol_binding(
+    *,
+    handoff: Mapping[str, Any],
+    assessment: Mapping[str, Any],
+    prediction_freeze: Mapping[str, Any],
+    blindness: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Bind assessor output to the exact freeze and post-freeze truth reveal.
+
+    The seal does not establish independence or correctness. It only prevents a
+    valid assessment from being replayed against a different batch, prediction
+    freeze, or blindness/ground-truth record during Arena finalization.
+    """
+
+    from evals.arena_freeze import (
+        ArenaPredictionFreezeError,
+        validate_blindness_record,
+        validate_prediction_freeze,
+    )
+
+    try:
+        validate_prediction_freeze(prediction_freeze)
+        validate_blindness_record(prediction_freeze, blindness)
+    except ArenaPredictionFreezeError as exc:
+        raise ArenaBatchAssessmentError(
+            f"prediction freeze/blindness evidence is invalid: {exc}"
+        ) from exc
+
+    handoff_digest = handoff.get("handoff_digest")
+    if prediction_freeze.get("handoff_digest") != handoff_digest:
+        raise ArenaBatchAssessmentError(
+            "prediction freeze is not bound to this batch handoff"
+        )
+    if prediction_freeze.get("packet_digest") != assessment.get("packet_digest"):
+        raise ArenaBatchAssessmentError(
+            "prediction freeze packet digest does not match assessment"
+        )
+
+    batch_binding = assessment.get("batch_binding")
+    if not isinstance(batch_binding, Mapping):
+        raise ArenaBatchAssessmentError("assessment batch binding missing")
+    assessment_digest = _assessment_core_digest(assessment)
+    if batch_binding.get("assessment_digest") != assessment_digest:
+        raise ArenaBatchAssessmentError(
+            "assessment payload digest does not match batch binding"
+        )
+
+    packet = handoff.get("packet")
+    if not isinstance(packet, Mapping):
+        raise ArenaBatchAssessmentError("batch packet record missing")
+
+    binding: dict[str, Any] = {
+        "schema_version": PROTOCOL_BINDING_SCHEMA_VERSION,
+        "status": PROTOCOL_BINDING_STATUS,
+        "packet_digest": assessment.get("packet_digest"),
+        "participant_digest": prediction_freeze.get("participant_digest"),
+        "handoff_digest": handoff_digest,
+        "prediction_freeze_digest": prediction_freeze.get("freeze_digest"),
+        "prediction_digest": prediction_freeze.get("prediction_digest"),
+        "blindness_digest": canonical_digest(blindness),
+        "ground_truth_digest": blindness.get("ground_truth_digest"),
+        "assessment_digest": assessment_digest,
+        "case_count": batch_binding.get("case_count"),
+        "case_id_digest": packet.get("case_id_digest"),
+        "truth_revealed_at": blindness.get("truth_revealed_at"),
+        "scope": {
+            "establishes_evaluator_independence": False,
+            "scores_correctness": False,
+            "note": (
+                "This seal binds assessor-supplied judgments to one verified batch, "
+                "prediction freeze and post-freeze blindness record. It does not "
+                "establish assessor independence or correctness."
+            ),
+        },
+    }
+    binding["binding_digest"] = canonical_digest(binding)
+    return binding
+
+
 def build_batch_assessment(
     handoff: Mapping[str, Any],
     spec: Mapping[str, Any],
     *,
     base_dir: Path | str = ".",
+    prediction_freeze: Mapping[str, Any] | None = None,
+    blindness: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build an Arena-compatible assessment bound to one verified batch."""
 
@@ -297,13 +390,21 @@ def build_batch_assessment(
             ),
         },
     }
-    assessment["batch_binding"]["assessment_digest"] = canonical_digest(
-        {
-            "packet_digest": assessment["packet_digest"],
-            "assessor": assessment["assessor"],
-            "observations": assessment["observations"],
-        }
+    assessment["batch_binding"]["assessment_digest"] = _assessment_core_digest(
+        assessment
     )
+
+    if (prediction_freeze is None) != (blindness is None):
+        raise ArenaBatchAssessmentError(
+            "prediction_freeze and blindness must be supplied together"
+        )
+    if prediction_freeze is not None and blindness is not None:
+        assessment["protocol_binding"] = _seal_protocol_binding(
+            handoff=handoff,
+            assessment=assessment,
+            prediction_freeze=prediction_freeze,
+            blindness=blindness,
+        )
     return assessment
 
 
@@ -322,13 +423,27 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--handoff", required=True, type=Path)
     parser.add_argument("--spec", required=True, type=Path)
     parser.add_argument("--base-dir", type=Path, default=Path("."))
+    parser.add_argument("--prediction-freeze", type=Path)
+    parser.add_argument("--blindness", type=Path)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args(argv)
 
+    prediction_freeze = (
+        _read_object(args.prediction_freeze, "prediction freeze")
+        if args.prediction_freeze is not None
+        else None
+    )
+    blindness = (
+        _read_object(args.blindness, "blindness")
+        if args.blindness is not None
+        else None
+    )
     result = build_batch_assessment(
         _read_object(args.handoff, "batch handoff"),
         _read_object(args.spec, "assessment spec"),
         base_dir=args.base_dir,
+        prediction_freeze=prediction_freeze,
+        blindness=blindness,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(

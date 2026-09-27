@@ -186,6 +186,8 @@ python evals/arena_batch_assessor.py \
   --handoff work/arena-batch-handoff.json \
   --spec work/assessment-spec.json \
   --base-dir work \
+  --prediction-freeze work/prediction-freeze.json \
+  --blindness work/blindness.json \
   --output work/assessment.json
 ```
 
@@ -195,9 +197,16 @@ to the same file. The builder re-hashes the file and rejects digest drift,
 unmanifested artifacts, path escapes, duplicate/missing cases, or a spec bound to
 another handoff/packet.
 
-The resulting assessment is compatible with Arena finalization. This step does
-**not** decide correctness or establish evaluator independence; it only proves
-which verified run bytes each assessor-supplied judgment cites.
+The resulting assessment carries a fail-closed protocol seal binding those
+judgments to the exact batch handoff, prediction freeze and post-freeze
+blindness/ground-truth record. A batch assessment without that seal remains
+usable for inspection, but Arena finalization keeps it **NOT_MEASURED** and
+ineligible for publication. The seal also prevents a valid assessment from
+being replayed against another handoff, freeze or truth-reveal record.
+
+This step does **not** decide correctness or establish evaluator independence;
+it proves which verified run bytes each assessor-supplied judgment cites and
+which exact freeze/reveal chain those judgments belong to.
 
 ## 4. Independent workflow assessment
 
@@ -248,7 +257,7 @@ python evals/arena.py finalize \
 
 The result stays **NOT_MEASURED** unless all required run metadata exists, the evaluator is independently identified, contamination is explicitly `UNCONTAMINATED`, truth was sealed until after predictions, prediction and truth digests are present, every scored workflow judgment is evidence-backed, and every full-workflow metric has at least one applicable assessed observation.
 
-Finalization also validates the supplied prediction-freeze artifact itself. The blindness record must use the exact freeze digest, prediction digest, and freeze timestamp; its truth-reveal timestamp must be timezone-aware and strictly later. The freeze must be bound to the same prepared packet and participant. A manually constructed blindness JSON without that chain remains `NOT_MEASURED`.
+Finalization also validates the supplied prediction-freeze artifact itself. The blindness record must use the exact freeze digest, prediction digest, and freeze timestamp; its truth-reveal timestamp must be timezone-aware and strictly later. The freeze must be bound to the same prepared packet and participant. For manifest-verified batch assessments, finalization additionally requires the assessment protocol seal to match the exact handoff digest, freeze/prediction digests, blindness digest, ground-truth digest, participant digest, case identity set and assessment payload digest. A manually constructed or replayed chain remains `NOT_MEASURED`.
 
 ## Comparison rule
 

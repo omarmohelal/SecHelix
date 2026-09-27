@@ -95,6 +95,8 @@ Current focused slice: typed verifier assessments are now bound directly to the 
 
 Current focused slice: the live full-workflow executor now binds typed VERIFIED assessments to explicit operator-authored promotion specs, materializes canonical finding-v1 records inside the same graph run, promotes those records to downstream least-context views, and binds remediation job templates by exact candidate_ref to the deterministic finding_id. Severity, confidence, evidence-chain completeness, patch test targets, and independent patch-verification evidence remain non-model inputs. Missing/extra promotion specs or remediation templates fail closed, and the adapter still exposes no generic command surface. This closes the pre-seeded verified_findings/finding_id gap for deterministic orchestration; it does not by itself establish full-workflow Arena effectiveness.
 
+Current focused slice: manifest-verified batch assessments can now be protocol-sealed to the exact Arena handoff, prediction freeze and post-freeze blindness record. The seal binds handoff, participant, prediction/freeze, blindness/ground-truth, case identity and assessor-payload digests; Arena finalization requires that seal for any assessment carrying batch-binding metadata. Replaying an otherwise valid assessment against a different handoff, freeze or truth record therefore remains `NOT_MEASURED`. This completes the repository-side freeze→assessor→finalize integrity chain, but evaluator independence and uncontaminated truth handling remain external facts that must be established by an actual independent run.
+
 
 ## CSRF proof execution
 
