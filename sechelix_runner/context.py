@@ -97,7 +97,7 @@ ROLE_CONTEXT: dict[NodeRole, dict[str, tuple[str, ...]]] = {
     },
     NodeRole.RELEASE_GATE: {
         "required": ("findings", "node_records"),
-        "optional": ("policy", "coverage"),
+        "optional": ("policy", "coverage", "verifier_assessments"),
     },
 }
 
