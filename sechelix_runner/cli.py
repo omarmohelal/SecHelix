@@ -39,7 +39,7 @@ from .replay import ReplayError, replay_run
 from .report import RENDERERS
 from .roles import NodeRole, NodeStatus
 from .runner import Runner
-from .storage import InvalidRunId, RunWorkspace, list_runs, persist_run
+from .storage import InvalidRunId, RunWorkspace, list_runs, persist_run, redact
 from .world import DEPTHS, build_world, describe_target
 
 EXIT_OK = 0
@@ -260,7 +260,11 @@ def cmd_audit(args: argparse.Namespace) -> int:
     if args.json:
         payload = result.to_dict()
         payload["coverage"] = coverage_report
-        print(json.dumps(payload, indent=2, sort_keys=True))
+        # stdout is often a CI log and must have the same default secrecy
+        # guarantees as the persisted run workspace. Replay reads the persisted
+        # artifacts directly, so redacting this presentation copy does not alter
+        # replay fidelity.
+        print(json.dumps(redact(payload), indent=2, sort_keys=True))
     else:
         _print_run(result, workspace)
         blind = coverage_report["blind_spots"]
