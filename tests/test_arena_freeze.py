@@ -13,6 +13,7 @@ from evals.arena_freeze import (
     FREEZE_STATUS,
     build_blindness_record,
     build_prediction_freeze,
+    validate_blindness_record,
     validate_prediction_freeze,
 )
 
@@ -237,6 +238,38 @@ class ArenaPredictionFreezeTests(unittest.TestCase):
         self.assertEqual(blindness["ground_truth_digest"], "sha256:" + "b" * 64)
         self.assertTrue(blindness["scope"]["ordering_checked"])
         self.assertFalse(blindness["scope"]["establishes_evaluator_independence"])
+
+    def test_blindness_validator_rejects_detached_or_reordered_records(self) -> None:
+        freeze = build_prediction_freeze(
+            self.prepared,
+            self.handoff,
+            frozen_at="2026-09-26T19:00:00Z",
+            recorder_identity="Eval Lab",
+            recorder_role="custodian",
+        )
+        blindness = build_blindness_record(
+            freeze,
+            ground_truth_digest="sha256:" + "b" * 64,
+            truth_revealed_at="2026-09-26T19:01:00Z",
+            evaluator_independent=True,
+            contamination="UNCONTAMINATED",
+        )
+        validate_blindness_record(freeze, blindness)
+
+        detached = copy.deepcopy(blindness)
+        detached["prediction_freeze_digest"] = "sha256:" + "9" * 64
+        with self.assertRaises(ArenaPredictionFreezeError):
+            validate_blindness_record(freeze, detached)
+
+        reordered = copy.deepcopy(blindness)
+        reordered["truth_revealed_at"] = "2026-09-26T18:59:59Z"
+        with self.assertRaises(ArenaPredictionFreezeError):
+            validate_blindness_record(freeze, reordered)
+
+        legacy = copy.deepcopy(blindness)
+        legacy.pop("schema_version")
+        with self.assertRaises(ArenaPredictionFreezeError):
+            validate_blindness_record(freeze, legacy)
 
     def test_blindness_record_rejects_bad_truth_digest_and_naive_timestamps(self) -> None:
         freeze = build_prediction_freeze(
