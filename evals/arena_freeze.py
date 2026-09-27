@@ -280,6 +280,65 @@ def build_blindness_record(
     }
 
 
+def validate_blindness_record(
+    freeze: Mapping[str, Any],
+    blindness: Mapping[str, Any],
+) -> None:
+    """Validate that a blindness record is bound to one valid prediction freeze.
+
+    This is intentionally stricter than checking a handful of booleans during
+    Arena finalization. A publishable record must preserve the exact prediction
+    digest and freeze digest, carry the freeze timestamp unchanged, and declare
+    a truth-reveal timestamp that is strictly later.
+    """
+
+    validate_prediction_freeze(freeze)
+    if blindness.get("schema_version") != BLINDNESS_SCHEMA_VERSION:
+        raise ArenaPredictionFreezeError("unsupported Arena blindness schema")
+    if not isinstance(blindness.get("evaluator_independent"), bool):
+        raise ArenaPredictionFreezeError(
+            "blindness evaluator_independent must be boolean"
+        )
+    if blindness.get("truth_revealed_after_predictions") is not True:
+        raise ArenaPredictionFreezeError(
+            "blindness must establish truth reveal after predictions"
+        )
+    if blindness.get("contamination") not in _ALLOWED_CONTAMINATION:
+        raise ArenaPredictionFreezeError("blindness contamination state is invalid")
+    if not _is_digest(blindness.get("ground_truth_digest")):
+        raise ArenaPredictionFreezeError(
+            "blindness ground_truth_digest missing or malformed"
+        )
+    if blindness.get("prediction_digest") != freeze.get("prediction_digest"):
+        raise ArenaPredictionFreezeError(
+            "blindness prediction_digest does not match the prediction freeze"
+        )
+    if blindness.get("prediction_freeze_digest") != freeze.get("freeze_digest"):
+        raise ArenaPredictionFreezeError(
+            "blindness prediction_freeze_digest does not match the prediction freeze"
+        )
+    if blindness.get("frozen_at") != freeze.get("frozen_at"):
+        raise ArenaPredictionFreezeError(
+            "blindness frozen_at does not match the prediction freeze"
+        )
+
+    frozen_at = _parse_timestamp(freeze.get("frozen_at"), field="frozen_at")
+    revealed_at = _parse_timestamp(
+        blindness.get("truth_revealed_at"),
+        field="truth_revealed_at",
+    )
+    if revealed_at <= frozen_at:
+        raise ArenaPredictionFreezeError(
+            "truth_revealed_at must be strictly after the prediction freeze"
+        )
+
+    scope = blindness.get("scope")
+    if not isinstance(scope, Mapping) or scope.get("ordering_checked") is not True:
+        raise ArenaPredictionFreezeError(
+            "blindness scope must record that freeze/reveal ordering was checked"
+        )
+
+
 def _read_object(path: Path | str, label: str) -> Mapping[str, Any]:
     try:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
