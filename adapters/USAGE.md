@@ -5,6 +5,7 @@ These standard-library-only adapters translate tool reports into one evidence en
 ## Normalize a report
 
 ```console
+python -m adapters.cli bandit bandit.json --pretty
 python -m adapters.cli semgrep semgrep.json --pretty
 python -m adapters.cli opengrep opengrep.json --pretty
 python -m adapters.cli codeql codeql.sarif -o normalized.json
@@ -21,7 +22,7 @@ python -m adapters.cli nuclei nuclei.jsonl
 
 Opengrep intentionally accepts Semgrep-compatible rules and JSON result shapes, but SecHelix keeps its provenance distinct as `source.tool: opengrep`. This matters when an independent verifier needs to reproduce which engine produced a source→sink signal. Opengrep severity and taint-analysis confidence remain untrusted candidate metadata until SecHelix establishes attacker control, reachability and boundary failure independently.
 
-The secret-oriented Trivy and Gitleaks paths omit captured values. The Nuclei adapter omits extracted results and request/response bodies. Keep the original reports protected according to their data classification.
+The secret-oriented Trivy and Gitleaks paths omit captured values. The Bandit adapter always omits matched source snippets and also replaces issue text for hardcoded-password rules that may embed the literal secret value. The Nuclei adapter omits extracted results and request/response bodies. Keep the original reports protected according to their data classification.
 
 ## Bounded dynamic commands
 
