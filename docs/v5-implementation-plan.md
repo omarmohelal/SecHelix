@@ -36,7 +36,7 @@ is a hard boundary outside model control.
 | Evidence store | Run/engagement artifacts + exact scanner dedupe shipped | Add conservative correlation hints, then canonical finding evidence envelope/root-cause grouping |
 | Fix/retest | Methodology exists | Executable fix command + original-proof replay |
 | CI | Static Action/SARIF shipped | PR_SECURITY + scheduled STAGING_PENTEST |
-| Evaluation | Protocol + CVE/blind suites + paired LOCAL benchmark covering every bounded proof class + real-browser XSS/session integrations + evidence-backed Arena assessment packet builder shipped | Measure full workflow cost/time and verifier/gate metrics, then add production-like latency/concurrency fixture tiers |
+| Evaluation | Protocol + CVE/blind suites + paired LOCAL benchmark covering every bounded proof class + real-browser XSS/session integrations + evidence-backed Arena assessment/batch/prediction-freeze builders shipped | Complete an uncontaminated independent full-workflow run, then extend production-like fixture tiers |
 | Cost control | Budgets/routing exist | Provider tiers, repository-map cache, per-run token/cost ledger |
 | UX | CLI + live pentest CLI exist | Unify audit/pentest/fix/replay/report/coverage and TUI status |
 
@@ -811,3 +811,31 @@ binary per-architecture provenance.
 
 This is build evidence, not registry publication. No image is pushed and no
 signature/attestation for a published digest is claimed by this slice.
+
+
+## Arena prediction freeze and truth-order binding
+
+SecHelix now has a fail-closed protocol helper for freezing the complete Arena
+prediction batch before blind truth is revealed.
+
+`evals/arena_freeze.py freeze` consumes the PREPARED Arena manifest and the
+complete manifest-verified batch handoff. It revalidates the handoff digest,
+every case bundle digest, packet identity, participant identity and exact opaque
+case set. The resulting prediction digest is derived only from each case ID, run
+ID and manifest-verified bundle digest; ground truth is neither read nor emitted.
+
+A second `blindness` step accepts that exact freeze plus an independently
+obtained ground-truth digest and declared truth-reveal time. The reveal time must
+be strictly later than the prediction freeze. The generated blindness record
+carries the frozen prediction digest directly into Arena finalization.
+
+This strengthens auditability but deliberately does not manufacture
+independence. Timestamps, contamination state and evaluator-independence remain
+externally attributable facts, and Arena's existing independent-assessor
+attestation/publication blockers still apply. A freeze record therefore remains
+`NOT_MEASURED` and never scores correctness on its own.
+
+The next correctness milestone is an uncontaminated external/independent Arena
+run that uses this freeze chain and evidence-backed batch assessment to measure
+verifier, false-positive refutation, root-cause, regression-proof and release
+gate accuracy without self-certification.
