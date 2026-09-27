@@ -384,6 +384,20 @@ class RoleIsolationTests(unittest.TestCase):
         for kept in ("IDOR on /orders/{id}", "app.py:42", "no owner check"):
             self.assertIn(kept, evidence)
 
+    def test_verifier_prompt_dedupes_identical_candidate_refs(self) -> None:
+        candidate = {
+            "claim": "IDOR on /orders/{id}",
+            "location": "app.py:42",
+            "why": "no owner check",
+        }
+        candidate_ref = verifier_view(candidate)["candidate_ref"]
+        prompt = build_prompt(
+            GraphNode("v", NodeRole.INDEPENDENT_VERIFIER),
+            {"candidates": [candidate, dict(candidate)]},
+        )
+        evidence = prompt.split("Evidence:", 1)[1]
+        self.assertEqual(evidence.count(candidate_ref), 1)
+
     def test_a_hunter_prompt_is_not_stripped(self) -> None:
         """Only the verifier is blinded; a hunter may see its own context."""
         prompt = build_prompt(
