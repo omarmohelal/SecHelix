@@ -179,6 +179,9 @@ _ROLE_TASK: dict[NodeRole, str] = {
     NodeRole.INDEPENDENT_VERIFIER: (
         "Independently reconstruct each claim from the evidence and try to REFUTE it."
     ),
+    NodeRole.FINDING_MATERIALIZER: (
+        "Deterministically bind verifier assessments to canonical finding evidence."
+    ),
 }
 
 #: Prepended to every node prompt.
@@ -281,7 +284,12 @@ class ReasoningExecutor:
         *,
         timeout: float = 300.0,
         skip_roles: frozenset[NodeRole] = frozenset(
-            {NodeRole.RELEASE_GATE, NodeRole.REMEDIATOR, NodeRole.PATCH_VERIFIER}
+            {
+                NodeRole.RELEASE_GATE,
+                NodeRole.FINDING_MATERIALIZER,
+                NodeRole.REMEDIATOR,
+                NodeRole.PATCH_VERIFIER,
+            }
         ),
     ) -> None:
         self.provider = provider
