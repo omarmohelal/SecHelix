@@ -130,6 +130,90 @@ class ArenaPredictionFreezeTests(unittest.TestCase):
         self.assertNotIn("truth_revealed_at", rendered)
         validate_prediction_freeze(result)
 
+    def test_fixture_binding_digest_becomes_part_of_the_frozen_prediction(self) -> None:
+        bound = copy.deepcopy(self.handoff)
+        bound.pop("handoff_digest")
+        bound["cases"][0]["fixture_binding"] = {
+            "tier": "STATEFUL_APPLICATION",
+            "binding_digest": "sha256:" + "8" * 64,
+            "fixture_result_digest": "sha256:" + "7" * 64,
+        }
+        bound["handoff_digest"] = canonical_digest(bound)
+
+        freeze = build_prediction_freeze(
+            self.prepared,
+            bound,
+            frozen_at="2026-09-26T19:00:00Z",
+            recorder_identity="Eval Lab",
+            recorder_role="custodian",
+        )
+
+        first = freeze["prediction_set"][0]
+        self.assertEqual(
+            first["fixture_binding_digest"],
+            "sha256:" + "8" * 64,
+        )
+        self.assertEqual(
+            freeze["prediction_digest"],
+            canonical_digest(freeze["prediction_set"]),
+        )
+        validate_prediction_freeze(freeze)
+
+    def test_fixture_binding_drift_changes_freeze_identity(self) -> None:
+        first_handoff = copy.deepcopy(self.handoff)
+        first_handoff.pop("handoff_digest")
+        first_handoff["cases"][0]["fixture_binding"] = {
+            "tier": "STATEFUL_APPLICATION",
+            "binding_digest": "sha256:" + "8" * 64,
+            "fixture_result_digest": "sha256:" + "7" * 64,
+        }
+        first_handoff["handoff_digest"] = canonical_digest(first_handoff)
+
+        second_handoff = copy.deepcopy(first_handoff)
+        second_handoff.pop("handoff_digest")
+        second_handoff["cases"][0]["fixture_binding"]["binding_digest"] = (
+            "sha256:" + "6" * 64
+        )
+        second_handoff["handoff_digest"] = canonical_digest(second_handoff)
+
+        first = build_prediction_freeze(
+            self.prepared,
+            first_handoff,
+            frozen_at="2026-09-26T19:00:00Z",
+            recorder_identity="Eval Lab",
+            recorder_role="custodian",
+        )
+        second = build_prediction_freeze(
+            self.prepared,
+            second_handoff,
+            frozen_at="2026-09-26T19:00:00Z",
+            recorder_identity="Eval Lab",
+            recorder_role="custodian",
+        )
+
+        self.assertNotEqual(first["prediction_digest"], second["prediction_digest"])
+        self.assertNotEqual(first["freeze_digest"], second["freeze_digest"])
+
+    def test_malformed_fixture_binding_cannot_be_frozen(self) -> None:
+        broken = copy.deepcopy(self.handoff)
+        broken.pop("handoff_digest")
+        broken["cases"][0]["fixture_binding"] = {
+            "tier": "STATEFUL_APPLICATION",
+            "binding_digest": "not-a-digest",
+            "fixture_result_digest": "sha256:" + "7" * 64,
+        }
+        broken["handoff_digest"] = canonical_digest(broken)
+
+        with self.assertRaises(ArenaPredictionFreezeError) as ctx:
+            build_prediction_freeze(
+                self.prepared,
+                broken,
+                frozen_at="2026-09-26T19:00:00Z",
+                recorder_identity="Eval Lab",
+                recorder_role="custodian",
+            )
+        self.assertIn("fixture binding digest", str(ctx.exception))
+
     def test_prediction_freeze_is_deterministic_for_same_declared_inputs(self) -> None:
         first = build_prediction_freeze(
             self.prepared,
