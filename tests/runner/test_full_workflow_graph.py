@@ -131,11 +131,8 @@ class FullWorkflowGraphTests(unittest.TestCase):
                         existing_test_targets=("tests.test_existing",),
                         regression_test_targets=("tests.test_security_regression",),
                         patch_diff_review={"deltas": []},
-                        independent_verification=StageResult(
-                            "independent_verification",
-                            PASS,
-                            "independent patch verification passed",
-                            ("EV-PATCH-VERIFY",),
+                        independent_test_targets=(
+                            "tests.test_independent_security_verification",
                         ),
                     ),
                 ),
