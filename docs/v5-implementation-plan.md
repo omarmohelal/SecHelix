@@ -29,7 +29,7 @@ is a hard boundary outside model control.
 | Browser/auth/personas | Browser/API authority, persona matrix, declared authz probes and bounded LOCAL CSRF proof shipped | Add explicit Playwright XSS execution + session rotation/revocation fixtures and richer state capture |
 | HTTP/API | Policy-gated request runner + same-origin redirect enforcement + secret-minimized exchange evidence + anonymous safe replay + cookie metadata + fresh authenticated-flow correlation + shared browser/direct-HTTP response-security projection + observational parity comparison shipped | Add deeper proxy provenance without persisting credential values |
 | External scanners | Semgrep, curated JWT/session scout, Gitleaks and Trivy run through the gateway; isolated scanner ablations are measurable; Gitleaks/Trivy release archives and the Semgrep/pip-audit Python graph are SHA-256 hash locked | Keep scanner/runtime provenance current and publish image provenance |
-| Sandbox | Docker policy/executor + dedicated V5 security runtime exist; base image is digest-pinned, Python dependencies install with `--require-hashes`, the final stage excludes download tooling, and CI emits a lock-derived CycloneDX runtime SBOM evidence bundle | Add published image provenance/attestation without overstating local CI evidence |
+| Sandbox | Docker policy/executor + dedicated V5 security runtime exist; base image is digest-pinned, Python dependencies install with `--require-hashes`, the final stage excludes download tooling, CI emits a lock-derived CycloneDX runtime SBOM evidence bundle, and manual-main publication can push an immutable GHCR digest with SLSA provenance + SBOM attestations | Keep publication explicit, immutable and fail-closed; never infer published provenance from local CI evidence |
 | Tool gateway | Shipped and consumed by browser/API/static execution | Extend only through named capabilities; never add a generic shell |
 | Business logic | Race/idempotency, stateful webhook replay, one-step forbidden state-transition, bounded payment duplicate-effect, multi-step prerequisite workflow, and cross-entity money-flow proofs shipped | Expand multi-party settlement/refund fixtures and broader workflow invariants |
 | Multi-agent graph | Live graph exists | Converge names on V5 specialist graph; verifier stays separate |
@@ -85,7 +85,7 @@ Current focused slice: remediation/retest now has an executable `sechelix fix-ch
 
 Current focused slice: safely reconstructible anonymous GET/HEAD/OPTIONS exchanges can now be replayed through the normal TargetScope, InteractionPolicy, gateway and redirect controls. Persisted replayability is revalidated rather than trusted, and any authentication context, body, sensitive header or redacted query forces a fresh operator-authorized request.\n\nCurrent focused slice: session revocation now has a fixed-shape LOCAL proof using a fresh operator-supplied fixture session plus an explicit local revocation hook. It records a successful protected-read control, revokes that exact fixture session, then replays the same session. Continued access is VULNERABLE_BEHAVIOR evidence; denial is SECURE_BEHAVIOR; a broken control or revocation hook is INCONCLUSIVE. Session headers remain ephemeral and never enter the artifact.\n\nCurrent focused slice: XSS now has an explicit Playwright-backed LOCAL marker proof. The payload is fixed by SecHelix, query-encoded, and limited to writing one deterministic window marker. Target scope is exact-loopback, browser requests pass through the policy gateway and read-only interaction policy, and the proof requires a declared sink selector so non-execution without sink reachability remains INCONCLUSIVE rather than a false clean result.\n\nCurrent focused slice: HTTP evidence now extracts security-relevant Set-Cookie attributes in memory while discarding cookie names and values. Evidence can record Secure, HttpOnly, SameSite class, Partitioned, root Path, Domain scoping, __Host-/__Secure- prefix class, deletion Max-Age and Expires presence. Multiple Set-Cookie headers are preserved as separate attribute observations; legacy evidence without this optional field remains readable. These are transport observations only and do not self-promote into session findings.\n\nCurrent focused slice: webhook proof can now accept an operator-supplied local state readback. A valid signed control must establish the declared single-application invariant; unsigned, invalid-signature and replay requests are then checked for additional state changes. HTTP acceptance alone remains inconclusive when no state readback exists. Only state digests enter evidence notes.\n\nCurrent focused slice: business-logic testing now includes a fixed-shape LOCAL state-transition proof. The operator declares the expected start state, the state that should remain safe, and one forbidden target state; SecHelix issues exactly one bounded POST and uses an operator-supplied local readback to decide whether that forbidden edge was reached. Starting-state mismatch or an unexpected intermediate state is INCONCLUSIVE, and only state digests enter evidence. A 2xx no-op is SECURE only for the declared transition invariant; it is not a global authorization or validation verdict.\n\nCurrent focused slice: Arena publication is now freeze-bound. Finalization requires the exact prediction-freeze artifact, validates the generated blindness schema and reveal ordering, checks prediction/freeze digest continuity, and proves that the freeze names the same prepared packet and participant. A hand-authored blindness JSON can no longer make a full-workflow record publishable on booleans and digest-shaped strings alone.
 
-Next focused slice: add published runtime image provenance/attestation only when publication is explicitly authorized, and continue independently assessed full-workflow correctness. Complete-packet cost/time aggregation, Python transitive artifact locking, and CI runtime SBOM evidence are shipped; synthetic latency/concurrency tiers remain non-production measurements.
+Current focused slice: published runtime image provenance is now explicit and fail-closed. The security-runtime workflow keeps normal push/PR runs verify-only; a manual workflow dispatch on `main` with `publish=true` is the only path that can publish. It pushes one immutable GHCR tag bound to the commit SHA, then generates both SLSA build-provenance and CycloneDX SBOM attestations against the exact pushed digest. Publication permissions exist only on that gated job, and no mutable `latest` tag is written.\n\nNext focused slice: complete an uncontaminated independent full-workflow Arena run using the freeze-bound batch protocol, then broaden production-like fixture tiers. Complete-packet cost/time aggregation, Python transitive artifact locking, CI runtime SBOM evidence, and explicit published-image attestations are shipped; synthetic latency/concurrency tiers remain non-production measurements.
 
 
 ## CSRF proof execution
@@ -726,9 +726,7 @@ The aggregator deliberately does not compute p-values, confidence intervals or
 production-effectiveness claims. Repetition reduces dependence on one run but
 does not change the scope of the authored blind fixture suite.
 
-Next focus is published runtime image provenance/attestation (when explicitly authorized)
-and independently assessed full-workflow correctness. Complete-packet cost/time
-aggregation, Python transitive artifact locking, and CI runtime SBOM evidence are shipped.
+Published runtime image provenance/attestation is now gated behind an explicit manual-main publication path. The next correctness focus is an uncontaminated independently assessed full-workflow Arena run. Complete-packet cost/time aggregation, Python transitive artifact locking, CI runtime SBOM evidence, and exact-digest publication attestations are shipped.
 
 
 ## Security runtime provenance pinning
@@ -767,6 +765,32 @@ Gitleaks/Trivy archives retain explicit amd64/arm64 hashes. Published
 multi-architecture image provenance, attestations and release SBOM verification
 remain separate work rather than being implied by the repository lock.
 
+
+
+## Published security runtime image provenance and attestations
+
+The security-runtime workflow now separates **verification** from **publication**.
+Pull requests and ordinary pushes still build, smoke-test and emit short-lived
+local evidence only. Publishing is possible only through a manual
+`workflow_dispatch` on `main` with the boolean `publish=true`.
+
+The publication job runs only after the normal build-and-smoke job succeeds. It
+has the narrowly required package/OIDC/attestation permissions; those permissions
+are not granted to the verification job. The image is pushed to GHCR under an
+immutable `sha-<commit>` tag and no mutable `latest` tag is created.
+
+The pushed OCI digest is the attestation subject. SecHelix creates two signed
+GitHub/Sigstore-backed attestations for that exact digest:
+
+- SLSA build provenance generated from the publication workflow; and
+- the deterministic CycloneDX runtime SBOM generated from the repository's
+  pinned provenance inputs.
+
+Both attestations are pushed to the registry and associated with the repository.
+This closes the previous gap between local CI evidence and a published image
+without pretending that every normal CI build is published or attested. A local
+image ID, repository lock, or uploaded CI artifact alone still does **not**
+establish published-image provenance.
 
 ## Complete-packet Arena operational summary
 
