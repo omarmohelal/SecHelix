@@ -362,6 +362,20 @@ class Runner:
                 # are deliberately not promoted to findings.
                 world["verified_candidates"] = list(candidates)
 
+        if node.role is NodeRole.FINDING_MATERIALIZER:
+            verified_findings = (
+                output.get("verified_findings") if isinstance(output, dict) else None
+            )
+            findings = output.get("findings") if isinstance(output, dict) else None
+            if isinstance(verified_findings, list):
+                world["verified_findings"] = [
+                    dict(item) for item in verified_findings if isinstance(item, dict)
+                ]
+            if isinstance(findings, list):
+                world["findings"] = [
+                    dict(item) for item in findings if isinstance(item, dict)
+                ]
+
         if node.role is NodeRole.REMEDIATOR:
             patches = output.get("patches") if isinstance(output, dict) else None
             remediation_results = (
