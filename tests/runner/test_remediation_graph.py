@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from sechelix_core.remediation import FAIL, PASS, READY, StageResult
+from sechelix_core.remediation import FAIL, INCOMPLETE, PASS, READY, StageResult
 from sechelix_runner.executor import MockExecutor
 from sechelix_runner.graph import GraphNode, ReasonerGraph
 from sechelix_runner.pentest import (
@@ -53,28 +53,31 @@ def job(workspace: str, finding_id: str = "SHX-F-1") -> RemediationJob:
         existing_test_targets=("tests.test_existing",),
         regression_test_targets=("tests.test_security_regression",),
         patch_diff_review={"deltas": []},
-        independent_verification=StageResult(
-            "independent_verification",
-            PASS,
-            "independent patch verification passed",
-            ("EV-PATCH-VERIFY",),
-        ),
+        independent_test_targets=("tests.test_independent_security_verification",),
     )
 
 
 class FakeCheckRunner:
-    def __init__(self, workspace: str, *, regression_status: str = PASS) -> None:
+    def __init__(
+        self,
+        workspace: str,
+        *,
+        regression_status: str = PASS,
+        independent_status: str = PASS,
+    ) -> None:
         self.workspace = workspace
         self.regression_status = regression_status
+        self.independent_status = independent_status
         self.calls: list[str] = []
 
     def run_test(self, stage_name, spec):
         self.calls.append(stage_name)
-        status = (
-            self.regression_status
-            if stage_name == "vulnerability_regression"
-            else PASS
-        )
+        if stage_name == "vulnerability_regression":
+            status = self.regression_status
+        elif stage_name == "independent_verification":
+            status = self.independent_status
+        else:
+            status = PASS
         return SimpleNamespace(
             stage=StageResult(
                 stage_name,
@@ -119,10 +122,21 @@ class RemediationGraphExecutorTests(unittest.TestCase):
         self.assertIs(result.records["patch-verifier"].status, NodeStatus.SUCCEEDED)
         self.assertIs(result.records["release-gate"].status, NodeStatus.SUCCEEDED)
         self.assertEqual(checks[0].calls, ["existing_tests", "vulnerability_regression"])
+        self.assertEqual(checks[1].calls, ["independent_verification"])
 
         remediation = result.outputs["remediator"]["remediation_results"][0]
-        self.assertEqual(remediation["outcome"], READY)
+        self.assertEqual(remediation["outcome"], INCOMPLETE)
+        self.assertEqual(remediation["blocked_at"], "independent_verification")
         self.assertFalse(remediation["applied"])
+        final_remediation = result.outputs["patch-verifier"]["remediation_results"][0]
+        self.assertEqual(final_remediation["outcome"], READY)
+        independent_stage = next(
+            stage
+            for stage in final_remediation["stages"]
+            if stage["stage"] == "independent_verification"
+        )
+        self.assertEqual(independent_stage["status"], PASS)
+        self.assertTrue(independent_stage["evidence_ids"])
         patch = result.outputs["remediator"]["patches"][0]
         self.assertFalse(patch["applied"])
 
@@ -157,7 +171,7 @@ class RemediationGraphExecutorTests(unittest.TestCase):
         self.assertIs(result.records["remediator"].status, NodeStatus.SUCCEEDED)
         self.assertIs(result.records["patch-verifier"].status, NodeStatus.BLOCKED)
         self.assertIn(
-            "not READY_FOR_REVIEW",
+            "remediation handoff must be INCOMPLETE",
             result.records["patch-verifier"].blocker,
         )
         self.assertIs(result.records["release-gate"].status, NodeStatus.BLOCKED)
@@ -214,14 +228,10 @@ class RemediationGraphExecutorTests(unittest.TestCase):
                     existing_test_targets=("--help",),
                     regression_test_targets=("tests.test_regression",),
                     patch_diff_review={"deltas": []},
-                    independent_verification=StageResult(
-                        "independent_verification",
-                        PASS,
-                        "ok",
-                    ),
+                    independent_test_targets=("tests.test_independent",),
                 )
 
-    def test_independent_verification_pass_requires_evidence_ids(self) -> None:
+    def test_independent_verification_requires_named_targets(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(RemediationGraphError):
                 RemediationJob(
@@ -231,12 +241,31 @@ class RemediationGraphExecutorTests(unittest.TestCase):
                     existing_test_targets=("tests.test_existing",),
                     regression_test_targets=("tests.test_regression",),
                     patch_diff_review={"deltas": []},
-                    independent_verification=StageResult(
-                        "independent_verification",
-                        PASS,
-                        "claimed pass without evidence",
-                    ),
+                    independent_test_targets=(),
                 )
+
+    def test_failed_independent_verification_blocks_release(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            def factory(workspace: str) -> FakeCheckRunner:
+                return FakeCheckRunner(workspace, independent_status=FAIL)
+
+            executor = RemediationGraphExecutor(
+                MockExecutor(),
+                (job(tmp),),
+                check_runner_factory=factory,
+            )
+            result = Runner(
+                executor=executor,
+                context_builder_factory=LiveContextBuilder,
+            ).run(graph(), world())
+
+        self.assertIs(result.records["remediator"].status, NodeStatus.SUCCEEDED)
+        self.assertIs(result.records["patch-verifier"].status, NodeStatus.BLOCKED)
+        self.assertIn(
+            "independent patch verification produced",
+            result.records["patch-verifier"].blocker,
+        )
+        self.assertIs(result.records["release-gate"].status, NodeStatus.BLOCKED)
 
     def test_duplicate_patch_ids_are_refused(self) -> None:
         with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
@@ -248,12 +277,7 @@ class RemediationGraphExecutorTests(unittest.TestCase):
                 existing_test_targets=("tests.test_existing",),
                 regression_test_targets=("tests.test_regression",),
                 patch_diff_review={"deltas": []},
-                independent_verification=StageResult(
-                    "independent_verification",
-                    PASS,
-                    "ok",
-                    ("EV-PATCH-VERIFY-2",),
-                ),
+                independent_test_targets=("tests.test_independent",),
             )
             with self.assertRaises(RemediationGraphError):
                 RemediationGraphExecutor(MockExecutor(), (first_job, second_job))

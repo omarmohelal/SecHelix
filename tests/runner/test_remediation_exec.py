@@ -113,15 +113,21 @@ class RemediationCheckRunnerTests(unittest.TestCase):
             self.assertEqual(result.stage.status, FAIL)
             self.assertIn("timed out", result.stage.detail)
 
-    def test_only_test_and_regression_stages_are_executable(self) -> None:
+    def test_only_named_remediation_stages_are_executable(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             fake = FakeSandboxRunner(
                 SandboxResult(exit_code=0, stdout="", stderr="", command=("python",))
             )
             runner = RemediationCheckRunner(tmp, sandbox_runner=fake)
+            result = runner.run_test(
+                "independent_verification",
+                NamedTestSpec("python-unittest", ("tests.test_remediation",)),
+            )
+            self.assertEqual(result.stage.status, PASS)
+            self.assertTrue(result.stage.evidence_ids)
             with self.assertRaises(RemediationExecutionError):
                 runner.run_test(
-                    "independent_verification",
+                    "arbitrary_stage",
                     NamedTestSpec("python-unittest", ("tests.test_remediation",)),
                 )
 

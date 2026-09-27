@@ -22,6 +22,7 @@ from sechelix_core.remediation import (
     StageResult,
 )
 from sechelix_runner.proof_exec import ProofBehavior, ProofExecutionResult
+from .digests import digest
 from sechelix_runner.sandbox import SandboxSpec
 from sechelix_runner.sandbox_exec import SandboxResult, SandboxRunner
 from sechelix_runner.pentest.gateway import PolicyToolGateway, ToolOperation
@@ -118,10 +119,14 @@ class RemediationCheckRunner:
         )
 
     def run_test(self, stage_name: str, spec: NamedTestSpec) -> ExecutedCheck:
-        if stage_name not in {"existing_tests", "vulnerability_regression"}:
+        if stage_name not in {
+            "existing_tests",
+            "vulnerability_regression",
+            "independent_verification",
+        }:
             raise RemediationExecutionError(
-                "named test execution is limited to existing_tests and "
-                "vulnerability_regression stages"
+                "named test execution is limited to existing_tests, "
+                "vulnerability_regression, and independent_verification stages"
             )
         command = spec.command()
         self.gateway.authorize(
@@ -151,14 +156,34 @@ class RemediationCheckRunner:
 
 
 def _stage_from_sandbox(stage_name: str, result: SandboxResult) -> StageResult:
+    evidence_digest = digest(
+        {
+            "stage": stage_name,
+            "exit_code": result.exit_code,
+            "timed_out": result.timed_out,
+            "command": list(result.command),
+        }
+    ).split(":", 1)[1][:20].upper()
+    evidence_ids = (f"EV-REMEDIATION-{evidence_digest}",)
     if result.timed_out:
-        return StageResult(stage_name, FAIL, "sandboxed test timed out")
+        return StageResult(
+            stage_name,
+            FAIL,
+            "sandboxed test timed out",
+            evidence_ids,
+        )
     if result.exit_code == 0:
-        return StageResult(stage_name, PASS, "sandboxed named test passed")
+        return StageResult(
+            stage_name,
+            PASS,
+            "sandboxed named test passed",
+            evidence_ids,
+        )
     return StageResult(
         stage_name,
         FAIL,
         f"sandboxed named test failed with exit code {result.exit_code}",
+        evidence_ids,
     )
 
 
