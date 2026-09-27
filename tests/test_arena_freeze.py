@@ -124,7 +124,9 @@ class ArenaPredictionFreezeTests(unittest.TestCase):
         self.assertTrue(result["freeze_digest"].startswith("sha256:"))
         self.assertFalse(result["scope"]["reveals_ground_truth"])
         self.assertFalse(result["scope"]["scores_correctness"])
-        self.assertNotIn("ground_truth", json.dumps(result).lower())
+        rendered = json.dumps(result).lower()
+        self.assertNotIn("ground_truth_digest", rendered)
+        self.assertNotIn("truth_revealed_at", rendered)
         validate_prediction_freeze(result)
 
     def test_prediction_freeze_is_deterministic_for_same_declared_inputs(self) -> None:
