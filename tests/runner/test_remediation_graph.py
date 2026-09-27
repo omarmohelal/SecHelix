@@ -221,6 +221,23 @@ class RemediationGraphExecutorTests(unittest.TestCase):
                     ),
                 )
 
+    def test_independent_verification_pass_requires_evidence_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(RemediationGraphError):
+                RemediationJob(
+                    finding_id="SHX-F-1",
+                    patch_id="PATCH-1",
+                    workspace=tmp,
+                    existing_test_targets=("tests.test_existing",),
+                    regression_test_targets=("tests.test_regression",),
+                    patch_diff_review={"deltas": []},
+                    independent_verification=StageResult(
+                        "independent_verification",
+                        PASS,
+                        "claimed pass without evidence",
+                    ),
+                )
+
     def test_duplicate_patch_ids_are_refused(self) -> None:
         with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
             first_job = job(first, "SHX-F-1")
@@ -235,6 +252,7 @@ class RemediationGraphExecutorTests(unittest.TestCase):
                     "independent_verification",
                     PASS,
                     "ok",
+                    ("EV-PATCH-VERIFY-2",),
                 ),
             )
             with self.assertRaises(RemediationGraphError):
