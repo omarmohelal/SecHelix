@@ -76,11 +76,12 @@ def _validate_verifier_binding(
     """Require one assessment for every exact neutralized input candidate."""
 
     raw_candidates = view.get("candidates") or []
-    expected = [
-        verifier_view(candidate)["candidate_ref"]
+    expected_rows = {
+        neutral["candidate_ref"]: neutral
         for candidate in raw_candidates
         if isinstance(candidate, dict)
-    ]
+        for neutral in (verifier_view(candidate),)
+    }
     assessments = payload.get("assessments")
     if not isinstance(assessments, list):
         return []
@@ -89,15 +90,36 @@ def _validate_verifier_binding(
         for row in assessments
         if isinstance(row, dict) and isinstance(row.get("candidate_ref"), str)
     ]
-    if sorted(actual) == sorted(expected):
-        return []
-    missing = sorted(set(expected) - set(actual))
-    extra = sorted(set(actual) - set(expected))
-    return [
-        "verifier assessments must cover the exact supplied candidate_ref set; "
-        f"missing={missing}, extra={extra}, expected_count={len(expected)}, "
-        f"actual_count={len(actual)}"
-    ]
+    problems: list[str] = []
+    expected = sorted(expected_rows)
+    if sorted(actual) != expected:
+        missing = sorted(set(expected) - set(actual))
+        extra = sorted(set(actual) - set(expected))
+        problems.append(
+            "verifier assessments must cover the exact supplied candidate_ref set; "
+            f"missing={missing}, extra={extra}, expected_count={len(expected)}, "
+            f"actual_count={len(actual)}"
+        )
+
+    for row in assessments:
+        if not isinstance(row, dict):
+            continue
+        candidate_ref = row.get("candidate_ref")
+        neutral = expected_rows.get(candidate_ref)
+        if neutral is None:
+            continue
+        for field in ("claim", "location"):
+            if row.get(field) != neutral.get(field):
+                problems.append(
+                    f"assessment {candidate_ref} changed the supplied {field}"
+                )
+        if "hypothesis_ids" in row and row.get("hypothesis_ids") != neutral.get(
+            "hypothesis_ids", []
+        ):
+            problems.append(
+                f"assessment {candidate_ref} changed the supplied hypothesis_ids"
+            )
+    return problems
 
 
 _ROLE_TASK: dict[NodeRole, str] = {
