@@ -348,10 +348,19 @@ class Runner:
             )
             world["evidence"] = evidence_items
 
-        if node.role is NodeRole.INDEPENDENT_VERIFIER and isinstance(candidates, list):
-            # Keep this distinct from formal report-v1 findings. A verifier
-            # candidate is not automatically a VERIFIED finding.
-            world["verified_candidates"] = list(candidates)
+        if node.role is NodeRole.INDEPENDENT_VERIFIER:
+            assessments = output.get("assessments") if isinstance(output, dict) else None
+            if isinstance(assessments, list):
+                # A verifier classification is an explicit handoff, not a formal
+                # report-v1 finding. Downstream materialization must still satisfy
+                # the canonical finding contract before remediation or gating.
+                world["verifier_assessments"] = [
+                    dict(item) for item in assessments if isinstance(item, dict)
+                ]
+            elif isinstance(candidates, list):
+                # Backward-compatible visibility for old replay recordings. These
+                # are deliberately not promoted to findings.
+                world["verified_candidates"] = list(candidates)
 
         if world.get("_sechelix_manage_node_records") is True:
             world["node_records"] = [
