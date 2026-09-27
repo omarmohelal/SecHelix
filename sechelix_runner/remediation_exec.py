@@ -118,10 +118,14 @@ class RemediationCheckRunner:
         )
 
     def run_test(self, stage_name: str, spec: NamedTestSpec) -> ExecutedCheck:
-        if stage_name not in {"existing_tests", "vulnerability_regression"}:
+        if stage_name not in {
+            "existing_tests",
+            "vulnerability_regression",
+            "independent_verification",
+        }:
             raise RemediationExecutionError(
-                "named test execution is limited to existing_tests and "
-                "vulnerability_regression stages"
+                "named test execution is limited to existing_tests, "
+                "vulnerability_regression, and independent_verification stages"
             )
         command = spec.command()
         self.gateway.authorize(
