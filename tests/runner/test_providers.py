@@ -6,6 +6,7 @@ provider is exercised by hand and the results are recorded in the run
 documentation, not asserted here.
 """
 
+import json
 import unittest
 
 from sechelix_runner.executor import NodeOutcome
@@ -17,6 +18,7 @@ from sechelix_runner.providers import (
     build_prompt,
     extract_json,
     validate_node_output,
+    validate_verifier_output,
     verifier_view,
 )
 from sechelix_runner.providers.claude_code import ClaudeCodeExecutor, _accounting
@@ -95,6 +97,41 @@ class SchemaTests(unittest.TestCase):
         )
 
 
+    def test_verifier_output_accepts_typed_assessment(self) -> None:
+        self.assertEqual(
+            validate_verifier_output(
+                {
+                    "assessments": [
+                        {
+                            "candidate_ref": "sha256:" + "a" * 64,
+                            "classification": "VERIFIED",
+                            "claim": "missing owner check",
+                            "location": "a.py:1",
+                            "why": "the owner boundary could not be refuted",
+                            "refutation_attempt": "reconstructed the owner lookup independently",
+                            "evidence_ids": [],
+                            "hypothesis_ids": [],
+                        }
+                    ]
+                }
+            ),
+            [],
+        )
+
+    def test_verifier_output_rejects_unknown_classification_and_duplicate_ref(self) -> None:
+        ref = "sha256:" + "b" * 64
+        row = {
+            "candidate_ref": ref,
+            "classification": "CERTAINLY_BAD",
+            "claim": "missing owner check",
+            "location": "a.py:1",
+            "why": "unsupported classification must fail closed",
+            "refutation_attempt": "attempted independent reconstruction",
+        }
+        problems = validate_verifier_output({"assessments": [row, dict(row)]})
+        self.assertTrue(any("classification" in problem for problem in problems))
+        self.assertTrue(any("duplicate" in problem for problem in problems))
+
 class FailClosedTests(unittest.TestCase):
     def test_provider_error_fails_the_node(self) -> None:
         outcome = run_node(FakeProvider(raises=ProviderError("provider down")))
@@ -121,6 +158,73 @@ class FailClosedTests(unittest.TestCase):
         self.assertEqual(outcome.cost_usd, 0.5)
         self.assertEqual(outcome.model, "m")
 
+
+    def test_verifier_requires_exact_candidate_ref_binding(self) -> None:
+        candidate = {
+            "claim": "cross-account order read",
+            "location": "orders.py:42",
+            "why": "lookup appears to omit the owner predicate",
+        }
+        ref = verifier_view(candidate)["candidate_ref"]
+        good = {
+            "assessments": [
+                {
+                    "candidate_ref": ref,
+                    "classification": "LIKELY_BUT_UNPROVEN",
+                    "claim": candidate["claim"],
+                    "location": candidate["location"],
+                    "why": "evidence is insufficient to establish the owner boundary",
+                    "refutation_attempt": "tried to reconstruct ownership from supplied evidence",
+                }
+            ]
+        }
+        outcome = run_node(
+            FakeProvider(json.dumps(good)),
+            role=NodeRole.INDEPENDENT_VERIFIER,
+            view={"candidates": [candidate]},
+        )
+        self.assertIs(outcome.status, NodeStatus.SUCCEEDED)
+
+        bad = json.loads(json.dumps(good))
+        bad["assessments"][0]["candidate_ref"] = "sha256:" + "0" * 64
+        outcome = run_node(
+            FakeProvider(json.dumps(bad)),
+            role=NodeRole.INDEPENDENT_VERIFIER,
+            view={"candidates": [candidate]},
+        )
+        self.assertIs(outcome.status, NodeStatus.FAILED)
+        self.assertIn("exact supplied candidate_ref set", outcome.error)
+
+    def test_verifier_must_assess_every_input_candidate_once(self) -> None:
+        first = {
+            "claim": "cross-account order read",
+            "location": "orders.py:42",
+            "why": "lookup appears to omit the owner predicate",
+        }
+        second = {
+            "claim": "cross-account invoice read",
+            "location": "invoices.py:7",
+            "why": "lookup appears to omit the tenant predicate",
+        }
+        one_only = {
+            "assessments": [
+                {
+                    "candidate_ref": verifier_view(first)["candidate_ref"],
+                    "classification": "FALSE_POSITIVE",
+                    "claim": first["claim"],
+                    "location": first["location"],
+                    "why": "a compensating owner guard was present in the supplied evidence",
+                    "refutation_attempt": "reconstructed the route and found the guard",
+                }
+            ]
+        }
+        outcome = run_node(
+            FakeProvider(json.dumps(one_only)),
+            role=NodeRole.INDEPENDENT_VERIFIER,
+            view={"candidates": [first, second]},
+        )
+        self.assertIs(outcome.status, NodeStatus.FAILED)
+        self.assertIn("expected_count=2", outcome.error)
 
 class AccountingTests(unittest.TestCase):
     def test_usage_is_copied_verbatim(self) -> None:
@@ -162,7 +266,8 @@ class RoleIsolationTests(unittest.TestCase):
 
     def test_verifier_view_keeps_observations_and_drops_conclusions(self) -> None:
         kept = verifier_view(self.CANDIDATE)
-        self.assertEqual(sorted(kept), ["claim", "location", "why"])
+        self.assertEqual(sorted(kept), ["candidate_ref", "claim", "location", "why"])
+        self.assertTrue(kept["candidate_ref"].startswith("sha256:"))
 
     def test_conclusion_values_never_reach_the_verifier_evidence(self) -> None:
         prompt = build_prompt(
@@ -192,6 +297,8 @@ class RoleIsolationTests(unittest.TestCase):
         prompt = build_prompt(GraphNode("v", NodeRole.INDEPENDENT_VERIFIER), {"candidates": []})
         self.assertIn("REFUTE", prompt)
         self.assertIn("Refuting a claim is a success", prompt)
+        self.assertIn('"assessments"', prompt)
+        self.assertIn("LIKELY_BUT_UNPROVEN", prompt)
 
     def test_every_forbidden_field_is_stripped(self) -> None:
         candidate = {"claim": "c", "location": "l", "why": "w"}
