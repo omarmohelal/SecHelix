@@ -351,9 +351,10 @@ class Runner:
         if node.role is NodeRole.INDEPENDENT_VERIFIER:
             assessments = output.get("assessments") if isinstance(output, dict) else None
             if isinstance(assessments, list):
-                # A verifier classification is an explicit handoff, not a formal
-                # report-v1 finding. Downstream materialization must still satisfy
-                # the canonical finding contract before remediation or gating.
+                # A verifier classification remains distinct from a finding. A
+                # full-workflow executor may additionally attach canonical,
+                # contract-validated finding-v1 records after explicit
+                # operator-authored promotion inputs have been satisfied.
                 world["verifier_assessments"] = [
                     dict(item) for item in assessments if isinstance(item, dict)
                 ]
@@ -361,6 +362,16 @@ class Runner:
                 # Backward-compatible visibility for old replay recordings. These
                 # are deliberately not promoted to findings.
                 world["verified_candidates"] = list(candidates)
+
+            verified_findings = (
+                output.get("verified_findings") if isinstance(output, dict) else None
+            )
+            if isinstance(verified_findings, list):
+                canonical = [
+                    dict(item) for item in verified_findings if isinstance(item, dict)
+                ]
+                world["verified_findings"] = canonical
+                world["findings"] = canonical
 
         if node.role is NodeRole.REMEDIATOR:
             patches = output.get("patches") if isinstance(output, dict) else None
