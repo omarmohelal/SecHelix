@@ -123,7 +123,9 @@ def _validate_verifier_binding(
             f"actual_count={len(actual)}"
         )
 
-    available_evidence_ids = _evidence_ids(view)
+    available_evidence_ids = _evidence_ids(
+        {key: value for key, value in view.items() if key != "candidates"}
+    )
     for row in assessments:
         if not isinstance(row, dict):
             continue
