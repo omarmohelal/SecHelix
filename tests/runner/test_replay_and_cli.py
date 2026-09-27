@@ -3,6 +3,7 @@ import json
 import tempfile
 import unittest
 from contextlib import redirect_stdout
+from unittest.mock import patch
 from pathlib import Path
 
 from sechelix_runner import cli
@@ -10,7 +11,7 @@ from sechelix_runner.executor import MockExecutor, NodeOutcome
 from sechelix_runner.graph import GraphNode, ReasonerGraph
 from sechelix_runner.replay import ReplayError, replay_run
 from sechelix_runner.roles import NodeRole, NodeStatus
-from sechelix_runner.runner import Runner
+from sechelix_runner.runner import RunResult, Runner
 from sechelix_runner.storage import persist_run
 from sechelix_runner.world import build_world, describe_target, walk_files
 
@@ -227,6 +228,38 @@ class CliTests(unittest.TestCase):
     def test_audit_json_carries_the_coverage_report(self) -> None:
         code, out = self._run(["audit", str(self.tmp), "--depth", "quick", "--json"])
         self.assertIn("coverage", json.loads(out))
+
+    def test_audit_json_redacts_secret_shaped_stdout_payload(self) -> None:
+        result = RunResult(
+            run_id="RUN-STDOUT-REDACTION",
+            target_commit="abc123",
+            scope_id="scope-1",
+            graph_digest="graph-digest",
+            context_views={
+                "authorization": {
+                    "authorization": "Bearer sk-live-stdout",
+                    "nested": {"api_key": "key-live-stdout"},
+                    "input_tokens": 7,
+                }
+            },
+            executor_name="fixture",
+        )
+        result._mandatory = {}
+
+        with patch.object(Runner, "run", return_value=result):
+            code, out = self._run(
+                ["audit", str(self.tmp), "--depth", "quick", "--json"]
+            )
+
+        self.assertEqual(code, cli.EXIT_OK)
+        data = json.loads(out)
+        rendered = json.dumps(data)
+        self.assertNotIn("sk-live-stdout", rendered)
+        self.assertNotIn("key-live-stdout", rendered)
+        view = data["context_views"]["authorization"]
+        self.assertEqual(view["authorization"], "[REDACTED]")
+        self.assertEqual(view["nested"]["api_key"], "[REDACTED]")
+        self.assertEqual(view["input_tokens"], 7)
 
     def test_replay_of_unknown_run_exits_error(self) -> None:
         code, _ = self._run(["replay", "RUN-NOPE", str(self.tmp)])
