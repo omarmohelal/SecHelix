@@ -393,6 +393,15 @@ class Runner:
             )
             if isinstance(patch_verification, dict):
                 world["patch_verification"] = dict(patch_verification)
+            final_remediation_results = (
+                output.get("remediation_results") if isinstance(output, dict) else None
+            )
+            if isinstance(final_remediation_results, list):
+                world["remediation_results"] = [
+                    dict(item)
+                    for item in final_remediation_results
+                    if isinstance(item, dict)
+                ]
 
         if world.get("_sechelix_manage_node_records") is True:
             world["node_records"] = [
