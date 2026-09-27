@@ -148,6 +148,25 @@ The artifact explicitly keeps `production_effectiveness_established=false`
 and `arena_full_workflow_measured=false`. It is therefore evidence that the
 fixture behaves deterministically, not a SecHelix accuracy or production claim.
 
+### Composite application fixture
+
+`composite_application_fixture.py` extends the controlled LOCAL topology to two
+independent loopback services. The workflow service owns refund request/approval
+and writes a durable outbox event; a separate ledger-worker service consumes that
+event and applies the financial effect exactly once.
+
+```bash
+python evals/composite_application_fixture.py \
+  --output work/composite-fixture.json
+```
+
+The shared SQLite store gives the fixture durable workflow, outbox and ledger
+state plus a deterministic reset. The outbox is an explicit asynchronous
+boundary, and the self-test checks that no ledger effect exists before
+consumption, exactly one effect exists after consumption, and replay does not
+duplicate it. This remains a controlled fixture-contract measurement, not an
+Arena or production-effectiveness result.
+
 
 ## Dynamic proof primitive benchmark
 

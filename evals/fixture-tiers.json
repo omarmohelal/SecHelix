@@ -113,13 +113,13 @@
     },
     {
       "benchmark_id": "composite-application-tier",
-      "runner": "evals/production_like_fixture.py",
+      "runner": "evals/composite_application_fixture.py",
       "tier": "COMPOSITE_APPLICATION",
-      "status": "PLANNED",
+      "status": "AVAILABLE",
       "properties": {
         "runtime_execution": true,
         "network_scope": "LOOPBACK_ONLY",
-        "real_browser": true,
+        "real_browser": false,
         "durable_state": true,
         "multi_step_workflow": true,
         "deterministic_reset": true,
@@ -127,10 +127,10 @@
         "service_count": 2,
         "async_boundary": true
       },
-      "reset_strategy": "A future composite fixture must reset all service state, queues, identities, and durable storage to a signed deterministic seed.",
+      "reset_strategy": "The shared SQLite state is dropped and recreated from a deterministic seed, clearing workflow, outbox, and ledger state before each self-test.",
       "limitations": [
-        "Planned tier definition only; no score may be published from this entry.",
-        "A composite LOCAL fixture still requires independent Arena measurement before any full-workflow claim."
+        "The self-test measures the controlled two-service fixture contract only; it does not score SecHelix discovery, verification, remediation, regression generation, or release-gate correctness.",
+        "The asynchronous boundary is a deterministic SQLite outbox between literal-loopback services, not a production message broker or production-effectiveness measurement."
       ]
     }
   ]
