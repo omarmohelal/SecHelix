@@ -189,6 +189,33 @@ class ArenaPredictionFreezeTests(unittest.TestCase):
             )
         self.assertIn("bundle digest mismatch", str(ctx.exception))
 
+    def test_prediction_freeze_rejects_duplicate_or_malformed_rows(self) -> None:
+        freeze = build_prediction_freeze(
+            self.prepared,
+            self.handoff,
+            frozen_at="2026-09-26T19:00:00Z",
+            recorder_identity="Eval Lab",
+            recorder_role="custodian",
+        )
+
+        duplicate = copy.deepcopy(freeze)
+        duplicate["prediction_set"][1]["case_id"] = duplicate["prediction_set"][0]["case_id"]
+        duplicate["prediction_digest"] = canonical_digest(duplicate["prediction_set"])
+        duplicate["freeze_digest"] = canonical_digest(
+            {key: value for key, value in duplicate.items() if key != "freeze_digest"}
+        )
+        with self.assertRaises(ArenaPredictionFreezeError):
+            validate_prediction_freeze(duplicate)
+
+        malformed = copy.deepcopy(freeze)
+        malformed["prediction_set"][0]["extra"] = "not-allowed"
+        malformed["prediction_digest"] = canonical_digest(malformed["prediction_set"])
+        malformed["freeze_digest"] = canonical_digest(
+            {key: value for key, value in malformed.items() if key != "freeze_digest"}
+        )
+        with self.assertRaises(ArenaPredictionFreezeError):
+            validate_prediction_freeze(malformed)
+
     def test_blindness_record_requires_truth_after_freeze(self) -> None:
         freeze = build_prediction_freeze(
             self.prepared,
