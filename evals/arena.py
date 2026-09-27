@@ -367,13 +367,31 @@ def _prediction_freeze_blockers(
             validate_blindness_record,
         )
 
-        validate_blindness_record(prediction_freeze, blindness)
+        run = manifest.get("run")
+        not_before = run.get("finished_at") if isinstance(run, Mapping) else None
+        validate_blindness_record(
+            prediction_freeze,
+            blindness,
+            not_before=not_before if isinstance(not_before, str) else None,
+        )
     except (ArenaPredictionFreezeError, TypeError, ValueError) as exc:
         blockers.append(f"prediction freeze/blindness validation failed: {exc}")
 
     packet = manifest.get("packet")
     if not isinstance(packet, Mapping) or prediction_freeze.get("packet_digest") != packet.get("digest"):
         blockers.append("prediction freeze is not bound to the prepared packet digest")
+    elif isinstance(packet.get("case_ids"), list):
+        prediction_set = prediction_freeze.get("prediction_set")
+        frozen_case_ids = (
+            sorted(str(row.get("case_id")) for row in prediction_set)
+            if isinstance(prediction_set, list)
+            and all(isinstance(row, Mapping) for row in prediction_set)
+            else []
+        )
+        if frozen_case_ids != sorted(str(case_id) for case_id in packet["case_ids"]):
+            blockers.append(
+                "prediction freeze does not cover every prepared blind case exactly once"
+            )
 
     participant = manifest.get("participant")
     if (
