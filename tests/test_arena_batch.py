@@ -1,3 +1,4 @@
+import hashlib
 import json
 import tempfile
 import unittest
@@ -132,6 +133,58 @@ class ArenaBatchHandoffTests(unittest.TestCase):
             "agent_host": "isolated-eval-host",
         }
 
+    @staticmethod
+    def _canonical_digest(value: object) -> str:
+        payload = json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
+        return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+    def _attach_fixture_binding(
+        self,
+        row: dict,
+        *,
+        tier: str = "STATEFUL_APPLICATION",
+    ) -> dict:
+        run_path = self.root / row["run_path"]
+        run = json.loads(run_path.read_text(encoding="utf-8"))
+        binding = {
+            "schema_version": "sechelix-arena-fixture-run-binding/v1",
+            "status": "READY_FOR_ARENA_FIXTURE_HANDOFF",
+            "measurement_status": "NOT_MEASURED",
+            "fixture": {
+                "tier": tier,
+                "schema_version": (
+                    "sechelix-stateful-application-fixture/v1"
+                    if tier == "STATEFUL_APPLICATION"
+                    else "sechelix-composite-application-fixture/v1"
+                ),
+                "result_kind": f"{tier}_FIXTURE_SELF_TEST",
+                "network_scope": "LOOPBACK_ONLY",
+                "fixture_result_digest": "sha256:" + "9" * 64,
+            },
+            "run_identity": {
+                field: run[field]
+                for field in ("run_id", "target_commit", "scope_id", "graph_digest")
+            },
+            "workflow_chain": {},
+            "run_artifact_digest": self._canonical_digest(run),
+            "measurement_scope": {
+                "scores_correctness": False,
+            },
+        }
+        binding["binding_digest"] = self._canonical_digest(binding)
+        path = self.root / f"{row['run_id']}.fixture-binding.json"
+        path.write_text(
+            json.dumps(binding, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        row["fixture_binding_path"] = str(path.relative_to(self.root))
+        return binding
+
     def _rewrite_run(self, row: dict, mutate) -> None:
         path = self.root / row["run_path"]
         run = json.loads(path.read_text(encoding="utf-8"))
@@ -185,6 +238,70 @@ class ArenaBatchHandoffTests(unittest.TestCase):
         rendered = json.dumps(result)
         self.assertNotIn("redacted-workflow-output", rendered)
         self.assertNotIn('"decision": "PASS"', rendered)
+
+    def test_fixture_bindings_are_carried_into_the_batch_and_bound_to_exact_run_payloads(self) -> None:
+        first = self._case("CASE-AAA111", "RUN-FIXTURE_A")
+        second = self._case("CASE-BBB222", "RUN-FIXTURE_B")
+        self._attach_fixture_binding(first, tier="STATEFUL_APPLICATION")
+        self._attach_fixture_binding(second, tier="COMPOSITE_APPLICATION")
+
+        result = build_batch_handoff(
+            self.manifest,
+            {"cases": [first, second]},
+            base_dir=self.root,
+        )
+
+        self.assertEqual(result["measurement_status"], "NOT_MEASURED")
+        self.assertEqual(result["measurement_scope"]["fixture_bound_case_count"], 2)
+        self.assertEqual(
+            result["cases"][0]["fixture_binding"]["tier"],
+            "STATEFUL_APPLICATION",
+        )
+        self.assertEqual(
+            result["cases"][1]["fixture_binding"]["tier"],
+            "COMPOSITE_APPLICATION",
+        )
+        self.assertTrue(
+            result["cases"][0]["bundle"]["bindings"]["run_payload_digest"].startswith(
+                "sha256:"
+            )
+        )
+
+    def test_fixture_binding_identity_or_run_digest_drift_blocks_the_batch(self) -> None:
+        first = self._case("CASE-AAA111", "RUN-FIXTURE_DRIFT_A")
+        second = self._case("CASE-BBB222", "RUN-FIXTURE_DRIFT_B")
+        binding = self._attach_fixture_binding(first)
+        self._attach_fixture_binding(second)
+
+        path = self.root / first["fixture_binding_path"]
+        broken = dict(binding)
+        broken["run_artifact_digest"] = "sha256:" + "0" * 64
+        path.write_text(
+            json.dumps(broken, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        with self.assertRaises(ArenaBatchHandoffError) as ctx:
+            build_batch_handoff(
+                self.manifest,
+                {"cases": [first, second]},
+                base_dir=self.root,
+            )
+        self.assertIn("canonical run payload", str(ctx.exception))
+
+        self._attach_fixture_binding(first)
+        broken = json.loads(path.read_text(encoding="utf-8"))
+        broken["run_identity"]["scope_id"] = "SCOPE-OTHER"
+        path.write_text(
+            json.dumps(broken, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        with self.assertRaises(ArenaBatchHandoffError) as ctx:
+            build_batch_handoff(
+                self.manifest,
+                {"cases": [first, second]},
+                base_dir=self.root,
+            )
+        self.assertIn("scope_id", str(ctx.exception))
 
     def test_incomplete_cost_stays_not_measured_without_hiding_other_metrics(self) -> None:
         first = self._case("CASE-AAA111", "RUN-COST_A")
