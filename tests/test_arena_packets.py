@@ -62,7 +62,7 @@ def make_freeze() -> dict[str, object]:
         "handoff_digest": "sha256:" + "c" * 64,
         "case_count": 1,
         "prediction_digest": canonical_digest(prediction_set),
-        "frozen_at": "2026-09-26T08:59:00Z",
+        "frozen_at": "2026-09-26T09:06:00Z",
         "recorder": {"identity": "eval-operator", "role": "custodian"},
         "prediction_set": prediction_set,
         "scope": {
@@ -87,7 +87,7 @@ BLINDNESS = {
     "prediction_digest": FREEZE["prediction_digest"],
     "prediction_freeze_digest": FREEZE["freeze_digest"],
     "frozen_at": FREEZE["frozen_at"],
-    "truth_revealed_at": "2026-09-26T08:59:30Z",
+    "truth_revealed_at": "2026-09-26T09:07:00Z",
     "scope": {
         "ordering_checked": True,
         "ordering_is_self_or_externally_attested": True,
