@@ -113,6 +113,7 @@ def build_measurement_bundle(
         },
         "bindings": {
             "arena_run_digest": _canonical_digest(run_record),
+            "run_artifact_digest": run_record.get("run_artifact_digest"),
             "workspace_evidence_digest": _canonical_digest(workspace_index),
             "workspace_artifacts": dict(artifacts),
         },
