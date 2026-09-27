@@ -223,11 +223,51 @@ def validate_prediction_freeze(freeze: Mapping[str, Any]) -> None:
     if expected != freeze.get("freeze_digest"):
         raise ArenaPredictionFreezeError("prediction freeze digest does not match contents")
     _parse_timestamp(freeze.get("frozen_at"), field="frozen_at")
+    recorder = freeze.get("recorder")
+    if (
+        not isinstance(recorder, Mapping)
+        or not isinstance(recorder.get("identity"), str)
+        or not recorder["identity"].strip()
+        or not isinstance(recorder.get("role"), str)
+        or not recorder["role"].strip()
+    ):
+        raise ArenaPredictionFreezeError("prediction freeze recorder metadata is invalid")
+
+    scope = freeze.get("scope")
+    if (
+        not isinstance(scope, Mapping)
+        or scope.get("reveals_ground_truth") is not False
+        or scope.get("scores_correctness") is not False
+    ):
+        raise ArenaPredictionFreezeError("prediction freeze scope is invalid")
+
     prediction_set = freeze.get("prediction_set")
     if not isinstance(prediction_set, list) or not prediction_set:
         raise ArenaPredictionFreezeError("prediction set missing")
     if freeze.get("case_count") != len(prediction_set):
         raise ArenaPredictionFreezeError("freeze case_count does not match prediction set")
+
+    seen_case_ids: set[str] = set()
+    for row in prediction_set:
+        if not isinstance(row, Mapping):
+            raise ArenaPredictionFreezeError("prediction set contains a non-object row")
+        if set(row) != {"case_id", "run_id", "bundle_digest"}:
+            raise ArenaPredictionFreezeError("prediction set row has an invalid shape")
+        case_id = row.get("case_id")
+        run_id = row.get("run_id")
+        bundle_digest = row.get("bundle_digest")
+        if not isinstance(case_id, str) or not case_id.startswith("CASE-"):
+            raise ArenaPredictionFreezeError("prediction set case_id is invalid")
+        if case_id in seen_case_ids:
+            raise ArenaPredictionFreezeError("prediction set contains duplicate case IDs")
+        seen_case_ids.add(case_id)
+        if not isinstance(run_id, str) or not run_id.startswith("RUN-"):
+            raise ArenaPredictionFreezeError(f"{case_id} prediction run_id is invalid")
+        if not _is_digest(bundle_digest):
+            raise ArenaPredictionFreezeError(
+                f"{case_id} prediction bundle_digest is malformed"
+            )
+
     if canonical_digest(prediction_set) != freeze.get("prediction_digest"):
         raise ArenaPredictionFreezeError("prediction digest does not match prediction set")
 
@@ -283,6 +323,8 @@ def build_blindness_record(
 def validate_blindness_record(
     freeze: Mapping[str, Any],
     blindness: Mapping[str, Any],
+    *,
+    not_before: str | None = None,
 ) -> None:
     """Validate that a blindness record is bound to one valid prediction freeze.
 
@@ -323,6 +365,12 @@ def validate_blindness_record(
         )
 
     frozen_at = _parse_timestamp(freeze.get("frozen_at"), field="frozen_at")
+    if not_before is not None:
+        completed_at = _parse_timestamp(not_before, field="run.finished_at")
+        if frozen_at < completed_at:
+            raise ArenaPredictionFreezeError(
+                "prediction freeze predates the declared run completion"
+            )
     revealed_at = _parse_timestamp(
         blindness.get("truth_revealed_at"),
         field="truth_revealed_at",
