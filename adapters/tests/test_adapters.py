@@ -16,6 +16,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 class AdapterContractTests(unittest.TestCase):
     CASES = (
+        ("bandit", "bandit.json", "bandit"),
         ("semgrep", "semgrep.json", "semgrep"),
         ("opengrep", "semgrep.json", "opengrep"),
         ("sarif", "sarif.json", "Example SARIF Scanner"),
@@ -36,7 +37,7 @@ class AdapterContractTests(unittest.TestCase):
     def test_registry_contains_every_supported_adapter(self) -> None:
         self.assertEqual(
             set(ADAPTERS),
-            {"semgrep", "opengrep", "sarif", "codeql", "osv", "trivy", "gitleaks", "npm-audit", "pnpm-audit", "playwright", "zap", "nuclei"},
+            {"bandit", "semgrep", "opengrep", "sarif", "codeql", "osv", "trivy", "gitleaks", "npm-audit", "pnpm-audit", "playwright", "zap", "nuclei"},
         )
 
     def test_every_fixture_emits_candidate_unassessed_records(self) -> None:
@@ -64,6 +65,7 @@ class AdapterContractTests(unittest.TestCase):
 
     def test_high_and_critical_tool_labels_never_promote_assessment(self) -> None:
         for adapter, fixture in (
+            ("bandit", "bandit.json"),
             ("osv", "osv.json"),
             ("trivy", "trivy.json"),
             ("npm-audit", "npm-audit.json"),
@@ -80,6 +82,7 @@ class AdapterContractTests(unittest.TestCase):
 
     def test_secret_material_is_not_emitted(self) -> None:
         cases = (
+            ("bandit", "bandit.json", "BANDIT_FIXTURE_SECRET_321"),
             ("trivy", "trivy.json", "TRIVY_FIXTURE_SECRET_123"),
             ("gitleaks", "gitleaks.json", "GITLEAKS_FIXTURE_SECRET_456"),
             ("nuclei", "nuclei.jsonl", "NUCLEI_FIXTURE_SECRET_789"),
@@ -90,12 +93,38 @@ class AdapterContractTests(unittest.TestCase):
                 self.assertNotIn(secret, rendered)
                 self.assertIn('"redacted": true', rendered)
 
+    def test_bandit_omits_source_and_secret_issue_text(self) -> None:
+        records = self._records("bandit", "bandit.json")
+        rendered = json.dumps(records, sort_keys=True)
+        self.assertNotIn("BANDIT_FIXTURE_SECRET_321", rendered)
+        self.assertNotIn('"code"', rendered)
+        hardcoded = next(record for record in records if record["rule_id"] == "B105")
+        self.assertEqual(
+            hardcoded["claim"],
+            "Potential hardcoded secret reported by Bandit rule B105",
+        )
+        self.assertEqual(hardcoded["severity"], "UNASSESSED")
+        self.assertEqual(hardcoded["tool_signal"]["severity"], "LOW")
+        self.assertIs(hardcoded["tool_signal"]["trusted_for_assessment"], False)
+
+    def test_bandit_scan_errors_fail_closed(self) -> None:
+        with self.assertRaises(AdapterError):
+            parse(
+                "bandit",
+                {
+                    "errors": [{"filename": "synthetic_app.py", "reason": "parse error"}],
+                    "results": [],
+                },
+            )
+
     def test_ids_are_deterministic(self) -> None:
         first = self._records("semgrep", "semgrep.json")
         second = self._records("semgrep", "semgrep.json")
         self.assertEqual(first[0]["evidence_id"], second[0]["evidence_id"])
 
     def test_malformed_json_fails_closed(self) -> None:
+        with self.assertRaises(AdapterError):
+            parse("bandit", b"{not json")
         with self.assertRaises(AdapterError):
             parse("semgrep", b"{not json")
         with self.assertRaises(AdapterError):
