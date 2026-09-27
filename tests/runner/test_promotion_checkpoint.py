@@ -3,7 +3,6 @@ from __future__ import annotations
 import tempfile
 import unittest
 
-from sechelix_runner.executor import NodeOutcome
 from sechelix_runner.graph import GraphNode, ReasonerGraph
 from sechelix_runner.pentest import (
     PromotionCheckpointError,
