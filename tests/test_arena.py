@@ -354,6 +354,50 @@ class ArenaTests(unittest.TestCase):
             result["publication"]["blockers"],
         )
 
+    def test_prediction_freeze_must_cover_every_prepared_case(self) -> None:
+        freeze = json.loads(json.dumps(FREEZE))
+        freeze["prediction_set"] = freeze["prediction_set"][:1]
+        freeze["case_count"] = 1
+        freeze["prediction_digest"] = canonical_digest(freeze["prediction_set"])
+        freeze["freeze_digest"] = canonical_digest(
+            {key: value for key, value in freeze.items() if key != "freeze_digest"}
+        )
+        blindness = make_blindness(freeze)
+        result = finalize_manifest(
+            prepare_manifest(PACKET, PARTICIPANT),
+            run=RUN,
+            blindness=blindness,
+            assessment=ASSESSMENT,
+            prediction_freeze=freeze,
+        )
+        self.assertEqual(result["measurement_status"], NOT_MEASURED)
+        self.assertIn(
+            "prediction freeze does not cover every prepared blind case exactly once",
+            result["publication"]["blockers"],
+        )
+
+    def test_prediction_freeze_cannot_predate_declared_run_completion(self) -> None:
+        freeze = json.loads(json.dumps(FREEZE))
+        freeze["frozen_at"] = "2026-09-03T18:09:00Z"
+        freeze["freeze_digest"] = canonical_digest(
+            {key: value for key, value in freeze.items() if key != "freeze_digest"}
+        )
+        blindness = make_blindness(freeze)
+        result = finalize_manifest(
+            prepare_manifest(PACKET, PARTICIPANT),
+            run=RUN,
+            blindness=blindness,
+            assessment=ASSESSMENT,
+            prediction_freeze=freeze,
+        )
+        self.assertEqual(result["measurement_status"], NOT_MEASURED)
+        self.assertTrue(
+            any(
+                "predates the declared run completion" in blocker
+                for blocker in result["publication"]["blockers"]
+            )
+        )
+
     def test_naked_workflow_boolean_never_measures(self) -> None:
         assessment = json.loads(json.dumps(ASSESSMENT))
         assessment["observations"][0]["evidence"].pop("verification")
