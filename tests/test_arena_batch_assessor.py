@@ -208,14 +208,14 @@ class ArenaBatchAssessmentTests(unittest.TestCase):
             freeze = build_prediction_freeze(
                 prepared,
                 handoff,
-                frozen_at="2026-09-26T09:59:00Z",
+                frozen_at="2026-09-26T10:11:00Z",
                 recorder_identity="Independent Eval Operator",
                 recorder_role="prediction-custodian",
             )
             blindness = build_blindness_record(
                 freeze,
                 ground_truth_digest="sha256:" + "1" * 64,
-                truth_revealed_at="2026-09-26T09:59:30Z",
+                truth_revealed_at="2026-09-26T10:12:00Z",
                 evaluator_independent=True,
                 contamination="UNCONTAMINATED",
             )
