@@ -5,7 +5,12 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from evals.arena import MEASURED, canonical_digest, finalize_manifest, prepare_manifest
+from evals.arena import MEASURED, NOT_MEASURED, canonical_digest, finalize_manifest, prepare_manifest
+from evals.arena_freeze import (
+    BLINDNESS_SCHEMA_VERSION,
+    FREEZE_SCHEMA_VERSION,
+    FREEZE_STATUS,
+)
 from evals.arena_packets import (
     AssessmentPacketError,
     WORKFLOW_FIELDS,
@@ -40,12 +45,54 @@ RUN = {
     "cost": None,
 }
 
+def make_freeze() -> dict[str, object]:
+    prediction_set = [
+        {
+            "case_id": "CASE-A",
+            "run_id": "RUN-A",
+            "bundle_digest": "sha256:" + "a" * 64,
+        }
+    ]
+    freeze: dict[str, object] = {
+        "schema_version": FREEZE_SCHEMA_VERSION,
+        "status": FREEZE_STATUS,
+        "measurement_status": NOT_MEASURED,
+        "packet_digest": canonical_digest(PACKET),
+        "participant_digest": canonical_digest(PARTICIPANT),
+        "handoff_digest": "sha256:" + "c" * 64,
+        "case_count": 1,
+        "prediction_digest": canonical_digest(prediction_set),
+        "frozen_at": "2026-09-26T08:59:00Z",
+        "recorder": {"identity": "eval-operator", "role": "custodian"},
+        "prediction_set": prediction_set,
+        "scope": {
+            "reveals_ground_truth": False,
+            "establishes_evaluator_independence": False,
+            "scores_correctness": False,
+        },
+    }
+    freeze["freeze_digest"] = canonical_digest(
+        {key: value for key, value in freeze.items() if key != "freeze_digest"}
+    )
+    return freeze
+
+
+FREEZE = make_freeze()
 BLINDNESS = {
+    "schema_version": BLINDNESS_SCHEMA_VERSION,
     "evaluator_independent": True,
     "truth_revealed_after_predictions": True,
     "contamination": "UNCONTAMINATED",
     "ground_truth_digest": "sha256:" + "1" * 64,
-    "prediction_digest": "sha256:" + "2" * 64,
+    "prediction_digest": FREEZE["prediction_digest"],
+    "prediction_freeze_digest": FREEZE["freeze_digest"],
+    "frozen_at": FREEZE["frozen_at"],
+    "truth_revealed_at": "2026-09-26T08:59:30Z",
+    "scope": {
+        "ordering_checked": True,
+        "ordering_is_self_or_externally_attested": True,
+        "establishes_evaluator_independence": False,
+    },
 }
 
 ASSESSOR = {
@@ -123,6 +170,7 @@ class ArenaAssessmentPacketTests(unittest.TestCase):
                 run=RUN,
                 blindness=BLINDNESS,
                 assessment=assessment,
+                prediction_freeze=FREEZE,
             )
 
             self.assertEqual(result["measurement_status"], MEASURED)
