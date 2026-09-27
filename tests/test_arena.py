@@ -68,7 +68,7 @@ def make_prediction_freeze(participant: dict = PARTICIPANT) -> dict:
         "handoff_digest": "sha256:" + "c" * 64,
         "case_count": len(prediction_set),
         "prediction_digest": canonical_digest(prediction_set),
-        "frozen_at": "2026-09-03T17:59:00Z",
+        "frozen_at": "2026-09-03T18:11:00Z",
         "recorder": {
             "identity": "independent-eval-operator",
             "role": "prediction-custodian",
@@ -96,7 +96,7 @@ def make_blindness(freeze: dict, **overrides: object) -> dict:
         "prediction_digest": freeze["prediction_digest"],
         "prediction_freeze_digest": freeze["freeze_digest"],
         "frozen_at": freeze["frozen_at"],
-        "truth_revealed_at": "2026-09-03T17:59:30Z",
+        "truth_revealed_at": "2026-09-03T18:12:00Z",
         "scope": {
             "ordering_checked": True,
             "ordering_is_self_or_externally_attested": True,
