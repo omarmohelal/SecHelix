@@ -222,8 +222,8 @@ DUPLICATE_ROOT_CAUSE, BLOCKED_BY_ENVIRONMENT. VERIFIED requires at least one
 stable evidence_id already present in the Evidence block; never invent an
 evidence reference. VERIFIED means only that this independent verification pass
 could not refute the claim and established the stated basis. It does NOT assign
-severity, create a canonical finding, or make a release decision. Refuting a
-claim is a success, not a failure.
+severity, create a canonical finding, or make a release decision.
+Refuting a claim is a success, not a failure.
 
 Return ONLY a JSON object of this shape, with no prose around it:
 {"assessments": [{"candidate_ref": "sha256:...", "classification": "VERIFIED",
