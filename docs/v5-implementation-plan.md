@@ -27,7 +27,7 @@ is a hard boundary outside model control.
 | Evidence-first verification | Shipped | Preserve; independent verifier remains mandatory |
 | Scope boundary | Policy gateway shipped for LOCAL/STAGING browser/API/static execution | Keep every new executor behind the same gateway |
 | Browser/auth/personas | Browser/API authority, persona matrix, declared authz probes and bounded LOCAL CSRF proof shipped | Add explicit Playwright XSS execution + session rotation/revocation fixtures and richer state capture |
-| HTTP/API | Policy-gated request runner + same-origin redirect enforcement + secret-minimized exchange evidence + anonymous safe replay + cookie metadata + fresh authenticated-flow correlation + shared value-free response-security projection across direct HTTP and browser capture shipped | Add deeper proxy/correlation provenance without persisting credential values |
+| HTTP/API | Policy-gated request runner + same-origin redirect enforcement + secret-minimized exchange evidence + anonymous safe replay + cookie metadata + fresh authenticated-flow correlation + shared browser/direct-HTTP response-security projection + observational parity comparison shipped | Add deeper proxy provenance without persisting credential values |
 | External scanners | Semgrep, curated JWT/session scout, Gitleaks and Trivy run through the gateway; isolated scanner ablations are measurable; Gitleaks/Trivy release archives and the Semgrep/pip-audit Python graph are SHA-256 hash locked | Keep scanner/runtime provenance current and publish image provenance |
 | Sandbox | Docker policy/executor + dedicated V5 security runtime exist; base image is digest-pinned, Python dependencies install with `--require-hashes`, the final stage excludes download tooling, and CI emits a lock-derived CycloneDX runtime SBOM evidence bundle | Add published image provenance/attestation without overstating local CI evidence |
 | Tool gateway | Shipped and consumed by browser/API/static execution | Extend only through named capabilities; never add a generic shell |
@@ -858,3 +858,19 @@ observations, which gives authentication/API specialists browser/direct-HTTP
 parity without exposing Authorization, Cookie, CSP text, HSTS max-age, origins
 or other potentially sensitive header values. This is transport observation
 only and cannot promote a finding without the normal independent verifier.
+
+
+## Browser / direct-HTTP security parity correlation
+
+Fresh authenticated-flow correlations now compare the browser and direct-HTTP
+value-free response-security projections when both were measured for the same
+persona, method and normalized surface.
+
+The correlation emits only `MATCH`, `DIFF`, or `NOT_MEASURED`, the fixed
+projection field names that differ, and whether each path was measured. It never
+copies raw header values and never turns a transport mismatch into a finding. A
+browser/CDN/proxy path can legitimately differ from a direct request, so parity
+remains `OBSERVATION` context for specialists and the independent verifier.
+
+Browser header-capture failure stays `NOT_MEASURED` rather than being silently
+interpreted as every security header being absent.
