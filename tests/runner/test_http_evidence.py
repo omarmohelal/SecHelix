@@ -368,6 +368,31 @@ class HttpEvidenceRecorderTests(unittest.TestCase):
         with self.assertRaises(HttpReplayDenied):
             record_from_dict(payload)
 
+        payload = record.as_dict()
+        payload["transport_provenance"]["via_hop_count"] = True
+        with self.assertRaises(HttpReplayDenied):
+            record_from_dict(payload)
+
+        payload = record.as_dict()
+        payload["transport_provenance"]["via_hop_count"] = 1
+        payload["transport_provenance"]["via_present"] = False
+        with self.assertRaises(HttpReplayDenied):
+            record_from_dict(payload)
+
+        payload = record.as_dict()
+        payload["transport_provenance"]["age_positive"] = True
+        payload["transport_provenance"]["age_present"] = False
+        with self.assertRaises(HttpReplayDenied):
+            record_from_dict(payload)
+
+        payload = record.as_dict()
+        payload["transport_provenance"]["forwarding_request_headers"] = [
+            "forwarded",
+            "forwarded",
+        ]
+        with self.assertRaises(HttpReplayDenied):
+            record_from_dict(payload)
+
     def test_redirect_trace_redacts_query_values_and_preserves_method_changes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "http.jsonl"
