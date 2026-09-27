@@ -160,7 +160,13 @@ class FullWorkflowTests(unittest.TestCase):
         )
         world = {
             "candidates": [item],
-            "evidence": [{"evidence_id": "EV-VERIFY"}],
+            "evidence": [
+                {"evidence_id": "EV-VERIFY"},
+                *[
+                    {"evidence_id": f"EV-{index:02d}"}
+                    for index in range(1, 8)
+                ],
+            ],
         }
         self.assertNotIn("verified_findings", world)
 
@@ -237,7 +243,16 @@ class FullWorkflowTests(unittest.TestCase):
                 context_builder_factory=LiveContextBuilder,
             ).run(
                 graph(),
-                {"candidates": [item], "evidence": [{"evidence_id": "EV-VERIFY"}]},
+                {
+                    "candidates": [item],
+                    "evidence": [
+                        {"evidence_id": "EV-VERIFY"},
+                        *[
+                            {"evidence_id": f"EV-{index:02d}"}
+                            for index in range(1, 8)
+                        ],
+                    ],
+                },
             )
 
         self.assertIs(
@@ -295,6 +310,55 @@ class FullWorkflowTests(unittest.TestCase):
         self.assertEqual(
             result.outputs["patch-verifier"]["patch_verification"]["status"],
             "NOT_REQUIRED",
+        )
+
+    def test_promotion_chain_cannot_cite_absent_same_run_evidence(self) -> None:
+        item = candidate()
+        ref = verifier_view(dict(item))["candidate_ref"]
+        delegate = MockExecutor(
+            {
+                "independent-verifier": NodeOutcome(
+                    status=NodeStatus.SUCCEEDED,
+                    output={
+                        "assessments": [
+                            {
+                                "candidate_ref": ref,
+                                "classification": "VERIFIED",
+                                "claim": item["claim"],
+                                "location": item["location"],
+                                "why": "Could not refute.",
+                                "refutation_attempt": "Independent replay.",
+                                "evidence_ids": ["EV-VERIFY"],
+                                "hypothesis_ids": ["SHX-AUTHZ-L02"],
+                            }
+                        ]
+                    },
+                )
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            result = Runner(
+                executor=FullWorkflowExecutor(
+                    delegate,
+                    spec(tmp),
+                    check_runner_factory=FakeCheckRunner,
+                ),
+                context_builder_factory=LiveContextBuilder,
+            ).run(
+                graph(),
+                {
+                    "candidates": [item],
+                    "evidence": [{"evidence_id": "EV-VERIFY"}],
+                },
+            )
+
+        self.assertIs(
+            result.records["finding-materializer"].status,
+            NodeStatus.BLOCKED,
+        )
+        self.assertIn(
+            "absent from the same-run least-context view",
+            result.records["finding-materializer"].blocker,
         )
 
     def test_parser_refuses_extra_fields_and_generic_command_surface(self) -> None:
