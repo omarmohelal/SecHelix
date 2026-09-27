@@ -131,7 +131,7 @@ def _fixture_binding_for_case(
         raise ArenaBatchHandoffError(
             f"{case_id} Arena bundle bindings are missing"
         )
-    bundle_run_digest = bindings.get("run_artifact_digest")
+    bundle_run_digest = bindings.get("run_payload_digest")
     binding_run_digest = binding.get("run_artifact_digest")
     if (
         not isinstance(bundle_run_digest, str)
@@ -139,7 +139,7 @@ def _fixture_binding_for_case(
         or binding_run_digest != bundle_run_digest
     ):
         raise ArenaBatchHandoffError(
-            f"{case_id} fixture binding is not bound to the exact run artifact"
+            f"{case_id} fixture binding is not bound to the exact canonical run payload"
         )
 
     fixture = binding.get("fixture")
