@@ -33,7 +33,7 @@ def chain() -> dict[str, ChainEvidence]:
     return {
         name: ChainEvidence(
             statement=f"{name} established by controlled evidence",
-            evidence_ids=(f"EV-{index:02d}",),
+            evidence_ids=(f"EV-LINK-{index:02d}",),
         )
         for index, name in enumerate(CHAIN_LINKS, start=1)
     }
