@@ -69,6 +69,28 @@ def verifier_view(candidate: dict[str, Any]) -> dict[str, Any]:
     return {"candidate_ref": digest(stripped), **stripped}
 
 
+def _evidence_ids(value: Any) -> set[str]:
+    """Collect stable evidence identifiers already present in a least-context view."""
+
+    found: set[str] = set()
+    if isinstance(value, dict):
+        evidence_id = value.get("evidence_id")
+        if isinstance(evidence_id, str) and evidence_id.strip():
+            found.add(evidence_id)
+        evidence_ids = value.get("evidence_ids")
+        if isinstance(evidence_ids, list):
+            found.update(
+                item for item in evidence_ids
+                if isinstance(item, str) and item.strip()
+            )
+        for nested in value.values():
+            found.update(_evidence_ids(nested))
+    elif isinstance(value, list):
+        for nested in value:
+            found.update(_evidence_ids(nested))
+    return found
+
+
 def _validate_verifier_binding(
     payload: dict[str, Any],
     view: dict[str, Any],
@@ -101,6 +123,7 @@ def _validate_verifier_binding(
             f"actual_count={len(actual)}"
         )
 
+    available_evidence_ids = _evidence_ids(view)
     for row in assessments:
         if not isinstance(row, dict):
             continue
@@ -118,6 +141,16 @@ def _validate_verifier_binding(
         ):
             problems.append(
                 f"assessment {candidate_ref} changed the supplied hypothesis_ids"
+            )
+        cited_evidence = {
+            item for item in row.get("evidence_ids", [])
+            if isinstance(item, str)
+        }
+        unknown_evidence = sorted(cited_evidence - available_evidence_ids)
+        if unknown_evidence:
+            problems.append(
+                f"assessment {candidate_ref} cites evidence not present in its "
+                f"least-context view: {unknown_evidence}"
             )
     return problems
 
@@ -183,15 +216,17 @@ concluded. Do not ask for it and do not assume it.
 Assess EVERY supplied candidate exactly once. Preserve its candidate_ref exactly.
 Reconstruct the claim from the supplied evidence and actively try to refute it.
 classification must be one of: VERIFIED, LIKELY_BUT_UNPROVEN, FALSE_POSITIVE,
-DUPLICATE_ROOT_CAUSE, BLOCKED_BY_ENVIRONMENT. VERIFIED means only that this
-independent verification pass could not refute the claim and established the
-stated basis. It does NOT assign severity, create a canonical finding, or make a
-release decision. Refuting a claim is a success, not a failure.
+DUPLICATE_ROOT_CAUSE, BLOCKED_BY_ENVIRONMENT. VERIFIED requires at least one
+stable evidence_id already present in the Evidence block; never invent an
+evidence reference. VERIFIED means only that this independent verification pass
+could not refute the claim and established the stated basis. It does NOT assign
+severity, create a canonical finding, or make a release decision. Refuting a
+claim is a success, not a failure.
 
 Return ONLY a JSON object of this shape, with no prose around it:
 {"assessments": [{"candidate_ref": "sha256:...", "classification": "VERIFIED",
                   "claim": "...", "location": "...", "why": "...",
-                  "refutation_attempt": "...", "evidence_ids": [],
+                  "refutation_attempt": "...", "evidence_ids": ["EV-..."],
                   "hypothesis_ids": []}],
  "examined": ["..."], "notes": "..."}
 """.strip()
