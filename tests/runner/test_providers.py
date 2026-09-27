@@ -109,7 +109,7 @@ class SchemaTests(unittest.TestCase):
                             "location": "a.py:1",
                             "why": "the owner boundary could not be refuted",
                             "refutation_attempt": "reconstructed the owner lookup independently",
-                            "evidence_ids": [],
+                            "evidence_ids": ["EV-VERIFIER-001"],
                             "hypothesis_ids": [],
                         }
                     ]
@@ -117,6 +117,19 @@ class SchemaTests(unittest.TestCase):
             ),
             [],
         )
+
+    def test_verified_assessment_requires_stable_evidence(self) -> None:
+        row = {
+            "candidate_ref": "sha256:" + "d" * 64,
+            "classification": "VERIFIED",
+            "claim": "missing owner check",
+            "location": "a.py:1",
+            "why": "the owner boundary could not be refuted",
+            "refutation_attempt": "reconstructed the owner lookup independently",
+            "evidence_ids": [],
+        }
+        problems = validate_verifier_output({"assessments": [row]})
+        self.assertTrue(any("stable supporting evidence" in problem for problem in problems))
 
     def test_verifier_output_rejects_unknown_classification_and_duplicate_ref(self) -> None:
         ref = "sha256:" + "b" * 64
@@ -194,6 +207,32 @@ class FailClosedTests(unittest.TestCase):
         )
         self.assertIs(outcome.status, NodeStatus.FAILED)
         self.assertIn("exact supplied candidate_ref set", outcome.error)
+
+    def test_verifier_cannot_rewrite_claim_under_a_bound_ref(self) -> None:
+        candidate = {
+            "claim": "cross-account order read",
+            "location": "orders.py:42",
+            "why": "lookup appears to omit the owner predicate",
+        }
+        payload = {
+            "assessments": [
+                {
+                    "candidate_ref": verifier_view(candidate)["candidate_ref"],
+                    "classification": "FALSE_POSITIVE",
+                    "claim": "different claim",
+                    "location": candidate["location"],
+                    "why": "the supplied evidence refuted the original candidate",
+                    "refutation_attempt": "reconstructed the route independently",
+                }
+            ]
+        }
+        outcome = run_node(
+            FakeProvider(json.dumps(payload)),
+            role=NodeRole.INDEPENDENT_VERIFIER,
+            view={"candidates": [candidate]},
+        )
+        self.assertIs(outcome.status, NodeStatus.FAILED)
+        self.assertIn("changed the supplied claim", outcome.error)
 
     def test_verifier_must_assess_every_input_candidate_once(self) -> None:
         first = {
