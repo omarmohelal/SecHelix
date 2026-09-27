@@ -69,6 +69,37 @@ def verifier_view(candidate: dict[str, Any]) -> dict[str, Any]:
     return {"candidate_ref": digest(stripped), **stripped}
 
 
+def _validate_verifier_binding(
+    payload: dict[str, Any],
+    view: dict[str, Any],
+) -> list[str]:
+    """Require one assessment for every exact neutralized input candidate."""
+
+    raw_candidates = view.get("candidates") or []
+    expected = [
+        verifier_view(candidate)["candidate_ref"]
+        for candidate in raw_candidates
+        if isinstance(candidate, dict)
+    ]
+    assessments = payload.get("assessments")
+    if not isinstance(assessments, list):
+        return []
+    actual = [
+        row.get("candidate_ref")
+        for row in assessments
+        if isinstance(row, dict) and isinstance(row.get("candidate_ref"), str)
+    ]
+    if sorted(actual) == sorted(expected):
+        return []
+    missing = sorted(set(expected) - set(actual))
+    extra = sorted(set(actual) - set(expected))
+    return [
+        "verifier assessments must cover the exact supplied candidate_ref set; "
+        f"missing={missing}, extra={extra}, expected_count={len(expected)}, "
+        f"actual_count={len(actual)}"
+    ]
+
+
 _ROLE_TASK: dict[NodeRole, str] = {
     NodeRole.MAPPER: "Map entrypoints, trust boundaries and identities.",
     NodeRole.ARCHITECTURE: "Describe the architecture and where trust changes hands.",
@@ -223,6 +254,8 @@ class ReasoningExecutor:
             if node.role is NodeRole.INDEPENDENT_VERIFIER
             else validate_node_output(payload)
         )
+        if not problems and node.role is NodeRole.INDEPENDENT_VERIFIER:
+            problems.extend(_validate_verifier_binding(payload, view))
         if problems:
             # Fail closed. A partially-understood response must never become a
             # candidate: the schema exists precisely so this is detectable.
