@@ -234,6 +234,65 @@ class FailClosedTests(unittest.TestCase):
         self.assertIs(outcome.status, NodeStatus.FAILED)
         self.assertIn("changed the supplied claim", outcome.error)
 
+    def test_verifier_cannot_invent_evidence_refs(self) -> None:
+        candidate = {
+            "claim": "cross-account order read",
+            "location": "orders.py:42",
+            "why": "lookup appears to omit the owner predicate",
+        }
+        payload = {
+            "assessments": [
+                {
+                    "candidate_ref": verifier_view(candidate)["candidate_ref"],
+                    "classification": "VERIFIED",
+                    "claim": candidate["claim"],
+                    "location": candidate["location"],
+                    "why": "the supplied boundary could not be refuted",
+                    "refutation_attempt": "reconstructed the route independently",
+                    "evidence_ids": ["EV-INVENTED-001"],
+                }
+            ]
+        }
+        outcome = run_node(
+            FakeProvider(json.dumps(payload)),
+            role=NodeRole.INDEPENDENT_VERIFIER,
+            view={
+                "candidates": [candidate],
+                "evidence": [{"evidence_id": "EV-REAL-001"}],
+            },
+        )
+        self.assertIs(outcome.status, NodeStatus.FAILED)
+        self.assertIn("not present in its least-context view", outcome.error)
+
+    def test_verifier_can_cite_supplied_evidence_ref(self) -> None:
+        candidate = {
+            "claim": "cross-account order read",
+            "location": "orders.py:42",
+            "why": "lookup appears to omit the owner predicate",
+        }
+        payload = {
+            "assessments": [
+                {
+                    "candidate_ref": verifier_view(candidate)["candidate_ref"],
+                    "classification": "VERIFIED",
+                    "claim": candidate["claim"],
+                    "location": candidate["location"],
+                    "why": "the supplied boundary could not be refuted",
+                    "refutation_attempt": "reconstructed the route independently",
+                    "evidence_ids": ["EV-REAL-001"],
+                }
+            ]
+        }
+        outcome = run_node(
+            FakeProvider(json.dumps(payload)),
+            role=NodeRole.INDEPENDENT_VERIFIER,
+            view={
+                "candidates": [candidate],
+                "evidence": [{"evidence_id": "EV-REAL-001"}],
+            },
+        )
+        self.assertIs(outcome.status, NodeStatus.SUCCEEDED)
+
     def test_verifier_must_assess_every_input_candidate_once(self) -> None:
         first = {
             "claim": "cross-account order read",
