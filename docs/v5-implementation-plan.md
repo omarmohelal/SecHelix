@@ -933,3 +933,6 @@ between browser and direct-HTTP evidence. Results are only MATCH, DIFF or
 NOT_MEASURED with differing fixed field names. A difference is contextual
 evidence that paths may differ; it is never a vulnerability verdict and cannot
 promote a finding.
+
+
+Current focused slice: independent patch verification is no longer a pre-seeded PASS inside remediation jobs. The remediator now completes existing tests, vulnerability regression, differential review, and remediation-risk analysis, then hands off an intentionally INCOMPLETE result at the independent_verification boundary. The PATCH_VERIFIER executes a separate fixed-shape, network-disabled named test against the scratch workspace, emits deterministic runtime evidence, recomputes the canonical remediation loop, and only then may produce READY_FOR_REVIEW. Missing/failed independent verification blocks the release gate. No generic command surface or automatic patch application is introduced.
