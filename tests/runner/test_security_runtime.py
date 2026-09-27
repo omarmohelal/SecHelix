@@ -19,6 +19,7 @@ LOCK_PATH = RUNTIME_DIR / "runtime-lock.json"
 DOCKERFILE_PATH = RUNTIME_DIR / "Dockerfile"
 PY_INPUT_PATH = RUNTIME_DIR / "python-tools.in"
 PY_LOCK_PATH = RUNTIME_DIR / "python-tools.lock"
+WORKFLOW_PATH = ROOT / ".github" / "workflows" / "security-runtime.yml"
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 PY_REQUIREMENT = re.compile(r"^([A-Za-z0-9_.-]+)==([^\s\\]+)\s*\\?$")
 
@@ -29,6 +30,7 @@ class SecurityRuntimeTests(unittest.TestCase):
         self.dockerfile = DOCKERFILE_PATH.read_text(encoding="utf-8")
         self.python_input = PY_INPUT_PATH.read_text(encoding="utf-8")
         self.python_lock = PY_LOCK_PATH.read_text(encoding="utf-8")
+        self.workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
 
     def test_static_security_tools_have_no_network(self) -> None:
         self.assertTrue(TOOLS)
@@ -176,6 +178,54 @@ class SecurityRuntimeTests(unittest.TestCase):
         self.assertNotIn("curl ", final_stage)
         self.assertNotIn("tar ", final_stage)
         self.assertIn("USER 10001:10001", final_stage)
+
+    def test_runtime_publication_is_manual_main_only_and_digest_attested(self) -> None:
+        self.assertIn("workflow_dispatch:", self.workflow)
+        self.assertIn("publish:", self.workflow)
+        self.assertIn("type: boolean", self.workflow)
+        self.assertIn("default: false", self.workflow)
+        self.assertIn("needs: build-and-smoke", self.workflow)
+        self.assertIn(
+            "if: github.event_name == 'workflow_dispatch' && inputs.publish == true && github.ref == 'refs/heads/main'",
+            self.workflow,
+        )
+        for permission in (
+            "packages: write",
+            "id-token: write",
+            "attestations: write",
+            "artifact-metadata: write",
+        ):
+            self.assertIn(permission, self.workflow)
+
+        self.assertIn(
+            "docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f",
+            self.workflow,
+        )
+        self.assertIn(
+            "docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9",
+            self.workflow,
+        )
+        self.assertIn(
+            "docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc",
+            self.workflow,
+        )
+        self.assertEqual(
+            self.workflow.count(
+                "actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6"
+            ),
+            2,
+        )
+        self.assertIn(
+            "tags: ghcr.io/${{ github.repository_owner }}/sechelix-security-runtime:sha-${{ github.sha }}",
+            self.workflow,
+        )
+        self.assertIn("subject-digest: ${{ steps.push.outputs.digest }}", self.workflow)
+        self.assertIn("push-to-registry: true", self.workflow)
+        self.assertIn(
+            "sbom-path: ${{ runner.temp }}/sechelix-security-runtime.cdx.json",
+            self.workflow,
+        )
+        self.assertNotIn(":latest", self.workflow)
 
     def test_default_sandbox_remains_fail_closed(self) -> None:
         spec = SandboxSpec(image="sechelix-security-runtime:v5")
