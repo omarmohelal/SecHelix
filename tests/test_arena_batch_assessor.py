@@ -7,11 +7,18 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from evals.arena import MEASURED, canonical_digest, finalize_manifest, prepare_manifest
+from evals.arena import (
+    MEASURED,
+    NOT_MEASURED,
+    canonical_digest,
+    finalize_manifest,
+    prepare_manifest,
+)
 from evals.arena_batch import READY_STATUS as BATCH_READY_STATUS
 from evals.arena_freeze import build_blindness_record, build_prediction_freeze
 from evals.arena_batch_assessor import (
     ArenaBatchAssessmentError,
+    PROTOCOL_BINDING_STATUS,
     READY_STATUS,
     WORKFLOW_FIELDS,
     build_batch_assessment,
@@ -199,11 +206,6 @@ class ArenaBatchAssessmentTests(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             handoff, artifacts = make_handoff(root)
-            assessment = build_batch_assessment(
-                handoff,
-                make_spec(handoff, artifacts),
-                base_dir=root,
-            )
             prepared = prepare_manifest(PACKET, PARTICIPANT)
             freeze = build_prediction_freeze(
                 prepared,
@@ -219,6 +221,17 @@ class ArenaBatchAssessmentTests(unittest.TestCase):
                 evaluator_independent=True,
                 contamination="UNCONTAMINATED",
             )
+            assessment = build_batch_assessment(
+                handoff,
+                make_spec(handoff, artifacts),
+                base_dir=root,
+                prediction_freeze=freeze,
+                blindness=blindness,
+            )
+            self.assertEqual(
+                assessment["protocol_binding"]["status"],
+                PROTOCOL_BINDING_STATUS,
+            )
             result = finalize_manifest(
                 prepared,
                 run=RUN,
@@ -228,6 +241,10 @@ class ArenaBatchAssessmentTests(unittest.TestCase):
             )
             self.assertEqual(result["measurement_status"], MEASURED)
             self.assertTrue(result["publication"]["eligible"])
+            self.assertEqual(
+                result["assessment_protocol_binding_digest"],
+                assessment["protocol_binding"]["binding_digest"],
+            )
             self.assertEqual(result["full_workflow"]["verification_accuracy"], 1.0)
             self.assertEqual(result["full_workflow"]["release_gate_accuracy"], 1.0)
 
@@ -320,6 +337,134 @@ class ArenaBatchAssessmentTests(unittest.TestCase):
             spec["packet_digest"] = "sha256:" + "8" * 64
             with self.assertRaises(ArenaBatchAssessmentError):
                 build_batch_assessment(handoff, spec, base_dir=root)
+
+
+    def test_unsealed_batch_assessment_cannot_publish(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            handoff, artifacts = make_handoff(root)
+            prepared = prepare_manifest(PACKET, PARTICIPANT)
+            freeze = build_prediction_freeze(
+                prepared,
+                handoff,
+                frozen_at="2026-09-26T10:11:00Z",
+                recorder_identity="Independent Eval Operator",
+                recorder_role="prediction-custodian",
+            )
+            blindness = build_blindness_record(
+                freeze,
+                ground_truth_digest="sha256:" + "1" * 64,
+                truth_revealed_at="2026-09-26T10:12:00Z",
+                evaluator_independent=True,
+                contamination="UNCONTAMINATED",
+            )
+            assessment = build_batch_assessment(
+                handoff,
+                make_spec(handoff, artifacts),
+                base_dir=root,
+            )
+            result = finalize_manifest(
+                prepared,
+                run=RUN,
+                blindness=blindness,
+                assessment=assessment,
+                prediction_freeze=freeze,
+            )
+            self.assertEqual(result["measurement_status"], NOT_MEASURED)
+            self.assertFalse(result["publication"]["eligible"])
+            self.assertIn(
+                "batch assessment protocol binding missing",
+                result["publication"]["blockers"],
+            )
+
+    def test_protocol_seal_rejects_freeze_from_another_handoff(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            handoff, artifacts = make_handoff(root)
+            prepared = prepare_manifest(PACKET, PARTICIPANT)
+            freeze = build_prediction_freeze(
+                prepared,
+                handoff,
+                frozen_at="2026-09-26T10:11:00Z",
+                recorder_identity="Independent Eval Operator",
+                recorder_role="prediction-custodian",
+            )
+            other_freeze = copy.deepcopy(freeze)
+            other_freeze["handoff_digest"] = "sha256:" + "9" * 64
+            other_freeze["freeze_digest"] = canonical_digest(
+                {
+                    key: value
+                    for key, value in other_freeze.items()
+                    if key != "freeze_digest"
+                }
+            )
+            other_blindness = build_blindness_record(
+                other_freeze,
+                ground_truth_digest="sha256:" + "1" * 64,
+                truth_revealed_at="2026-09-26T10:12:00Z",
+                evaluator_independent=True,
+                contamination="UNCONTAMINATED",
+            )
+            with self.assertRaises(ArenaBatchAssessmentError) as ctx:
+                build_batch_assessment(
+                    handoff,
+                    make_spec(handoff, artifacts),
+                    base_dir=root,
+                    prediction_freeze=other_freeze,
+                    blindness=other_blindness,
+                )
+            self.assertIn("not bound to this batch handoff", str(ctx.exception))
+
+    def test_sealed_assessment_cannot_be_replayed_with_different_truth_record(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            handoff, artifacts = make_handoff(root)
+            prepared = prepare_manifest(PACKET, PARTICIPANT)
+            freeze = build_prediction_freeze(
+                prepared,
+                handoff,
+                frozen_at="2026-09-26T10:11:00Z",
+                recorder_identity="Independent Eval Operator",
+                recorder_role="prediction-custodian",
+            )
+            blindness = build_blindness_record(
+                freeze,
+                ground_truth_digest="sha256:" + "1" * 64,
+                truth_revealed_at="2026-09-26T10:12:00Z",
+                evaluator_independent=True,
+                contamination="UNCONTAMINATED",
+            )
+            assessment = build_batch_assessment(
+                handoff,
+                make_spec(handoff, artifacts),
+                base_dir=root,
+                prediction_freeze=freeze,
+                blindness=blindness,
+            )
+            different_truth = build_blindness_record(
+                freeze,
+                ground_truth_digest="sha256:" + "2" * 64,
+                truth_revealed_at="2026-09-26T10:13:00Z",
+                evaluator_independent=True,
+                contamination="UNCONTAMINATED",
+            )
+            result = finalize_manifest(
+                prepared,
+                run=RUN,
+                blindness=different_truth,
+                assessment=assessment,
+                prediction_freeze=freeze,
+            )
+            self.assertEqual(result["measurement_status"], NOT_MEASURED)
+            self.assertFalse(result["publication"]["eligible"])
+            self.assertIn(
+                "assessment protocol binding blindness digest mismatch",
+                result["publication"]["blockers"],
+            )
+            self.assertIn(
+                "assessment protocol binding ground-truth digest mismatch",
+                result["publication"]["blockers"],
+            )
 
 
 if __name__ == "__main__":
