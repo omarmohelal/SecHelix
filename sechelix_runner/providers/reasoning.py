@@ -19,15 +19,19 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from ..digests import digest
 from ..executor import NodeOutcome
 from ..graph import GraphNode
 from ..roles import NodeRole, NodeStatus
 from .base import (
     NODE_OUTPUT_SCHEMA,
+    VERIFIER_CLASSIFICATIONS,
+    VERIFIER_OUTPUT_SCHEMA,
     ProviderError,
     ProviderExecutor,
     extract_json,
     validate_node_output,
+    validate_verifier_output,
 )
 
 #: Fields a verifier must never receive from the hunter that raised a candidate.
@@ -54,11 +58,15 @@ def verifier_view(candidate: dict[str, Any]) -> dict[str, Any]:
     Keeps the claim and where to look. Removes anything stating how convinced
     somebody already was.
     """
-    return {
+    stripped = {
         key: value
         for key, value in candidate.items()
         if key.lower() not in FORBIDDEN_VERIFIER_FIELDS
+        and key != "candidate_ref"
     }
+    # Bind the verifier response to the exact neutralized candidate it received.
+    # The reference carries no verdict and cannot promote a finding by itself.
+    return {"candidate_ref": digest(stripped), **stripped}
 
 
 _ROLE_TASK: dict[NodeRole, str] = {
@@ -119,14 +127,20 @@ You are an INDEPENDENT VERIFIER. You have deliberately not been told how
 confident anyone was, what severity anyone assigned, or what any other verifier
 concluded. Do not ask for it and do not assume it.
 
-For each claim: reconstruct it from the evidence and actively try to refute it.
-Return a candidate ONLY for claims you could NOT refute, with "why" stating what
-the evidence establishes. Refuting a claim is a success, not a failure.
+Assess EVERY supplied candidate exactly once. Preserve its candidate_ref exactly.
+Reconstruct the claim from the supplied evidence and actively try to refute it.
+classification must be one of: VERIFIED, LIKELY_BUT_UNPROVEN, FALSE_POSITIVE,
+DUPLICATE_ROOT_CAUSE, BLOCKED_BY_ENVIRONMENT. VERIFIED means only that this
+independent verification pass could not refute the claim and established the
+stated basis. It does NOT assign severity, create a canonical finding, or make a
+release decision. Refuting a claim is a success, not a failure.
 
 Return ONLY a JSON object of this shape, with no prose around it:
-{"candidates": [{"claim": "...", "location": "...", "why": "...",
-                 "attacker_control": "...", "hypothesis_ids": []}],
- "examined": ["..."], "notes": "refuted: ..."}
+{"assessments": [{"candidate_ref": "sha256:...", "classification": "VERIFIED",
+                  "claim": "...", "location": "...", "why": "...",
+                  "refutation_attempt": "...", "evidence_ids": [],
+                  "hypothesis_ids": []}],
+ "examined": ["..."], "notes": "..."}
 """.strip()
 
 
@@ -204,7 +218,11 @@ class ReasoningExecutor:
                 cost_usd=result.cost_usd,
             )
 
-        problems = validate_node_output(payload)
+        problems = (
+            validate_verifier_output(payload)
+            if node.role is NodeRole.INDEPENDENT_VERIFIER
+            else validate_node_output(payload)
+        )
         if problems:
             # Fail closed. A partially-understood response must never become a
             # candidate: the schema exists precisely so this is detectable.
@@ -232,7 +250,10 @@ class ReasoningExecutor:
 __all__ = [
     "FORBIDDEN_VERIFIER_FIELDS",
     "NODE_OUTPUT_SCHEMA",
+    "VERIFIER_CLASSIFICATIONS",
+    "VERIFIER_OUTPUT_SCHEMA",
     "ReasoningExecutor",
     "build_prompt",
+    "validate_verifier_output",
     "verifier_view",
 ]
