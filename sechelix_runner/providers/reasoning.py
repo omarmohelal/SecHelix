@@ -246,7 +246,18 @@ def build_prompt(node: GraphNode, view: dict[str, Any], *, max_chars: int = 2400
     payload = dict(view)
     if node.role is NodeRole.INDEPENDENT_VERIFIER:
         candidates = payload.get("candidates") or []
-        payload["candidates"] = [verifier_view(c) for c in candidates if isinstance(c, dict)]
+        unique_candidates: list[dict[str, Any]] = []
+        seen_refs: set[str] = set()
+        for candidate in candidates:
+            if not isinstance(candidate, dict):
+                continue
+            neutral = verifier_view(candidate)
+            candidate_ref = neutral["candidate_ref"]
+            if candidate_ref in seen_refs:
+                continue
+            seen_refs.add(candidate_ref)
+            unique_candidates.append(neutral)
+        payload["candidates"] = unique_candidates
 
     body = json.dumps(payload, indent=2, sort_keys=True, default=str)
     if len(body) > max_chars:
