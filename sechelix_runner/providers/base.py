@@ -239,6 +239,18 @@ def validate_verifier_output(payload: Any) -> list[str]:
 
         candidate_ref = assessment.get("candidate_ref")
         if isinstance(candidate_ref, str) and candidate_ref.strip():
+            raw_digest = (
+                candidate_ref.removeprefix("sha256:")
+                if candidate_ref.startswith("sha256:")
+                else ""
+            )
+            if (
+                len(raw_digest) != 64
+                or any(char not in "0123456789abcdef" for char in raw_digest)
+            ):
+                problems.append(
+                    f"{where}.candidate_ref: must be a canonical sha256 digest"
+                )
             if candidate_ref in seen_refs:
                 problems.append(f"{where}.candidate_ref: duplicate {candidate_ref!r}")
             seen_refs.add(candidate_ref)
@@ -254,7 +266,14 @@ def validate_verifier_output(payload: Any) -> list[str]:
             values = assessment.get(field, [])
             if values is not None and not isinstance(values, list):
                 problems.append(f"{where}.{field}: must be a list")
-            elif isinstance(values, list) and any(not isinstance(item, str) for item in values):
-                problems.append(f"{where}.{field}: entries must be strings")
+            elif isinstance(values, list) and any(
+                not isinstance(item, str) or not item.strip() for item in values
+            ):
+                problems.append(f"{where}.{field}: entries must be non-empty strings")
+
+        if classification == "VERIFIED" and not assessment.get("evidence_ids"):
+            problems.append(
+                f"{where}.evidence_ids: VERIFIED requires stable supporting evidence"
+            )
 
     return problems
