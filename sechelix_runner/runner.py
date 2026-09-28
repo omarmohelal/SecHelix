@@ -85,6 +85,9 @@ class RunResult:
     started_at: str = ""
     finished_at: str = ""
     executor_name: str = ""
+    #: Canonical VERIFIED finding-v1 records the run promoted, if any. Empty
+    #: unless a verifier/full-workflow node placed them in the world.
+    verified_findings: list[dict[str, Any]] = field(default_factory=list)
 
     # -- the questions the release gate asks --------------------------------
 
@@ -128,6 +131,7 @@ class RunResult:
             "unsatisfied_mandatory": self.unsatisfied_mandatory,
             "blocked": self.blocked,
             "failed": self.failed,
+            "verified_findings": list(self.verified_findings),
         }
 
     #: Populated by the runner so the properties above can see it without the
@@ -282,6 +286,13 @@ class Runner:
 
         result.finished_at = _now()
         result.budget_snapshot = self.budget.snapshot()
+        # Surface the run's canonical, already-promoted findings on the result
+        # so a persisted run.json carries them without a reader having to walk
+        # per-node outputs. These are the exact finding-v1 records the verifier
+        # promoted into the world; nothing here promotes or invents anything.
+        findings = run_world.get("verified_findings")
+        if isinstance(findings, list):
+            result.verified_findings = [dict(item) for item in findings if isinstance(item, dict)]
         return result
 
     # -- internals -----------------------------------------------------------

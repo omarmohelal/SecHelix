@@ -199,6 +199,32 @@ class EvidencePromotionTests(unittest.TestCase):
         # A typed VERIFIED assessment is still not a canonical finding-v1 record.
         self.assertEqual(world()["findings"], [])
 
+    def test_result_surfaces_canonical_verified_findings(self) -> None:
+        finding = {
+            "schema_version": "1.0",
+            "finding_id": "SHX-F-LIVE-CROSSACCT",
+            "status": "VERIFIED",
+            "severity": "HIGH",
+        }
+        executor = MockExecutor(
+            {
+                "verify": NodeOutcome(
+                    status=NodeStatus.SUCCEEDED,
+                    output={"verified_findings": [finding]},
+                )
+            }
+        )
+        result = runner(executor=executor).run(pipeline(), world())
+        # The promoted records reach the result and its persisted form without
+        # a reader walking per-node outputs.
+        self.assertEqual(result.verified_findings, [finding])
+        self.assertEqual(result.to_dict()["verified_findings"], [finding])
+
+    def test_result_has_no_findings_when_none_were_promoted(self) -> None:
+        result = runner(executor=MockExecutor({})).run(pipeline(), world())
+        self.assertEqual(result.verified_findings, [])
+        self.assertEqual(result.to_dict()["verified_findings"], [])
+
     def test_promotion_does_not_mutate_caller_world(self) -> None:
         original = world()
         original.pop("candidates")
