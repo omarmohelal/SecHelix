@@ -34,6 +34,11 @@ COPY docs/packaging/PYPI_README.md ./docs/packaging/PYPI_README.md
 COPY sechelix_runner ./sechelix_runner
 COPY sechelix_core ./sechelix_core
 COPY adapters ./adapters
+# The wheel build force-includes these contract directories (see pyproject
+# [tool.hatch.build.targets.wheel]); without them the metadata step fails.
+COPY schemas ./schemas
+COPY catalog ./catalog
+COPY rules ./rules
 RUN python -m pip install ".[web]" \
  && python -m playwright install chromium
 
