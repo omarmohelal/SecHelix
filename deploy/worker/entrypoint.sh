@@ -15,7 +15,7 @@ if [ -n "${ANTHROPIC_API_KEY:-}" ] && command -v claude >/dev/null 2>&1; then
 fi
 
 args=(
-  --bind 0.0.0.0
+  --bind "${WORKER_BIND:-::}"
   --port "$PORT"
   --root "$WORKER_ROOT"
   --executor "$EXECUTOR"
