@@ -24,9 +24,10 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     NODE_MAJOR=20 \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-# Node is only needed for the optional Claude Code executor.
+# Node is only needed for the optional Claude Code executor. git is needed to
+# check out an operator-approved grey-box source repository for a run.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl ca-certificates \
+ && apt-get install -y --no-install-recommends curl ca-certificates git \
  && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
  && apt-get install -y --no-install-recommends nodejs \
  && npm install -g @anthropic-ai/claude-code \
