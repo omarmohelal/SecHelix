@@ -48,5 +48,8 @@ RUN chmod +x /usr/local/bin/sechelix-worker-entrypoint \
  && mkdir -p /data && chown worker:worker /data
 USER worker
 ENV WORKER_ROOT=/data
+# Chromium runs as this non-root user inside the container, where its own
+# sandbox helper is unavailable; the container is the isolation boundary.
+ENV SECHELIX_BROWSER_NO_SANDBOX=1
 
 ENTRYPOINT ["/usr/local/bin/sechelix-worker-entrypoint"]

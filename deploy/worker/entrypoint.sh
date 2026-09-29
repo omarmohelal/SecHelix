@@ -43,6 +43,8 @@ fi
 # Claude Code variables, forwarded only when set.
 [ -n "${ANTHROPIC_MODEL:-}" ] && provider_pass+=(--pass-env ANTHROPIC_MODEL)
 [ -n "${ANTHROPIC_SMALL_FAST_MODEL:-}" ] && provider_pass+=(--pass-env ANTHROPIC_SMALL_FAST_MODEL)
+# Forward the container browser flag into each run's minimized environment.
+[ -n "${SECHELIX_BROWSER_NO_SANDBOX:-}" ] && provider_pass+=(--pass-env SECHELIX_BROWSER_NO_SANDBOX)
 
 args=(
   --bind "${WORKER_BIND:-::}"
