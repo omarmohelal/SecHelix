@@ -71,6 +71,17 @@ if [ -n "${WORKER_ALLOW_TARGETS:-}" ]; then
     [ -n "$host" ] && args+=(--allow-target "$host")
   done
 fi
+# Optional grey-box source repositories the worker may clone: comma-separated
+# REPOSITORY=URL entries. Deny-by-default — only listed repositories can be
+# cloned, and only with a token supplied through WORKER_CLONE_TOKEN_REF.
+if [ -n "${WORKER_CLONE_SOURCES:-}" ]; then
+  IFS=',' read -ra clones <<<"$WORKER_CLONE_SOURCES"
+  for spec in "${clones[@]}"; do
+    spec="$(echo "$spec" | xargs)"
+    [ -n "$spec" ] && args+=(--clone-source "$spec")
+  done
+fi
+[ -n "${WORKER_CLONE_TOKEN_REF:-}" ] && args+=(--clone-token-ref "$WORKER_CLONE_TOKEN_REF")
 
 echo "sechelix-worker: executor=${EXECUTOR} credential=${CRED} port=${PORT} root=${WORKER_ROOT}" >&2
 exec sechelix-pentest-worker "${args[@]}"
