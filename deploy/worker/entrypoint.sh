@@ -45,6 +45,9 @@ fi
 [ -n "${ANTHROPIC_SMALL_FAST_MODEL:-}" ] && provider_pass+=(--pass-env ANTHROPIC_SMALL_FAST_MODEL)
 # Forward the container browser flag into each run's minimized environment.
 [ -n "${SECHELIX_BROWSER_NO_SANDBOX:-}" ] && provider_pass+=(--pass-env SECHELIX_BROWSER_NO_SANDBOX)
+# Playwright finds the image's bundled Chromium through this path; the run's
+# minimized child environment must carry it or the browser cannot launch.
+[ -n "${PLAYWRIGHT_BROWSERS_PATH:-}" ] && provider_pass+=(--pass-env PLAYWRIGHT_BROWSERS_PATH)
 
 args=(
   --bind "${WORKER_BIND:-::}"
