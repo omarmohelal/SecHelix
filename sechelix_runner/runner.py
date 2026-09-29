@@ -146,6 +146,12 @@ class RunResult:
 DEFAULT_NODE_COST_USD = 0.0
 
 
+def _world_has_candidates(world: dict[str, Any]) -> bool:
+    """Whether the world holds at least one candidate finding to verify."""
+    candidates = world.get("candidates")
+    return isinstance(candidates, list) and len(candidates) > 0
+
+
 class Runner:
     """Executes a graph and returns a :class:`RunResult`."""
 
@@ -219,6 +225,37 @@ class Runner:
                 result.routing.append(
                     RoutingDecision(node_id, node.role.value, False,
                                     f"blocked by {', '.join(unmet)}")
+                )
+                continue
+
+            # Applicability: the independent verifier exists to re-derive
+            # candidate findings. With no candidates in the world there is
+            # nothing to verify, so the lane is inapplicable (SKIPPED) -- a real
+            # answer that keeps an otherwise-clean run from failing -- rather
+            # than under-informed (BLOCKED). This reaches here only after the
+            # verifier's dependencies are satisfied, so the candidate set is
+            # final; and it cannot let a finding escape verification, because
+            # there are no candidates. A failed/blocked upstream lane is handled
+            # by the dependency check above and never reaches this branch.
+            if (
+                node.role is NodeRole.INDEPENDENT_VERIFIER
+                and not _world_has_candidates(run_world)
+            ):
+                self._record_skipped(
+                    result, node_id, node.role, node.node_version,
+                    "no candidate findings to verify",
+                )
+                satisfied.add(node_id)
+                done.add(node_id)
+                if run_world.get("_sechelix_manage_node_records") is True:
+                    run_world["node_records"] = [
+                        record.to_dict()
+                        for _n, record in sorted(result.records.items())
+                    ]
+                result.routing.append(
+                    RoutingDecision(
+                        node_id, node.role.value, False, "no candidates to verify"
+                    )
                 )
                 continue
 
@@ -470,6 +507,25 @@ class Runner:
         result.records[node_id] = record
         result.outputs[node_id] = outcome.output
         return record
+
+    def _record_skipped(
+        self, result, node_id, role: NodeRole, node_version: str, reason: str,
+    ) -> None:
+        now = _now()
+        record = NodeRecord(
+            run_id=result.run_id,
+            node_id=node_id,
+            role=role,
+            node_version=node_version,
+            target_commit=self.target_commit,
+            scope_id=self.scope_id,
+            status=NodeStatus.SKIPPED,
+            blocker=reason,
+            started_at=now,
+            finished_at=now,
+            duration_seconds=0.0,
+        )
+        result.records[node_id] = record
 
     def _record_blocked(
         self, result, node_id, role: NodeRole, node_version: str, blocker: str, *,
