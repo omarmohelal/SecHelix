@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
 # Start the SecHelix pentest worker with server-side ceilings. Everything here
-# is an upper bound a submitted config can only tighten. The executor is
-# claude-code only when an API key is present, so a missing key degrades to
-# bounded discovery instead of crash-looping.
+# is an upper bound a submitted config can only tighten.
+#
+# The reasoning executor is claude-code when a Claude credential is present. A
+# Claude subscription token (CLAUDE_CODE_OAUTH_TOKEN, from `claude setup-token`)
+# is preferred so runs draw on the subscription, not per-token API billing;
+# because Claude Code lets ANTHROPIC_API_KEY override the OAuth token, the API
+# key is unset when the subscription token is present. The chosen credential is
+# forwarded into the run's minimized environment with --pass-env, since nothing
+# reaches a run's child process unless it is passed explicitly. With no Claude
+# credential the executor is "none" (bounded discovery, findings INCOMPLETE).
 set -euo pipefail
 
 PORT="${PORT:-8787}"
@@ -10,8 +17,16 @@ WORKER_ROOT="${WORKER_ROOT:-/data}"
 mkdir -p "$WORKER_ROOT"
 
 EXECUTOR="none"
-if [ -n "${ANTHROPIC_API_KEY:-}" ] && command -v claude >/dev/null 2>&1; then
-  EXECUTOR="claude-code"
+provider_pass=()
+if command -v claude >/dev/null 2>&1; then
+  if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+    unset ANTHROPIC_API_KEY
+    EXECUTOR="claude-code"
+    provider_pass+=(--pass-env CLAUDE_CODE_OAUTH_TOKEN)
+  elif [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+    EXECUTOR="claude-code"
+    provider_pass+=(--pass-env ANTHROPIC_API_KEY)
+  fi
 fi
 
 args=(
@@ -24,6 +39,7 @@ args=(
   --max-depth "${WORKER_MAX_DEPTH:-2}"
   --max-seconds "${WORKER_MAX_SECONDS:-1800}"
   --max-nodes "${WORKER_MAX_NODES:-32}"
+  "${provider_pass[@]}"
 )
 [ -n "${WORKER_MAX_COST:-}" ] && args+=(--max-cost "$WORKER_MAX_COST")
 [ -n "${WORKER_MODEL:-}" ] && args+=(--model "$WORKER_MODEL")
@@ -36,5 +52,8 @@ if [ -n "${WORKER_ALLOW_TARGETS:-}" ]; then
   done
 fi
 
-echo "sechelix-worker: executor=${EXECUTOR} port=${PORT} root=${WORKER_ROOT}" >&2
+cred="none"
+[ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && cred="subscription-oauth"
+[ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -n "${ANTHROPIC_API_KEY:-}" ] && cred="api-key"
+echo "sechelix-worker: executor=${EXECUTOR} credential=${cred} port=${PORT} root=${WORKER_ROOT}" >&2
 exec sechelix-pentest-worker "${args[@]}"
