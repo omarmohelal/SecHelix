@@ -17,17 +17,32 @@ WORKER_ROOT="${WORKER_ROOT:-/data}"
 mkdir -p "$WORKER_ROOT"
 
 EXECUTOR="none"
+CRED="none"
 provider_pass=()
 if command -v claude >/dev/null 2>&1; then
-  if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+  if [ -n "${ANTHROPIC_BASE_URL:-}" ] && { [ -n "${ANTHROPIC_AUTH_TOKEN:-}" ] || [ -n "${ANTHROPIC_API_KEY:-}" ]; }; then
+    # Gateway mode: any Anthropic-compatible provider (e.g. Z.ai GLM, Kimi),
+    # using that provider's own base URL and token. The provider is chosen
+    # entirely by the operator's ANTHROPIC_BASE_URL.
+    EXECUTOR="claude-code"; CRED="gateway"
+    provider_pass+=(--pass-env ANTHROPIC_BASE_URL)
+    [ -n "${ANTHROPIC_AUTH_TOKEN:-}" ] && provider_pass+=(--pass-env ANTHROPIC_AUTH_TOKEN)
+    [ -n "${ANTHROPIC_API_KEY:-}" ] && provider_pass+=(--pass-env ANTHROPIC_API_KEY)
+  elif [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+    # Subscription: prefer it over the API key, which Claude Code would
+    # otherwise let override the token.
     unset ANTHROPIC_API_KEY
-    EXECUTOR="claude-code"
+    EXECUTOR="claude-code"; CRED="subscription-oauth"
     provider_pass+=(--pass-env CLAUDE_CODE_OAUTH_TOKEN)
   elif [ -n "${ANTHROPIC_API_KEY:-}" ]; then
-    EXECUTOR="claude-code"
+    EXECUTOR="claude-code"; CRED="api-key"
     provider_pass+=(--pass-env ANTHROPIC_API_KEY)
   fi
 fi
+# Let the operator name gateway model ids (e.g. glm-4.6) via the standard
+# Claude Code variables, forwarded only when set.
+[ -n "${ANTHROPIC_MODEL:-}" ] && provider_pass+=(--pass-env ANTHROPIC_MODEL)
+[ -n "${ANTHROPIC_SMALL_FAST_MODEL:-}" ] && provider_pass+=(--pass-env ANTHROPIC_SMALL_FAST_MODEL)
 
 args=(
   --bind "${WORKER_BIND:-::}"
@@ -52,8 +67,5 @@ if [ -n "${WORKER_ALLOW_TARGETS:-}" ]; then
   done
 fi
 
-cred="none"
-[ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && cred="subscription-oauth"
-[ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -n "${ANTHROPIC_API_KEY:-}" ] && cred="api-key"
-echo "sechelix-worker: executor=${EXECUTOR} credential=${cred} port=${PORT} root=${WORKER_ROOT}" >&2
+echo "sechelix-worker: executor=${EXECUTOR} credential=${CRED} port=${PORT} root=${WORKER_ROOT}" >&2
 exec sechelix-pentest-worker "${args[@]}"
