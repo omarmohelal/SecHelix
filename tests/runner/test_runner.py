@@ -249,6 +249,64 @@ class EvidencePromotionTests(unittest.TestCase):
         self.assertEqual(original, before)
 
 
+class VerifierApplicabilityTests(unittest.TestCase):
+    """A clean run (nothing to verify) must not fail because the verifier ran dry."""
+
+    def _world_without_candidates(self) -> dict:
+        thin = world()
+        thin.pop("candidates")
+        return thin
+
+    def test_verifier_is_skipped_when_there_are_no_candidates(self) -> None:
+        result = runner().run(pipeline(), self._world_without_candidates())
+        self.assertIs(result.records["verify"].status, NodeStatus.SKIPPED)
+        # SKIPPED counts as satisfied: an inapplicable lane owes no evidence.
+        self.assertTrue(result.records["verify"].satisfied)
+
+    def test_skipped_verifier_lets_the_gate_run_and_the_run_is_clean(self) -> None:
+        result = runner().run(pipeline(), self._world_without_candidates())
+        self.assertIs(result.records["gate"].status, NodeStatus.SUCCEEDED)
+        self.assertEqual(result.unsatisfied_mandatory, [])
+
+    def test_managed_node_records_include_the_skipped_verifier(self) -> None:
+        # When the runner manages node_records (live flow), the gate must still
+        # see a complete record set, including the skipped verifier.
+        thin = self._world_without_candidates()
+        thin.pop("node_records")
+        result = runner().run(pipeline(), thin)
+        self.assertIs(result.records["gate"].status, NodeStatus.SUCCEEDED)
+        self.assertEqual(result.unsatisfied_mandatory, [])
+
+    def test_a_produced_candidate_still_forces_verification(self) -> None:
+        # Skipping applies only when there is genuinely nothing to verify: a
+        # candidate produced upstream must still reach the verifier.
+        executor = MockExecutor(
+            {
+                "authz": NodeOutcome(
+                    status=NodeStatus.SUCCEEDED,
+                    output={"candidates": [{"claim": "x", "location": "l", "why": "w"}]},
+                )
+            }
+        )
+        result = runner(executor=executor).run(
+            pipeline(), self._world_without_candidates()
+        )
+        self.assertIs(result.records["verify"].status, NodeStatus.SUCCEEDED)
+
+    def test_failed_upstream_blocks_the_verifier_rather_than_skipping_it(self) -> None:
+        # A failed dependency leaves the question unanswered (BLOCKED); it must
+        # never be mistaken for an inapplicable lane (SKIPPED), even with no
+        # candidates present.
+        executor = MockExecutor(
+            {"authz": NodeOutcome(status=NodeStatus.FAILED, error="boom")}
+        )
+        result = runner(executor=executor).run(
+            pipeline(), self._world_without_candidates()
+        )
+        self.assertIs(result.records["verify"].status, NodeStatus.BLOCKED)
+        self.assertIn("verify", result.unsatisfied_mandatory)
+
+
 class ExecutorContractTests(unittest.TestCase):
     def test_executor_exception_fails_the_node_without_killing_the_run(self) -> None:
         class Exploding:
