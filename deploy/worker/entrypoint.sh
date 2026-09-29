@@ -71,9 +71,24 @@ if [ -n "${WORKER_ALLOW_TARGETS:-}" ]; then
     [ -n "$host" ] && args+=(--allow-target "$host")
   done
 fi
-# Optional grey-box source repositories the worker may clone: comma-separated
-# REPOSITORY=URL entries. Deny-by-default — only listed repositories can be
-# cloned, and only with a token supplied through WORKER_CLONE_TOKEN_REF.
+# Grey-box source checkout. Zero-config by default: a well-formed owner/repo is
+# cloned from github.com using a short-lived token the console uploads to the
+# in-memory secret store, so nothing here is required. The variables below are
+# optional overrides for enterprise/self-hosted git or to lock cloning down.
+#   WORKER_CLONE_HOSTS       comma-separated extra trusted hosts (github.com is
+#                            already trusted unless WORKER_CLONE_NO_DEFAULT_HOST)
+#   WORKER_CLONE_NO_DEFAULT_HOST=1  stop trusting github.com by default
+#   WORKER_CLONE_SOURCES     comma-separated REPOSITORY=URL explicit allowlist
+#   WORKER_CLONE_TOKEN_REF   secret name holding the clone token (defaults to
+#                            SECHELIX_PENTEST_SOURCE_TOKEN at clone time)
+if [ -n "${WORKER_CLONE_HOSTS:-}" ]; then
+  IFS=',' read -ra hosts <<<"$WORKER_CLONE_HOSTS"
+  for host in "${hosts[@]}"; do
+    host="$(echo "$host" | xargs)"
+    [ -n "$host" ] && args+=(--clone-host "$host")
+  done
+fi
+[ -n "${WORKER_CLONE_NO_DEFAULT_HOST:-}" ] && args+=(--no-default-clone-host)
 if [ -n "${WORKER_CLONE_SOURCES:-}" ]; then
   IFS=',' read -ra clones <<<"$WORKER_CLONE_SOURCES"
   for spec in "${clones[@]}"; do
