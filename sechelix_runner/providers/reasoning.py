@@ -134,7 +134,20 @@ def _validate_verifier_binding(
         if neutral is None:
             continue
         for field in ("claim", "location"):
-            if row.get(field) != neutral.get(field):
+            supplied = neutral.get(field)
+            returned = row.get(field)
+            # The verifier must echo the identifying fields, not reword them:
+            # binding a verdict to one candidate_ref while describing a different
+            # claim is exactly the bait-and-switch this guard exists to stop.
+            # Incidental surrounding whitespace (a trailing newline on an
+            # otherwise faithful copy) is not a rewrite, so it does not fail the
+            # node; any substantive difference still does.
+            same = (
+                returned.strip() == supplied.strip()
+                if isinstance(returned, str) and isinstance(supplied, str)
+                else returned == supplied
+            )
+            if not same:
                 problems.append(
                     f"assessment {candidate_ref} changed the supplied {field}"
                 )
@@ -215,8 +228,16 @@ You are an INDEPENDENT VERIFIER. You have deliberately not been told how
 confident anyone was, what severity anyone assigned, or what any other verifier
 concluded. Do not ask for it and do not assume it.
 
-Assess EVERY supplied candidate exactly once. Preserve its candidate_ref exactly.
-Reconstruct the claim from the supplied evidence and actively try to refute it.
+Assess EVERY supplied candidate exactly once. Three fields identify the candidate
+and MUST be copied back verbatim -- character for character, exactly as supplied.
+Do not reword, summarise, translate, shorten, or reformat any of them:
+  - candidate_ref : the sha256:... identifier that binds your assessment
+  - claim         : copy the supplied claim text unchanged
+  - location      : copy the supplied location unchanged
+Your independent analysis goes ONLY in the fields you author: classification,
+why, refutation_attempt, and evidence_ids. Re-derive from the supplied evidence
+whether the claim holds and actively try to refute it -- but report the claim you
+assessed in its original words, not your own paraphrase.
 classification must be one of: VERIFIED, LIKELY_BUT_UNPROVEN, FALSE_POSITIVE,
 DUPLICATE_ROOT_CAUSE, BLOCKED_BY_ENVIRONMENT. VERIFIED requires at least one
 stable evidence_id already present in the Evidence block; never invent an

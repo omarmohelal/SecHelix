@@ -234,6 +234,34 @@ class FailClosedTests(unittest.TestCase):
         self.assertIs(outcome.status, NodeStatus.FAILED)
         self.assertIn("changed the supplied claim", outcome.error)
 
+    def test_verifier_tolerates_incidental_whitespace_in_echoed_fields(self) -> None:
+        # A faithful copy that gains a trailing newline is not a bait-and-switch.
+        # The binding must not fail an otherwise-correct assessment over it, or
+        # the whole verifier node fails closed on a run that is actually clean.
+        candidate = {
+            "claim": "cross-account order read",
+            "location": "orders.py:42",
+            "why": "lookup appears to omit the owner predicate",
+        }
+        payload = {
+            "assessments": [
+                {
+                    "candidate_ref": verifier_view(candidate)["candidate_ref"],
+                    "classification": "FALSE_POSITIVE",
+                    "claim": "  cross-account order read\n",
+                    "location": "orders.py:42 ",
+                    "why": "the supplied evidence refuted the original candidate",
+                    "refutation_attempt": "reconstructed the route independently",
+                }
+            ]
+        }
+        outcome = run_node(
+            FakeProvider(json.dumps(payload)),
+            role=NodeRole.INDEPENDENT_VERIFIER,
+            view={"candidates": [candidate]},
+        )
+        self.assertIs(outcome.status, NodeStatus.SUCCEEDED)
+
     def test_verifier_cannot_invent_evidence_refs(self) -> None:
         candidate = {
             "claim": "cross-account order read",
@@ -411,6 +439,16 @@ class RoleIsolationTests(unittest.TestCase):
         self.assertIn("Refuting a claim is a success", prompt)
         self.assertIn('"assessments"', prompt)
         self.assertIn("LIKELY_BUT_UNPROVEN", prompt)
+
+    def test_verifier_prompt_requires_verbatim_identifiers(self) -> None:
+        # The binding rejects any assessment that rewords the supplied claim or
+        # location. The prompt must therefore tell the model to copy candidate_ref,
+        # claim and location verbatim -- otherwise a well-behaved verifier that
+        # "reconstructs" the claim in its own words fails the node every time.
+        prompt = build_prompt(GraphNode("v", NodeRole.INDEPENDENT_VERIFIER), {"candidates": []})
+        self.assertIn("verbatim", prompt)
+        self.assertIn("candidate_ref", prompt)
+        self.assertIn("copy the supplied claim text unchanged", prompt)
 
     def test_every_forbidden_field_is_stripped(self) -> None:
         candidate = {"claim": "c", "location": "l", "why": "w"}
