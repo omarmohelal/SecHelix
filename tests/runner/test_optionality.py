@@ -54,7 +54,7 @@ class RunnerStaysOptionalTests(unittest.TestCase):
             "typing", "enum",
             "json", "hashlib", "uuid", "time", "datetime", "pathlib", "collections",
             "argparse", "os", "sys", "re", "itertools", "contextlib", "shutil",
-            "subprocess", "tempfile", "textwrap", "math", "copy", "abc", "functools",
+            "subprocess", "tempfile", "textwrap", "traceback", "math", "copy", "abc", "functools",
             "concurrent",
             "ipaddress", "socket", "urllib", "base64", "secrets", "string",
             "http", "threading", "http.server", "html", "io", "signal", "ssl",
