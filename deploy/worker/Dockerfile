@@ -11,12 +11,18 @@
 # ANTHROPIC_API_KEY set the entrypoint runs the claude-code executor, otherwise
 # it runs executor "none" (browser discovery and bounded tools only, findings
 # reported INCOMPLETE) so the service is healthy either way.
-FROM mcr.microsoft.com/playwright/python:v1.55.0-noble
+# The wheel's Playwright and the image's bundled Chromium must be the same
+# version, or the browser cannot launch ("Executable doesn't exist …"). Keep
+# this ARG and the FROM tag in lockstep; the pip step pins the wheel to it.
+ARG PLAYWRIGHT_VERSION=1.55.0
+FROM mcr.microsoft.com/playwright/python:v${PLAYWRIGHT_VERSION}-noble
+ARG PLAYWRIGHT_VERSION
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
     PYTHONUNBUFFERED=1 \
-    NODE_MAJOR=20
+    NODE_MAJOR=20 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # Node is only needed for the optional Claude Code executor.
 RUN apt-get update \
@@ -39,7 +45,10 @@ COPY adapters ./adapters
 COPY schemas ./schemas
 COPY catalog ./catalog
 COPY rules ./rules
-RUN python -m pip install ".[web]" \
+# Pin the wheel's Playwright to the base image's version so it never drifts
+# ahead of the image's bundled browser, then make sure Chromium is present for
+# it under PLAYWRIGHT_BROWSERS_PATH.
+RUN python -m pip install ".[web]" "playwright==${PLAYWRIGHT_VERSION}" \
  && python -m playwright install chromium
 
 COPY deploy/worker/entrypoint.sh /usr/local/bin/sechelix-worker-entrypoint
