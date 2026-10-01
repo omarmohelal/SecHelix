@@ -33,6 +33,9 @@ class LaunchCheck:
     evidence_mode: str
     proof_classes: tuple[str, ...]
     fixture_ids: tuple[str, ...]
+    evidence_required: str
+    refuted_if: str
+    safe_test: str
 
     def context_view(self) -> dict[str, object]:
         return {
@@ -43,6 +46,9 @@ class LaunchCheck:
             "evidence_mode": self.evidence_mode,
             "proof_classes": list(self.proof_classes),
             "fixture_ids": list(self.fixture_ids),
+            "evidence_required": self.evidence_required,
+            "refuted_if": self.refuted_if,
+            "safe_test": self.safe_test,
         }
 
 
@@ -91,8 +97,20 @@ def load_launch_checks(path: Path | str | None = None) -> tuple[LaunchCheck, ...
         fixture_ids = tuple(
             str(item).strip() for item in raw.get("fixture_ids", []) if str(item).strip()
         )
-        if not number or not str(raw.get("title", "")).strip() or not families:
-            raise ValueError(f"{check_id}: number, title and families are required")
+        evidence_required = str(raw.get("evidence_required", "")).strip()
+        refuted_if = str(raw.get("refuted_if", "")).strip()
+        safe_test = str(raw.get("safe_test", "")).strip()
+        if (
+            not number
+            or not str(raw.get("title", "")).strip()
+            or not families
+            or not evidence_required
+            or not refuted_if
+            or not safe_test
+        ):
+            raise ValueError(
+                f"{check_id}: number, title, families and evidence procedures are required"
+            )
         checks.append(
             LaunchCheck(
                 id=check_id,
@@ -103,6 +121,9 @@ def load_launch_checks(path: Path | str | None = None) -> tuple[LaunchCheck, ...
                 evidence_mode=str(raw.get("evidence_mode", "STATIC_PLUS_RUNTIME")).strip(),
                 proof_classes=proof_classes,
                 fixture_ids=fixture_ids,
+                evidence_required=evidence_required,
+                refuted_if=refuted_if,
+                safe_test=safe_test,
             )
         )
     return tuple(sorted(checks, key=lambda item: item.number))
