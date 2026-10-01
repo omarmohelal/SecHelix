@@ -20,6 +20,7 @@ import subprocess
 import tempfile
 from typing import Any
 
+from ..roles import NodeRole
 from .base import ProviderError, ProviderResult
 
 
@@ -27,6 +28,27 @@ _NPM_NODE_TARGET = re.compile(
     r'["%]dp0[%]?[\\/](?P<target>[^"\\r\\n]+?\\.js)"',
     re.IGNORECASE,
 )
+
+_NEXUS_ROLE_FOR_NODE: dict[NodeRole, str] = {
+    NodeRole.MAPPER: "repo-explorer",
+    NodeRole.ARCHITECTURE: "architect",
+    NodeRole.AUTHENTICATION: "security-engineer",
+    NodeRole.AUTHORIZATION: "security-engineer",
+    NodeRole.BUSINESS_LOGIC: "security-engineer",
+    NodeRole.INJECTION_DATAFLOW: "security-engineer",
+    NodeRole.API_PROTOCOL: "security-engineer",
+    NodeRole.BROWSER: "security-engineer",
+    NodeRole.FILES_PARSERS: "security-engineer",
+    NodeRole.SUPPLY_CHAIN: "security-engineer",
+    NodeRole.CLOUD_CONFIGURATION: "security-engineer",
+    NodeRole.AI_MCP: "security-engineer",
+    NodeRole.RUNTIME_VERIFICATION: "security-engineer",
+    NodeRole.VARIANT_HUNTER: "security-engineer",
+    NodeRole.INDEPENDENT_VERIFIER: "security-engineer",
+    NodeRole.REMEDIATOR: "lead-engineer",
+    NodeRole.PATCH_VERIFIER: "qa-engineer",
+    NodeRole.RELEASE_GATE: "release-engineer",
+}
 
 
 class NexusCliExecutor:
@@ -92,7 +114,31 @@ class NexusCliExecutor:
             )
         return [node, str(target)]
 
+    def invoke_for_role(
+        self,
+        node_role: NodeRole,
+        prompt: str,
+        *,
+        timeout: float = 300.0,
+    ) -> ProviderResult:
+        """Use Nexus role staffing while keeping verifier routing independent."""
+        role = _NEXUS_ROLE_FOR_NODE.get(node_role, self.role)
+        lane = self.lane
+        if node_role is NodeRole.INDEPENDENT_VERIFIER:
+            lane = os.environ.get("SECHELIX_NEXUS_VERIFIER_LANE") or None
+        return self._invoke(prompt, timeout=timeout, role=role, lane=lane)
+
     def invoke(self, prompt: str, *, timeout: float = 300.0) -> ProviderResult:
+        return self._invoke(prompt, timeout=timeout, role=self.role, lane=self.lane)
+
+    def _invoke(
+        self,
+        prompt: str,
+        *,
+        timeout: float,
+        role: str,
+        lane: str | None,
+    ) -> ProviderResult:
         if not self.available:
             raise ProviderError(
                 f"{self.binary} not found; install/link Nexus or choose another executor"
@@ -114,10 +160,10 @@ class NexusCliExecutor:
             "--timeout",
             str(minutes),
             "--role",
-            self.role,
+            role,
         ]
-        if self.lane:
-            command.extend(["--lane", self.lane])
+        if lane:
+            command.extend(["--lane", lane])
 
         process: subprocess.Popen[str] | None = None
         try:
