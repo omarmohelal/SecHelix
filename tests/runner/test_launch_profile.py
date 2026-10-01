@@ -32,6 +32,17 @@ class LaunchProfileTests(unittest.TestCase):
         )
         self.assertEqual(len(checks), 18)
 
+    def test_every_check_has_evidence_refutation_and_safe_test(self) -> None:
+        for check in load_launch_checks(CANONICAL):
+            self.assertTrue(check.evidence_required.strip(), check.id)
+            self.assertTrue(check.refuted_if.strip(), check.id)
+            self.assertTrue(check.safe_test.strip(), check.id)
+            rendered = " ".join(
+                (check.evidence_required, check.refuted_if, check.safe_test)
+            ).lower()
+            self.assertNotIn("brute force", rendered.replace("no brute force", ""))
+            self.assertNotIn("denial of service", rendered)
+
     def test_every_declared_proof_class_is_real(self) -> None:
         known = {item.value for item in ProofClass}
         for check in load_launch_checks(CANONICAL):
