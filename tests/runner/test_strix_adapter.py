@@ -169,6 +169,42 @@ class StrixAdapterTests(unittest.TestCase):
         self.assertNotIn("SECRET_EXPLOIT_PAYLOAD", rendered)
         self.assertNotIn("model conclusion must not become evidence", rendered)
 
+    def test_normalizer_rejects_out_of_scope_endpoint_from_untrusted_strix_output(self) -> None:
+        rows = [
+            {
+                "id": "vuln-escape",
+                "title": "Redirected candidate",
+                "endpoint": "https://third-party.example/api",
+            }
+        ]
+        with self.assertRaisesRegex(StrixAdapterError, "outside the approved pentest scope"):
+            normalize_strix_vulnerabilities(
+                rows,
+                payload_sha256="sha256:" + "b" * 64,
+                run_name="run-test",
+                scope=staging_scope(),
+            )
+
+    def test_normalizer_accepts_in_scope_endpoint_when_scope_is_supplied(self) -> None:
+        rows = [
+            {
+                "id": "vuln-ok",
+                "title": "Scoped candidate",
+                "endpoint": "https://staging.example.com/api/orders/1",
+            }
+        ]
+        candidates = normalize_strix_vulnerabilities(
+            rows,
+            payload_sha256="sha256:" + "c" * 64,
+            run_name="run-test",
+            scope=staging_scope(),
+        )
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(
+            candidates[0]["properties"]["endpoint"],
+            "https://staging.example.com/api/orders/1",
+        )
+
     def test_exit_two_with_completed_run_is_successful_candidate_scan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
