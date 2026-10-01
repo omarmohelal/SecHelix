@@ -346,7 +346,11 @@ class ReasoningExecutor:
         self.prompts.append((node.node_id, prompt))
 
         try:
-            result = self.provider.invoke(prompt, timeout=self.timeout)
+            role_aware = getattr(self.provider, "invoke_for_role", None)
+            if callable(role_aware):
+                result = role_aware(prompt, role=node.role, timeout=self.timeout)
+            else:
+                result = self.provider.invoke(prompt, timeout=self.timeout)
         except ProviderError as exc:
             return NodeOutcome(status=NodeStatus.FAILED, error=str(exc))
 
