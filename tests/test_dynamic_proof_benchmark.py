@@ -16,7 +16,7 @@ class DynamicProofBenchmarkTests(unittest.TestCase):
         self.assertFalse(result["is_full_sechelix_workflow"])
         self.assertEqual(result["run"]["execution_mode"], "LOCAL")
         self.assertEqual(result["run"]["network_scope"], "literal-loopback-only")
-        self.assertEqual(result["run"]["case_count"], 26)
+        self.assertEqual(result["run"]["case_count"], 32)
         self.assertEqual(result["run"]["artificial_latency_ms"], 0)
         self.assertEqual(result["run"]["race_concurrency"], 2)
         self.assertEqual(result["metrics"]["case_accuracy"], 1.0)
@@ -47,6 +47,9 @@ class DynamicProofBenchmarkTests(unittest.TestCase):
                 "webhook-signature-replay",
                 "path-traversal",
                 "ssrf-callback",
+                "cors-policy",
+                "rate-limit-invariant",
+                "known-default-credential",
             },
         )
         case_ids = {row["case_id"] for row in result["cases"]}
@@ -69,6 +72,12 @@ class DynamicProofBenchmarkTests(unittest.TestCase):
             "TRAVERSAL-CLEAN",
             "SSRF-VULNERABLE",
             "SSRF-CLEAN",
+            "CORS-VULNERABLE",
+            "CORS-CLEAN",
+            "RATE-VULNERABLE",
+            "RATE-CLEAN",
+            "DEFAULT-VULNERABLE",
+            "DEFAULT-CLEAN",
         ):
             self.assertIn(expected_case, case_ids)
 
