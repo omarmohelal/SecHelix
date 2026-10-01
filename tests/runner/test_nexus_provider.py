@@ -7,6 +7,7 @@ from unittest.mock import PropertyMock, patch
 
 from sechelix_runner.providers.base import ProviderError
 from sechelix_runner.providers.nexus_cli import NexusCliExecutor, _parse_nexus_events
+from sechelix_runner.roles import NodeRole
 
 
 def event(event_type: str, payload: dict[str, object]) -> str:
@@ -111,6 +112,74 @@ class NexusExecutorTests(unittest.TestCase):
         self.assertIn("--json", captured)
         self.assertIn("--lane", captured)
         self.assertIn("qwen-local", captured)
+
+    def test_architecture_role_routes_to_nexus_architect(self) -> None:
+        captured: list[str] = []
+
+        def fake_popen(command, **kwargs):
+            captured.extend(command)
+            return _FakeProcess(command, **kwargs)
+
+        executor = NexusCliExecutor(binary="/usr/bin/nexus", lane="qwen-local")
+        with patch.object(
+            type(executor), "available", new_callable=PropertyMock, return_value=True
+        ), patch.object(
+            executor, "_launch_prefix", return_value=["/usr/bin/nexus"]
+        ), patch(
+            "sechelix_runner.providers.nexus_cli.subprocess.Popen",
+            side_effect=fake_popen,
+        ):
+            executor.invoke_for_role(NodeRole.ARCHITECTURE, "x", timeout=30)
+
+        role_index = captured.index("--role")
+        self.assertEqual(captured[role_index + 1], "architect")
+        self.assertIn("qwen-local", captured)
+
+    def test_verifier_does_not_inherit_worker_lane_pin(self) -> None:
+        captured: list[str] = []
+
+        def fake_popen(command, **kwargs):
+            captured.extend(command)
+            return _FakeProcess(command, **kwargs)
+
+        executor = NexusCliExecutor(binary="/usr/bin/nexus", lane="worker-model")
+        with patch.dict("os.environ", {}, clear=False), patch.object(
+            type(executor), "available", new_callable=PropertyMock, return_value=True
+        ), patch.object(
+            executor, "_launch_prefix", return_value=["/usr/bin/nexus"]
+        ), patch(
+            "sechelix_runner.providers.nexus_cli.subprocess.Popen",
+            side_effect=fake_popen,
+        ):
+            executor.invoke_for_role(NodeRole.INDEPENDENT_VERIFIER, "x", timeout=30)
+
+        role_index = captured.index("--role")
+        self.assertEqual(captured[role_index + 1], "security-engineer")
+        self.assertNotIn("--lane", captured)
+        self.assertNotIn("worker-model", captured)
+
+    def test_verifier_lane_requires_explicit_verifier_override(self) -> None:
+        captured: list[str] = []
+
+        def fake_popen(command, **kwargs):
+            captured.extend(command)
+            return _FakeProcess(command, **kwargs)
+
+        executor = NexusCliExecutor(binary="/usr/bin/nexus", lane="worker-model")
+        with patch.dict(
+            "os.environ", {"SECHELIX_NEXUS_VERIFIER_LANE": "verified-reviewer"}
+        ), patch.object(
+            type(executor), "available", new_callable=PropertyMock, return_value=True
+        ), patch.object(
+            executor, "_launch_prefix", return_value=["/usr/bin/nexus"]
+        ), patch(
+            "sechelix_runner.providers.nexus_cli.subprocess.Popen",
+            side_effect=fake_popen,
+        ):
+            executor.invoke_for_role(NodeRole.INDEPENDENT_VERIFIER, "x", timeout=30)
+
+        lane_index = captured.index("--lane")
+        self.assertEqual(captured[lane_index + 1], "verified-reviewer")
 
     def test_failed_task_is_not_accepted(self) -> None:
         class Failed(_FakeProcess):
