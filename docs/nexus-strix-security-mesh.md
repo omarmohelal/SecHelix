@@ -26,6 +26,30 @@ For the owner's current cost-sensitive setup:
 4. **Independent verifier**: Nexus `review` role on a different family/provider when practical (for example Codex/Claude/Gemini/HF review when available).
 5. **Uncensored/abliterated models**: optional authorized-lab fallback only; they are never treated as evidence and never bypass SecHelix scope/tool gates.
 
+## Preferred setup when FCC already owns the provider accounts
+
+If FCC already has OpenRouter, CheaperInference, Hugging Face, MiniMax, Z.ai, OpenAI and other
+providers configured, do **not** copy those provider API keys into Nexus or SecHelix.
+
+Use FCC as the loopback credential/model gateway:
+
+```powershell
+$env:SECHELIX_STRIX_USE_FCC="1"
+$env:FCC_BASE_URL="http://127.0.0.1:8082/v1"
+$env:SECHELIX_STRIX_FCC_MODEL="<exact FCC model id>"
+```
+
+SecHelix then launches Strix with the FCC model id, points it at the loopback FCC endpoint and forces
+the OpenAI Responses wire format. The underlying OpenRouter/DeepSeek/HF/etc. credentials stay inside
+FCC. If the local FCC gateway itself requires a bearer token, place only that local gateway token in
+`SECHELIX_PENTEST_FCC_API_KEY`; never copy the upstream provider keys.
+
+This mode is accepted only for loopback FCC URLs. A remote FCC URL is refused by default so a model
+prompt or local gateway credential cannot silently leave the machine.
+
+FCC must still prove that the selected model supports the tool-calling/structured-output behavior
+Strix needs. Catalog presence alone is not proof; run a harmless authorized fixture before promotion.
+
 ## Remote Strix credential isolation
 
 The pentest worker does **not** inherit generic host API keys. Give Strix one dedicated worker secret:
