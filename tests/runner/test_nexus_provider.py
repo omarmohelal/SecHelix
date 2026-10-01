@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 import unittest
-from unittest.mock import patch
+from unittest.mock import PropertyMock, patch
 
 from sechelix_runner.providers.base import ProviderError
 from sechelix_runner.providers.nexus_cli import NexusCliExecutor, _parse_nexus_events
@@ -92,7 +92,7 @@ class NexusExecutorTests(unittest.TestCase):
             return _FakeProcess(command, **kwargs)
 
         executor = NexusCliExecutor(binary="/usr/bin/nexus", lane="qwen-local")
-        with patch.object(executor, "available", True), patch.object(
+        with patch.object(type(executor), "available", new_callable=PropertyMock, return_value=True), patch.object(
             executor, "_launch_prefix", return_value=["/usr/bin/nexus"]
         ), patch(
             "sechelix_runner.providers.nexus_cli.subprocess.Popen",
@@ -119,7 +119,7 @@ class NexusExecutorTests(unittest.TestCase):
                 return event("task.end", {"taskId": "t1", "status": "failed", "lane": None}), "failed"
 
         executor = NexusCliExecutor(binary="/usr/bin/nexus")
-        with patch.object(executor, "available", True), patch.object(
+        with patch.object(type(executor), "available", new_callable=PropertyMock, return_value=True), patch.object(
             executor, "_launch_prefix", return_value=["/usr/bin/nexus"]
         ), patch(
             "sechelix_runner.providers.nexus_cli.subprocess.Popen",
