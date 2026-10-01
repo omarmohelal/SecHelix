@@ -14,6 +14,7 @@ from sechelix_runner.pentest.strix_adapter import (
     StrixAdapterError,
     StrixEngine,
     StrixEngineHealth,
+    _prepare_fcc_strix_environment,
     normalize_strix_vulnerabilities,
     write_strix_result,
 )
@@ -205,6 +206,46 @@ class StrixAdapterTests(unittest.TestCase):
                         scope=local_scope(),
                         max_budget_usd=budget,
                     )
+
+    def test_fcc_preflight_falls_back_to_first_tool_capable_model(self) -> None:
+        env = {
+            "SECHELIX_STRIX_USE_FCC": "1",
+            "FCC_BASE_URL": "http://127.0.0.1:8082/v1",
+            "SECHELIX_STRIX_FCC_MODEL": "anthropic/open_router/z-ai/glm-5.3",
+            "SECHELIX_STRIX_FCC_MODELS": (
+                "anthropic/open_router/z-ai/glm-5.3,"
+                "anthropic/open_router/qwen/qwen3.8-27b"
+            ),
+        }
+        with patch(
+            "sechelix_runner.pentest.strix_adapter._probe_fcc_tool_model",
+            side_effect=[
+                (False, "no structured ping function_call was observed"),
+                (True, "structured function_call verified"),
+            ],
+        ) as probe:
+            selected = _prepare_fcc_strix_environment(env)
+
+        self.assertEqual(probe.call_count, 2)
+        self.assertEqual(
+            selected["SECHELIX_STRIX_FCC_MODEL"],
+            "anthropic/open_router/qwen/qwen3.8-27b",
+        )
+        self.assertEqual(
+            selected["STRIX_LLM"],
+            "openai/anthropic/open_router/qwen/qwen3.8-27b",
+        )
+        self.assertEqual(selected["STRIX_FORCE_API"], "responses")
+
+    def test_fcc_preflight_refuses_remote_gateway(self) -> None:
+        with self.assertRaisesRegex(StrixAdapterError, "trusted local FCC base URL"):
+            _prepare_fcc_strix_environment(
+                {
+                    "SECHELIX_STRIX_USE_FCC": "1",
+                    "FCC_BASE_URL": "https://provider.example/v1",
+                    "SECHELIX_STRIX_FCC_MODEL": "model",
+                }
+            )
 
     def test_production_active_testing_remains_refused(self) -> None:
         scope = TargetScope(
