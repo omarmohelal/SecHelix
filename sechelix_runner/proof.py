@@ -334,7 +334,7 @@ def _known_default_credential(finding_id: str) -> ProofPlan:
         required_authority=["fixture_default_credential_test"],
         actions=[
             "submit the exact known default credential once to the local fixture",
-            "record only the response status and body digest; never persist the credential",
+            "record only the response status and body digest; keep the credential ephemeral",
         ],
         expected_secure_behavior="the exact known default credential is rejected",
         expected_vulnerable_behavior="the exact known default credential authenticates successfully",
