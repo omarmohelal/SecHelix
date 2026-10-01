@@ -154,7 +154,7 @@ class NexusExecutorTests(unittest.TestCase):
             executor.invoke_for_role(NodeRole.INDEPENDENT_VERIFIER, "x", timeout=30)
 
         role_index = captured.index("--role")
-        self.assertEqual(captured[role_index + 1], "security-engineer")
+        self.assertEqual(captured[role_index + 1], "review")
         self.assertNotIn("--lane", captured)
         self.assertNotIn("worker-model", captured)
 
