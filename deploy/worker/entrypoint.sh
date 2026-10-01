@@ -55,6 +55,7 @@ args=(
   --root "$WORKER_ROOT"
   --executor "$EXECUTOR"
   --concurrency "${WORKER_CONCURRENCY:-1}"
+  --max-queued-jobs "${WORKER_MAX_QUEUED_JOBS:-32}"
   --max-pages "${WORKER_MAX_PAGES:-25}"
   --max-depth "${WORKER_MAX_DEPTH:-2}"
   --max-seconds "${WORKER_MAX_SECONDS:-1800}"
