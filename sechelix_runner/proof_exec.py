@@ -59,6 +59,7 @@ class HttpObservation:
     body_length: int
     elapsed_ms: int
     error: str = ""
+    response_headers: Mapping[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -68,6 +69,7 @@ class HttpObservation:
             "body_length": self.body_length,
             "elapsed_ms": self.elapsed_ms,
             "error": self.error,
+            "response_headers": dict(self.response_headers),
         }
 
 
@@ -156,6 +158,43 @@ class CsrfHttpSpec:
     foreign_origin: str = "https://csrf-attacker.invalid"
     accepted_statuses: tuple[int, ...] = (200, 201, 202, 204)
     denial_statuses: tuple[int, ...] = (400, 401, 403, 409, 422)
+
+
+@dataclass(frozen=True, slots=True)
+class CorsHttpSpec:
+    """Two read-only LOCAL requests that compare approved vs foreign Origin."""
+
+    url: str
+    allowed_origin: str
+    foreign_origin: str = "https://cors-attacker.invalid"
+    headers: Mapping[str, str] = field(default_factory=dict)
+    credentialed: bool = False
+    accepted_statuses: tuple[int, ...] = (200, 204)
+
+
+@dataclass(frozen=True, slots=True)
+class RateLimitHttpSpec:
+    """One tiny, operator-declared LOCAL rate-limit invariant."""
+
+    url: str
+    allowed_requests: int
+    method: str = "GET"
+    body: bytes = b""
+    headers: Mapping[str, str] = field(default_factory=dict)
+    accepted_statuses: tuple[int, ...] = (200, 201, 202, 204)
+    limited_statuses: tuple[int, ...] = (429,)
+
+
+@dataclass(frozen=True, slots=True)
+class KnownDefaultCredentialHttpSpec:
+    """One exact known-default authentication attempt against a LOCAL fixture."""
+
+    url: str
+    body: bytes
+    headers: Mapping[str, str] = field(default_factory=dict)
+    method: str = "POST"
+    accepted_statuses: tuple[int, ...] = (200, 201, 204)
+    denial_statuses: tuple[int, ...] = (400, 401, 403, 404, 422)
 
 
 @dataclass(frozen=True, slots=True)
@@ -367,6 +406,9 @@ class LocalProofExecutor:
             ProofClass.WEBHOOK_SIGNATURE: self._webhook,
             ProofClass.SSRF_CALLBACK: self._ssrf,
             ProofClass.CSRF_REQUEST: self._csrf,
+            ProofClass.CORS_POLICY: self._cors_policy,
+            ProofClass.RATE_LIMIT_INVARIANT: self._rate_limit,
+            ProofClass.KNOWN_DEFAULT_CREDENTIAL: self._known_default_credential,
             ProofClass.SESSION_REVOCATION: self._session_revocation,
             ProofClass.STATE_TRANSITION: self._state_transition,
             ProofClass.PAYMENT_INVARIANT: self._payment_invariant,
@@ -614,6 +656,162 @@ class LocalProofExecutor:
             notes = [
                 "foreign-origin response was neither an expected denial nor a normal accepted outcome"
             ]
+        return ProofExecutionResult(
+            plan.finding_id,
+            plan.proof_class,
+            behavior,
+            observations,
+            notes=notes,
+        )
+
+    def _cors_policy(self, plan: ProofPlan, spec: Any) -> ProofExecutionResult:
+        if not isinstance(spec, CorsHttpSpec):
+            raise ProofExecutionError("CORS plan requires CorsHttpSpec")
+        target = urllib.parse.urlsplit(spec.url)
+        if target.scheme not in {"http", "https"} or not target.hostname:
+            raise ProofExecutionError("CORS proof URL must be absolute HTTP(S)")
+
+        def origin(value: str, label: str) -> str:
+            parsed = urllib.parse.urlsplit(value)
+            if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+                raise ProofExecutionError(f"{label} must be an absolute HTTP(S) origin")
+            if parsed.path not in {"", "/"} or parsed.query or parsed.fragment:
+                raise ProofExecutionError(f"{label} must not contain a path, query, or fragment")
+            return value.rstrip("/")
+
+        allowed_origin = origin(spec.allowed_origin, "allowed_origin")
+        foreign_origin = origin(spec.foreign_origin, "foreign_origin")
+        if allowed_origin == foreign_origin:
+            raise ProofExecutionError("allowed_origin and foreign_origin must differ")
+
+        captured = (
+            "Access-Control-Allow-Origin",
+            "Access-Control-Allow-Credentials",
+            "Vary",
+        )
+        approved = self._request(
+            "cors-approved-origin",
+            spec.url,
+            "GET",
+            {**dict(spec.headers), "Origin": allowed_origin},
+            capture_response_headers=captured,
+        )
+        foreign = self._request(
+            "cors-foreign-origin",
+            spec.url,
+            "GET",
+            {**dict(spec.headers), "Origin": foreign_origin},
+            capture_response_headers=captured,
+        )
+        observations = [approved.to_dict(), foreign.to_dict()]
+
+        def readable(obs: HttpObservation, request_origin: str) -> bool:
+            headers = {key.lower(): value for key, value in obs.response_headers.items()}
+            allow_origin = headers.get("access-control-allow-origin", "").strip()
+            allow_credentials = headers.get("access-control-allow-credentials", "").strip().lower()
+            if spec.credentialed:
+                return allow_origin == request_origin and allow_credentials == "true"
+            return allow_origin in {"*", request_origin}
+
+        if approved.status not in spec.accepted_statuses or not readable(approved, allowed_origin):
+            behavior = ProofBehavior.INCONCLUSIVE
+            notes = ["approved-origin control did not establish the declared CORS grant"]
+        elif readable(foreign, foreign_origin):
+            behavior = ProofBehavior.VULNERABLE_BEHAVIOR
+            notes = ["foreign origin received a browser-readable CORS grant"]
+        else:
+            behavior = ProofBehavior.SECURE_BEHAVIOR
+            notes = ["approved origin received the declared grant while the foreign origin did not"]
+        return ProofExecutionResult(
+            plan.finding_id,
+            plan.proof_class,
+            behavior,
+            observations,
+            notes=notes,
+        )
+
+    def _rate_limit(self, plan: ProofPlan, spec: Any) -> ProofExecutionResult:
+        if not isinstance(spec, RateLimitHttpSpec):
+            raise ProofExecutionError("rate-limit plan requires RateLimitHttpSpec")
+        if isinstance(spec.allowed_requests, bool) or not isinstance(spec.allowed_requests, int):
+            raise ProofExecutionError("allowed_requests must be an integer")
+        if not 1 <= spec.allowed_requests <= 5:
+            raise ProofExecutionError("allowed_requests must be between 1 and 5")
+        probe_count = spec.allowed_requests + 1
+        if probe_count > self.max_requests:
+            raise ProofExecutionError("rate-limit proof exceeds the bounded request limit")
+        method = spec.method.upper()
+        if method not in {"GET", "HEAD", "POST"}:
+            raise ProofExecutionError("rate-limit proof method must be GET, HEAD, or POST")
+
+        observations: list[dict[str, Any]] = []
+        responses: list[HttpObservation] = []
+        for index in range(probe_count):
+            response = self._request(
+                f"rate-limit-{index + 1}",
+                spec.url,
+                method,
+                spec.headers,
+                spec.body,
+            )
+            responses.append(response)
+            observations.append(response.to_dict())
+
+        controls = responses[: spec.allowed_requests]
+        excess = responses[-1]
+        if any(item.status not in spec.accepted_statuses for item in controls):
+            behavior = ProofBehavior.INCONCLUSIVE
+            notes = ["one of the declared allowed control requests was not accepted"]
+        elif excess.status in spec.limited_statuses:
+            behavior = ProofBehavior.SECURE_BEHAVIOR
+            notes = ["the single request above the declared allowance was rate-limited"]
+        elif excess.status in spec.accepted_statuses:
+            behavior = ProofBehavior.VULNERABLE_BEHAVIOR
+            notes = ["the single request above the declared allowance was accepted"]
+        else:
+            behavior = ProofBehavior.INCONCLUSIVE
+            notes = ["the excess request was neither normally accepted nor rate-limited"]
+        return ProofExecutionResult(
+            plan.finding_id,
+            plan.proof_class,
+            behavior,
+            observations,
+            notes=notes,
+        )
+
+    def _known_default_credential(
+        self,
+        plan: ProofPlan,
+        spec: Any,
+    ) -> ProofExecutionResult:
+        if not isinstance(spec, KnownDefaultCredentialHttpSpec):
+            raise ProofExecutionError(
+                "known-default-credential plan requires KnownDefaultCredentialHttpSpec"
+            )
+        if not spec.body:
+            raise ProofExecutionError("known-default credential request body must not be empty")
+        method = spec.method.upper()
+        if method not in {"POST", "PUT"}:
+            raise ProofExecutionError(
+                "known-default credential proof method must be POST or PUT"
+            )
+        attempt = self._request(
+            "known-default-credential",
+            spec.url,
+            method,
+            spec.headers,
+            spec.body,
+        )
+        observations = [attempt.to_dict()]
+        if attempt.status in spec.denial_statuses:
+            behavior = ProofBehavior.SECURE_BEHAVIOR
+            notes = ["the exact documented default credential was rejected"]
+        elif attempt.status in spec.accepted_statuses:
+            behavior = ProofBehavior.VULNERABLE_BEHAVIOR
+            notes = ["the exact documented default credential authenticated successfully"]
+        else:
+            behavior = ProofBehavior.INCONCLUSIVE
+            notes = ["the authentication response was neither a declared success nor denial"]
         return ProofExecutionResult(
             plan.finding_id,
             plan.proof_class,
@@ -1497,6 +1695,7 @@ class LocalProofExecutor:
         body: bytes = b"",
         *,
         capture_body: bool = False,
+        capture_response_headers: tuple[str, ...] = (),
     ) -> HttpObservation:
         if self._requests >= self.max_requests:
             raise ProofExecutionError("bounded proof request limit exhausted")
@@ -1528,6 +1727,7 @@ class LocalProofExecutor:
         started = time.monotonic()
         status: int | None = None
         response_body = b""
+        captured_headers: dict[str, str] = {}
         error = ""
         try:
             connection.request(
@@ -1538,6 +1738,12 @@ class LocalProofExecutor:
             )
             response = connection.getresponse()
             status = int(response.status)
+            if capture_response_headers:
+                requested = {name.lower(): name for name in capture_response_headers}
+                for name, value in response.getheaders():
+                    canonical = requested.get(name.lower())
+                    if canonical is not None:
+                        captured_headers[canonical] = str(value)[:1024]
             response_body = response.read(262_144)
         except (http.client.HTTPException, TimeoutError, OSError) as exc:
             error = type(exc).__name__
@@ -1551,6 +1757,7 @@ class LocalProofExecutor:
             body_length=len(response_body),
             elapsed_ms=elapsed,
             error=error,
+            response_headers=captured_headers,
         )
         # Body bytes are intentionally non-serializable private state, available
         # only to the traversal comparison and never returned in artifacts.
