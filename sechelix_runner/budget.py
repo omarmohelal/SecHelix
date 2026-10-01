@@ -240,6 +240,7 @@ class BudgetGovernor:
             raise ValueError("checkpoint budget usage/decisions are malformed")
 
         restored_actual: dict[str, float] = {}
+        restored_reserved: dict[str, float] = {}
         restored_estimated: dict[str, float] = {}
         for name in LIMIT_NAMES:
             row = usage.get(name)
@@ -251,11 +252,18 @@ class BudgetGovernor:
                 estimated = float(row.get("estimated", 0.0))
             except (TypeError, ValueError) as exc:
                 raise ValueError(f"checkpoint budget {name} is not numeric") from exc
-            if actual < 0 or estimated < 0 or reserved != 0:
+            if actual < 0 or estimated < 0 or reserved < 0:
+                raise ValueError(f"checkpoint budget {name} has negative usage")
+            # max_nodes is deliberately accounted as a cumulative reservation:
+            # each admitted node consumes one slot and Runner does not release
+            # it. Other reservations represent in-flight work and therefore
+            # cannot exist at a node-boundary checkpoint.
+            if name != "max_nodes" and reserved != 0:
                 raise ValueError(
-                    f"checkpoint budget {name} has invalid or active reservation state"
+                    f"checkpoint budget {name} contains in-flight reservation state"
                 )
             restored_actual[name] = actual
+            restored_reserved[name] = reserved
             restored_estimated[name] = estimated
 
         restored_decisions: list[BudgetDecision] = []
@@ -280,7 +288,7 @@ class BudgetGovernor:
             )
 
         self._actual = restored_actual
-        self._reserved = {name: 0.0 for name in LIMIT_NAMES}
+        self._reserved = restored_reserved
         self._estimated = restored_estimated
         self.decisions = restored_decisions
         self.exhausted = bool(snapshot.get("exhausted", False))
