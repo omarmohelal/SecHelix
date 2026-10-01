@@ -1,0 +1,35 @@
+{
+  "schema": "sechelix-strix-compatibility-v1",
+  "engine": "strix",
+  "upstream_repository": "https://github.com/usestrix/strix",
+  "package": "strix-agent",
+  "tested_version": "1.6.2",
+  "tested_upstream_commit": "007ed1a94e7dbf7b096c81e5b0354533ce94e0db",
+  "contract": "strix-cli-v1",
+  "required_cli_flags": [
+    "--non-interactive",
+    "--target",
+    "--scan-mode",
+    "--max-turns",
+    "--max-budget",
+    "--instruction"
+  ],
+  "accepted_headless_exit_codes": [0, 2],
+  "required_run_status": "completed",
+  "artifact_contract": {
+    "run_metadata": "strix_runs/<run>/run.json",
+    "findings": "strix_runs/<run>/vulnerabilities.json"
+  },
+  "policy": {
+    "untested_version": "BLOCK",
+    "missing_required_flag": "BLOCK",
+    "partial_run": "BLOCK",
+    "out_of_scope_reported_endpoint": "BLOCK",
+    "scanner_verdict_authority": "NONE"
+  },
+  "notes": [
+    "This pin records the exact upstream revision exercised by the SecHelix compatibility suite.",
+    "A newer Strix version is not considered unsafe; it is considered untested until this contract and tests are deliberately updated.",
+    "Strix findings remain CANDIDATE/UNASSESSED until independently reproduced and verified by SecHelix."
+  ]
+}
