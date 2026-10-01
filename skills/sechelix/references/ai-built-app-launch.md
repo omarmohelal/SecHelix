@@ -83,6 +83,25 @@ The checks below are a practical view over SecHelix's existing security families
 | 35 | Logs do not retain unnecessary sensitive data | `PRIV`, `CRYPTO`, `OPS` | Passwords, tokens, payment secrets, and unnecessary PII are redacted/minimized, with restricted access and appropriate retention. |
 | 36 | Production source maps and build artifacts do not leak unintended internals | `REL`, `CI`, `PRIV`, `CRYPTO` | Deployed artifacts are inspected and do not publish sensitive source maps, debug bundles, secret-bearing files, or unintended internal material. |
 
+## Executable checks 19-36
+
+Checks 19-36 also have a machine-readable routing overlay in
+`catalog/launch-checks.json`. The optional runner can execute those checks as
+an evidence-routed specialist graph:
+
+```bash
+sechelix launch-audit . --executor claude-code
+# or one/few checks
+sechelix launch-audit . --check 19 --check 33 --executor claude-code
+```
+
+The runtime output deliberately uses `CANDIDATE`,
+`ASSESSED_NO_CANDIDATE`, `UNKNOWN`, `BLOCKED`, or `FAILED`.
+`ASSESSED_NO_CANDIDATE` is **not** `PASS`: the launch profile keeps PASS behind
+the canonical evidence, independent-verification, regression/retest, and release
+contracts. The overlay also records which bounded proof classes and controlled
+evaluation fixtures already exist for each check.
+
 ## Copy-paste launch audit prompt
 
 ```text
