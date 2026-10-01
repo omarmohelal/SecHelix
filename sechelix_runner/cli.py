@@ -655,6 +655,44 @@ def cmd_fix_check(args: argparse.Namespace) -> int:
     return EXIT_OK if result.ready else EXIT_NOT_CLEAN
 
 
+def cmd_benchmark_models(args: argparse.Namespace) -> int:
+    """Generate a blind prediction packet for one Nexus lane.
+
+    This command deliberately does not score the packet. Ground truth stays
+    outside the model process and scoring remains a separate explicit step.
+    """
+
+    from .model_benchmark import (
+        ModelBenchmarkError,
+        run_nexus_benchmark,
+        write_prediction_packet,
+    )
+
+    try:
+        packet = run_nexus_benchmark(
+            cases_path=args.cases,
+            lane=args.lane,
+            sechelix_commit=args.sechelix_commit,
+            fixture_suite_version=args.fixture_suite_version,
+            timeout_per_case=args.timeout_per_case,
+        )
+        write_prediction_packet(args.output, packet)
+    except (ModelBenchmarkError, OSError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+
+    if args.json:
+        print(json.dumps(packet, indent=2, sort_keys=True))
+    else:
+        print(f"benchmark lane   {args.lane}")
+        print(f"cases            {packet['case_count']}")
+        print(f"predictions      {args.output}")
+        print("scoring          NOT_RUN (freeze this packet, then score separately)")
+        print(f"cost             {packet['cost']}")
+        print(f"time_seconds     {packet['time_seconds']}")
+    return EXIT_OK
+
+
 # -- entry point -------------------------------------------------------------
 
 
@@ -773,6 +811,46 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _common(fix_check)
     fix_check.set_defaults(func=cmd_fix_check)
+
+    benchmark_models = sub.add_parser(
+        "benchmark-models",
+        help="generate a sealed blind prediction packet for one Nexus lane",
+    )
+    benchmark_models.add_argument(
+        "--cases",
+        required=True,
+        type=Path,
+        help="sealed blind cases.json; ground truth must not be present",
+    )
+    benchmark_models.add_argument(
+        "--lane",
+        required=True,
+        help="exact Nexus lane/model route to evaluate",
+    )
+    benchmark_models.add_argument(
+        "--output",
+        required=True,
+        type=Path,
+        help="prediction packet path; score it only after this file is frozen",
+    )
+    benchmark_models.add_argument(
+        "--sechelix-commit",
+        required=True,
+        help="exact SecHelix commit associated with the sealed packet",
+    )
+    benchmark_models.add_argument(
+        "--fixture-suite-version",
+        required=True,
+        help="human-readable fixture suite/version label",
+    )
+    benchmark_models.add_argument(
+        "--timeout-per-case",
+        type=float,
+        default=300.0,
+        help="maximum seconds for each isolated model judgment",
+    )
+    _common(benchmark_models)
+    benchmark_models.set_defaults(func=cmd_benchmark_models)
 
     runs = sub.add_parser("runs", help="list recorded runs and their integrity")
     runs.add_argument("path", nargs="?", default=".")
