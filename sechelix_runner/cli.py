@@ -272,6 +272,92 @@ def cmd_audit(args: argparse.Namespace) -> int:
     return EXIT_OK if not result.unsatisfied_mandatory else EXIT_NOT_CLEAN
 
 
+def cmd_launch_audit(args: argparse.Namespace) -> int:
+    """Run evidence-routed AI-built-app launch checks 19-36.
+
+    The command deliberately reports CANDIDATE / ASSESSED_NO_CANDIDATE /
+    UNKNOWN / BLOCKED / FAILED.  It never turns "nothing found" into PASS.
+    """
+
+    from .launch_profile import (
+        LaunchContextBuilder,
+        build_launch_graph,
+        load_launch_checks,
+        summarize_launch_run,
+    )
+
+    root = Path(args.path).resolve()
+    if not root.is_dir():
+        print(f"error: {root} is not a directory", file=sys.stderr)
+        return EXIT_USAGE
+
+    checks = load_launch_checks()
+    if args.check:
+        wanted = {f"LAUNCH-{number}" for number in args.check}
+        checks = tuple(check for check in checks if check.id in wanted)
+    if not checks:
+        print("error: no launch checks selected", file=sys.stderr)
+        return EXIT_USAGE
+
+    target = describe_target(root)
+    world = build_world(root, depth=args.depth)
+    # These keys make absence explicit so the verifier/gate cannot confuse a
+    # missing collection with a clean one.
+    world.setdefault("candidates", [])
+    world.setdefault("findings", [])
+    graph = build_launch_graph(checks)
+
+    limits = BudgetLimits(
+        max_cost_usd=args.max_cost,
+        max_duration_seconds=args.max_seconds,
+        max_nodes=args.max_nodes,
+    )
+    try:
+        executor = _build_executor(args)
+    except RuntimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+
+    result = Runner(
+        executor=executor,
+        budget=BudgetGovernor(limits),
+        target_commit=target["commit"],
+        scope_id=target["scope_id"],
+        context_builder_factory=lambda run_world: LaunchContextBuilder(run_world, checks),
+    ).run(graph, world)
+
+    workspace = persist_run(root, result, graph)
+    summary = summarize_launch_run(result, checks)
+    summary["run_id"] = result.run_id
+    summary["target_commit"] = result.target_commit
+    summary["unsatisfied_mandatory"] = list(result.unsatisfied_mandatory)
+    workspace.write_json("launch-checks.json", summary)
+    workspace.write_manifest()
+
+    if args.json:
+        print(json.dumps(redact(summary), indent=2, sort_keys=True))
+    else:
+        print(f"launch  {result.run_id}")
+        print(f"commit  {result.target_commit}")
+        for row in summary["checks"]:
+            print(
+                f"  {row['number']:>2}  {row['execution_state']:<22} "
+                f"{row['title']}"
+            )
+        print()
+        print("note    ASSESSED_NO_CANDIDATE is not PASS; release evidence is separate.")
+        print(f"saved   {workspace.path}")
+
+    unresolved = {
+        "CANDIDATE",
+        "UNKNOWN",
+        "BLOCKED",
+        "FAILED",
+    }
+    states = {str(row["execution_state"]) for row in summary["checks"]}
+    return EXIT_NOT_CLEAN if states & unresolved else EXIT_OK
+
+
 def _print_run(result: Any, workspace: RunWorkspace) -> None:
     print(f"run     {result.run_id}")
     print(f"commit  {result.target_commit}")
@@ -592,6 +678,34 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _common(audit)
     audit.set_defaults(func=cmd_audit)
+
+    launch_audit = sub.add_parser(
+        "launch-audit",
+        help="run evidence-routed AI-built-app launch checks 19-36",
+    )
+    launch_audit.add_argument("path", nargs="?", default=".")
+    launch_audit.add_argument("--depth", choices=sorted(DEPTHS), default="standard")
+    launch_audit.add_argument(
+        "--check",
+        action="append",
+        choices=tuple(f"{number:02d}" for number in range(19, 37)),
+        default=[],
+        help="run only one launch check number; repeatable (default: 19-36)",
+    )
+    launch_audit.add_argument("--max-cost", type=float, default=None, dest="max_cost")
+    launch_audit.add_argument("--max-seconds", type=float, default=None, dest="max_seconds")
+    launch_audit.add_argument("--max-nodes", type=int, default=None, dest="max_nodes")
+    launch_audit.add_argument(
+        "--executor", choices=("none", "claude-code", "gemini-cli"), default="none",
+        help="reasoning executor; 'none' records all reasoning checks as blocked",
+    )
+    launch_audit.add_argument("--model", default=None, help="provider model override")
+    launch_audit.add_argument(
+        "--node-timeout", type=float, default=None, dest="node_timeout",
+        help="seconds allowed per reasoning node",
+    )
+    _common(launch_audit)
+    launch_audit.set_defaults(func=cmd_launch_audit)
 
     scout = sub.add_parser(
         "scout",

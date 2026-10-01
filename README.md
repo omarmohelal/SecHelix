@@ -191,6 +191,7 @@ sechelix doctor
 | `sechelix doctor` | Shows available components and reasoning executors |
 | `sechelix audit . --executor claude-code` | Runs an audit using Claude Code as the reasoning executor |
 | `sechelix audit . --executor gemini-cli` | Runs an audit using Gemini CLI as the reasoning executor |
+| `sechelix launch-audit . --executor claude-code` | Runs evidence-routed AI-built-app launch checks 19-36 without turning “no candidate” into PASS |
 | `sechelix runs` | Lists saved runs and checks their integrity |
 | `sechelix coverage` | Shows what previous runs did not examine |
 | `sechelix report` | Renders the latest saved run |
@@ -202,6 +203,7 @@ Example:
 ```bash
 sechelix doctor
 sechelix audit . --executor claude-code
+sechelix launch-audit . --executor claude-code
 sechelix coverage
 sechelix report --format markdown
 ```
