@@ -63,6 +63,15 @@ args=(
 )
 [ -n "${WORKER_MAX_COST:-}" ] && args+=(--max-cost "$WORKER_MAX_COST")
 [ -n "${WORKER_MODEL:-}" ] && args+=(--model "$WORKER_MODEL")
+# Strix is intentionally not bundled in the stock Railway image because it
+# requires its own Docker sandbox runtime. A derived/self-hosted worker may
+# opt in; sechelix-pentest-worker then verifies both strix and Docker before
+# advertising the capability or accepting Strix jobs.
+[ "${WORKER_ENABLE_STRIX:-0}" = "1" ] && args+=(--enable-strix)
+[ -n "${WORKER_STRIX_TIMEOUT:-}" ] && args+=(--strix-timeout "$WORKER_STRIX_TIMEOUT")
+[ -n "${WORKER_STRIX_SCAN_MODE:-}" ] && args+=(--strix-scan-mode "$WORKER_STRIX_SCAN_MODE")
+[ -n "${WORKER_STRIX_MAX_TURNS:-}" ] && args+=(--strix-max-turns "$WORKER_STRIX_MAX_TURNS")
+[ -n "${WORKER_STRIX_MAX_BUDGET:-}" ] && args+=(--strix-max-budget "$WORKER_STRIX_MAX_BUDGET")
 # Optional host allowlist for hosted verification: comma-separated.
 if [ -n "${WORKER_ALLOW_TARGETS:-}" ]; then
   IFS=',' read -ra allow <<<"$WORKER_ALLOW_TARGETS"
