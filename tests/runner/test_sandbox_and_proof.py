@@ -151,6 +151,9 @@ class ProofPlanTests(unittest.TestCase):
         "fixture_state_readback",
         "fixture_financial_readback",
         "fixture_reset",
+        "fixture_cors_probe",
+        "fixture_rate_limit_probe",
+        "fixture_default_credential_test",
     }
 
     def test_every_class_produces_a_complete_plan(self) -> None:

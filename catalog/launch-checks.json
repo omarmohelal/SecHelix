@@ -175,7 +175,9 @@
         "CLOUD"
       ],
       "evidence_mode": "STATIC_PLUS_RUNTIME",
-      "proof_classes": [],
+      "proof_classes": [
+        "CORS_POLICY"
+      ],
       "fixture_ids": [],
       "evidence_required": "An attacker-controlled Origin receives credentialed or sensitive cross-origin access not required by the application.",
       "refuted_if": "Allowed origins, methods, headers and credential behavior are explicit and untrusted origins cannot read protected responses.",
@@ -193,7 +195,9 @@
         "OPS"
       ],
       "evidence_mode": "STATIC_PLUS_RUNTIME",
-      "proof_classes": [],
+      "proof_classes": [
+        "RATE_LIMIT_INVARIANT"
+      ],
       "fixture_ids": [],
       "evidence_required": "An abuse-sensitive endpoint permits a bounded sequence of requests to exceed the documented per-subject/origin/action invariant before enforcement.",
       "refuted_if": "Server-side counters/quotas/idempotency or equivalent controls stop the bounded abuse case without relying on client throttling.",
@@ -227,7 +231,9 @@
         "CLOUD"
       ],
       "evidence_mode": "STATIC_PLUS_RUNTIME",
-      "proof_classes": [],
+      "proof_classes": [
+        "KNOWN_DEFAULT_CREDENTIAL"
+      ],
       "fixture_ids": [],
       "evidence_required": "A documented vendor/bootstrap/default credential or default account can authenticate to the assessed environment.",
       "refuted_if": "Known default identities/tokens are disabled, removed or rotated before exposure, and bootstrap credentials cannot authenticate.",
