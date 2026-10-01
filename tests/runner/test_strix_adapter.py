@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -254,6 +255,54 @@ class StrixAdapterTests(unittest.TestCase):
             selected = _prepare_fcc_strix_environment(env)
 
         self.assertEqual(selected["LLM_DISABLE_STREAMING"], "false")
+
+    def test_fcc_run_uses_stream_backed_compatibility_runner(self) -> None:
+        captured: dict[str, object] = {}
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            engine = StrixEngine()
+
+            def fake_run(command, **kwargs):
+                if command == ["strix", "--version"]:
+                    return subprocess.CompletedProcess(command, 0, "Strix 1.6.2\n", "")
+                if command == ["strix", "--help"]:
+                    return subprocess.CompletedProcess(command, 0, STRIX_HELP, "")
+                captured["command"] = tuple(command)
+                captured["env"] = dict(kwargs.get("env") or {})
+                run_dir = root / "strix_runs" / "run-fcc"
+                run_dir.mkdir(parents=True)
+                (run_dir / "run.json").write_text(
+                    json.dumps({"status": "completed"}), encoding="utf-8"
+                )
+                (run_dir / "vulnerabilities.json").write_text("[]", encoding="utf-8")
+                return subprocess.CompletedProcess(command, 0, "", "")
+
+            with patch.object(engine, "available", return_value=True), patch(
+                "sechelix_runner.pentest.strix_adapter._probe_fcc_tool_model",
+                return_value=(True, "structured function_call verified"),
+            ), patch(
+                "sechelix_runner.pentest.strix_adapter.subprocess.run",
+                side_effect=fake_run,
+            ):
+                result = engine.run(
+                    scope=local_scope(),
+                    cwd=root,
+                    timeout=10,
+                    env={
+                        "SECHELIX_STRIX_USE_FCC": "1",
+                        "FCC_BASE_URL": "http://127.0.0.1:8082/v1",
+                        "SECHELIX_STRIX_FCC_MODEL": "anthropic/open_router/qwen/qwen3.8-27b",
+                    },
+                )
+
+        command = captured["command"]
+        self.assertEqual(command[:3], (
+            sys.executable,
+            "-m",
+            "sechelix_runner.pentest.strix_fcc_runner",
+        ))
+        self.assertEqual(command[3], "-n")
+        self.assertTrue(result.succeeded)
 
     def test_fcc_preflight_preserves_dedicated_gateway_key(self) -> None:
         env = {
