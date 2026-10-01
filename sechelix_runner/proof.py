@@ -34,6 +34,9 @@ class ProofClass(str, Enum):
     SSRF_CALLBACK = "SSRF_CALLBACK"
     PATH_TRAVERSAL = "PATH_TRAVERSAL"
     CSRF_REQUEST = "CSRF_REQUEST"
+    CORS_POLICY = "CORS_POLICY"
+    RATE_LIMIT_INVARIANT = "RATE_LIMIT_INVARIANT"
+    KNOWN_DEFAULT_CREDENTIAL = "KNOWN_DEFAULT_CREDENTIAL"
     SESSION_REVOCATION = "SESSION_REVOCATION"
     STATE_TRANSITION = "STATE_TRANSITION"
     PAYMENT_INVARIANT = "PAYMENT_INVARIANT"
@@ -274,6 +277,70 @@ def _csrf(finding_id: str) -> ProofPlan:
     )
 
 
+def _cors_policy(finding_id: str) -> ProofPlan:
+    return _plan(
+        ProofClass.CORS_POLICY,
+        finding_id,
+        preconditions=[
+            "the local fixture declares one approved cross-origin caller and one fixed foreign origin",
+            "the tested endpoint is a harmless read whose response represents the intended CORS policy",
+        ],
+        required_authority=["fixture_cors_probe"],
+        actions=[
+            "send one read with the declared approved Origin header and record only CORS response headers",
+            "send the same read with a fixed foreign Origin header",
+            "compare Access-Control-Allow-Origin and credential semantics against the declared policy",
+        ],
+        expected_secure_behavior=(
+            "the approved origin receives the declared CORS grant and the foreign origin cannot obtain a browser-readable grant"
+        ),
+        expected_vulnerable_behavior=(
+            "the foreign origin receives an Access-Control-Allow-Origin grant that would make the response browser-readable under the declared credential mode"
+        ),
+    )
+
+
+def _rate_limit(finding_id: str) -> ProofPlan:
+    return _plan(
+        ProofClass.RATE_LIMIT_INVARIANT,
+        finding_id,
+        preconditions=[
+            "the local fixture declares the exact small request allowance being verified",
+            "the endpoint can be exercised with at most six harmless requests without resource exhaustion",
+        ],
+        required_authority=["fixture_rate_limit_probe"],
+        actions=[
+            "send exactly the declared number of allowed harmless requests as the control",
+            "send one additional request",
+            "record whether that one additional request is rate-limited",
+        ],
+        expected_secure_behavior=(
+            "the declared allowed requests succeed and the single excess request is rejected by the rate-limit boundary"
+        ),
+        expected_vulnerable_behavior=(
+            "the declared allowed requests and the single excess request are all accepted"
+        ),
+    )
+
+
+def _known_default_credential(finding_id: str) -> ProofPlan:
+    return _plan(
+        ProofClass.KNOWN_DEFAULT_CREDENTIAL,
+        finding_id,
+        preconditions=[
+            "the exact vendor/bootstrap credential is documented and supplied for a LOCAL fixture",
+            "one authentication attempt is sufficient to distinguish enabled from disabled default access",
+        ],
+        required_authority=["fixture_default_credential_test"],
+        actions=[
+            "submit the exact known default credential once to the local fixture",
+            "record only the response status and body digest; never persist the credential",
+        ],
+        expected_secure_behavior="the exact known default credential is rejected",
+        expected_vulnerable_behavior="the exact known default credential authenticates successfully",
+    )
+
+
 def _session_revocation(finding_id: str) -> ProofPlan:
     return _plan(
         ProofClass.SESSION_REVOCATION,
@@ -454,6 +521,9 @@ _BUILDERS = {
     ProofClass.SSRF_CALLBACK: _ssrf,
     ProofClass.PATH_TRAVERSAL: _traversal,
     ProofClass.CSRF_REQUEST: _csrf,
+    ProofClass.CORS_POLICY: _cors_policy,
+    ProofClass.RATE_LIMIT_INVARIANT: _rate_limit,
+    ProofClass.KNOWN_DEFAULT_CREDENTIAL: _known_default_credential,
     ProofClass.SESSION_REVOCATION: _session_revocation,
     ProofClass.STATE_TRANSITION: _state_transition,
     ProofClass.PAYMENT_INVARIANT: _payment_invariant,
