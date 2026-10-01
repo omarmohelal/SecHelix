@@ -73,6 +73,12 @@ args=(
 [ -n "${WORKER_STRIX_SCAN_MODE:-}" ] && args+=(--strix-scan-mode "$WORKER_STRIX_SCAN_MODE")
 [ -n "${WORKER_STRIX_MAX_TURNS:-}" ] && args+=(--strix-max-turns "$WORKER_STRIX_MAX_TURNS")
 [ -n "${WORKER_STRIX_MAX_BUDGET:-}" ] && args+=(--strix-max-budget "$WORKER_STRIX_MAX_BUDGET")
+[ -n "${WORKER_STRIX_SANDBOX_MEM_LIMIT:-}" ] && args+=(--strix-sandbox-mem-limit "$WORKER_STRIX_SANDBOX_MEM_LIMIT")
+[ -n "${WORKER_STRIX_SANDBOX_CPUS:-}" ] && args+=(--strix-sandbox-cpus "$WORKER_STRIX_SANDBOX_CPUS")
+[ -n "${WORKER_STRIX_SANDBOX_PIDS_LIMIT:-}" ] && args+=(--strix-sandbox-pids-limit "$WORKER_STRIX_SANDBOX_PIDS_LIMIT")
+[ -n "${WORKER_STRIX_SANDBOX_SHM_SIZE:-}" ] && args+=(--strix-sandbox-shm-size "$WORKER_STRIX_SANDBOX_SHM_SIZE")
+[ -n "${WORKER_STRIX_SANDBOX_LOG_MAX_SIZE:-}" ] && args+=(--strix-sandbox-log-max-size "$WORKER_STRIX_SANDBOX_LOG_MAX_SIZE")
+[ -n "${WORKER_STRIX_SANDBOX_LOG_MAX_FILE:-}" ] && args+=(--strix-sandbox-log-max-file "$WORKER_STRIX_SANDBOX_LOG_MAX_FILE")
 # Optional host allowlist for hosted verification: comma-separated.
 if [ -n "${WORKER_ALLOW_TARGETS:-}" ]; then
   IFS=',' read -ra allow <<<"$WORKER_ALLOW_TARGETS"
