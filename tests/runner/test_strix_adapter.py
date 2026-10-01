@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -460,7 +461,7 @@ class StrixAdapterTests(unittest.TestCase):
         self.assertTrue(result.succeeded)
         self.assertEqual(result.candidates, ())
         self.assertFalse(result.vulnerability_index_present)
-        self.assertEqual(result.payload_sha256, "sha256:" + __import__("hashlib").sha256(b"[]").hexdigest())
+        self.assertEqual(result.payload_sha256, "sha256:" + hashlib.sha256(b"[]").hexdigest())
 
     def test_findings_exit_without_vulnerability_index_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
