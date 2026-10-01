@@ -23,9 +23,12 @@ from typing import Callable, Sequence
 
 from sechelix_runner.proof import ProofClass, build_plan
 from sechelix_runner.proof_exec import (
+    CorsHttpSpec,
     CsrfHttpSpec,
     IdorHttpSpec,
+    KnownDefaultCredentialHttpSpec,
     RaceHttpSpec,
+    RateLimitHttpSpec,
     LocalProofExecutor,
     MoneyFlowInvariantHttpSpec,
     PaymentInvariantHttpSpec,
@@ -74,6 +77,9 @@ class _Handler(BaseHTTPRequestHandler):
     race_clean_lock = threading.Lock()
     webhook_vulnerable_count = 0
     webhook_clean_count = 0
+    rate_vulnerable_count = 0
+    rate_clean_count = 0
+    default_body = b"username=admin&password=admin"
     traversal_sentinel = b"SECHELIX_DYNAMIC_TRAVERSAL_SENTINEL"
     artificial_latency_ms = 0
 
@@ -123,6 +129,32 @@ class _Handler(BaseHTTPRequestHandler):
             else:
                 self._send(401)
             return
+        if self.path == "/cors/vulnerable":
+            origin = self.headers.get("Origin", "")
+            self.send_response(200)
+            if origin:
+                self.send_header("Access-Control-Allow-Origin", origin)
+                self.send_header("Vary", "Origin")
+            self.end_headers()
+            self.wfile.write(b"fixture")
+            return
+        if self.path == "/cors/clean":
+            origin = self.headers.get("Origin", "")
+            self.send_response(200)
+            if origin == "https://app.example":
+                self.send_header("Access-Control-Allow-Origin", origin)
+                self.send_header("Vary", "Origin")
+            self.end_headers()
+            self.wfile.write(b"fixture")
+            return
+        if self.path == "/rate/vulnerable":
+            type(self).rate_vulnerable_count += 1
+            self._send(200)
+            return
+        if self.path == "/rate/clean":
+            type(self).rate_clean_count += 1
+            self._send(200 if type(self).rate_clean_count <= 2 else 429)
+            return
         if self.path == "/session/vulnerable":
             if self.headers.get("X-Bench-Session") != "fixture-session":
                 self._send(401)
@@ -145,7 +177,14 @@ class _Handler(BaseHTTPRequestHandler):
         if type(self).artificial_latency_ms:
             time.sleep(type(self).artificial_latency_ms / 1000.0)
         length = int(self.headers.get("Content-Length", "0"))
-        self.rfile.read(length)
+        body = self.rfile.read(length)
+
+        if self.path == "/default/vulnerable":
+            self._send(200 if body == type(self).default_body else 401)
+            return
+        if self.path == "/default/clean":
+            self._send(401)
+            return
 
         if self.path == "/race/vulnerable":
             type(self).race_vulnerable_count += 1
@@ -331,6 +370,8 @@ def _reset() -> None:
     _Handler.race_clean_count = 0
     _Handler.webhook_vulnerable_count = 0
     _Handler.webhook_clean_count = 0
+    _Handler.rate_vulnerable_count = 0
+    _Handler.rate_clean_count = 0
 
 
 class _BenchmarkXssBrowser:
@@ -766,6 +807,92 @@ def _cases(*, race_concurrency: int = 2) -> tuple[BenchmarkCase, ...]:
             ),
         )
 
+    def cors_vulnerable(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.CORS_POLICY,
+            "BENCH-CORS-VULN",
+            available_authority={"fixture_cors_probe"},
+        )
+        return executor.execute(
+            plan,
+            CorsHttpSpec(
+                url=base + "/cors/vulnerable",
+                allowed_origin="https://app.example",
+            ),
+        )
+
+    def cors_clean(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.CORS_POLICY,
+            "BENCH-CORS-CLEAN",
+            available_authority={"fixture_cors_probe"},
+        )
+        return executor.execute(
+            plan,
+            CorsHttpSpec(
+                url=base + "/cors/clean",
+                allowed_origin="https://app.example",
+            ),
+        )
+
+    def rate_vulnerable(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.RATE_LIMIT_INVARIANT,
+            "BENCH-RATE-VULN",
+            available_authority={"fixture_rate_limit_probe"},
+        )
+        return executor.execute(
+            plan,
+            RateLimitHttpSpec(
+                url=base + "/rate/vulnerable",
+                allowed_requests=2,
+            ),
+        )
+
+    def rate_clean(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.RATE_LIMIT_INVARIANT,
+            "BENCH-RATE-CLEAN",
+            available_authority={"fixture_rate_limit_probe"},
+        )
+        return executor.execute(
+            plan,
+            RateLimitHttpSpec(
+                url=base + "/rate/clean",
+                allowed_requests=2,
+            ),
+        )
+
+    def default_vulnerable(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.KNOWN_DEFAULT_CREDENTIAL,
+            "BENCH-DEFAULT-VULN",
+            available_authority={"fixture_default_credential_test"},
+        )
+        return executor.execute(
+            plan,
+            KnownDefaultCredentialHttpSpec(
+                url=base + "/default/vulnerable",
+                body=_Handler.default_body,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            ),
+        )
+
+    def default_clean(base: str, executor: LocalProofExecutor):
+        plan = build_plan(
+            ProofClass.KNOWN_DEFAULT_CREDENTIAL,
+            "BENCH-DEFAULT-CLEAN",
+            available_authority={"fixture_default_credential_test"},
+        )
+        return executor.execute(
+            plan,
+            KnownDefaultCredentialHttpSpec(
+                url=base + "/default/clean",
+                body=_Handler.default_body,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            ),
+        )
+
     def session_vulnerable(base: str, executor: LocalProofExecutor):
         plan = build_plan(
             ProofClass.SESSION_REVOCATION,
@@ -875,6 +1002,12 @@ def _cases(*, race_concurrency: int = 2) -> tuple[BenchmarkCase, ...]:
         BenchmarkCase("IDOR-CLEAN", "authorization-idor", ProofBehavior.SECURE_BEHAVIOR, idor_clean),
         BenchmarkCase("CSRF-VULNERABLE", "csrf-request", ProofBehavior.VULNERABLE_BEHAVIOR, csrf_vulnerable),
         BenchmarkCase("CSRF-CLEAN", "csrf-request", ProofBehavior.SECURE_BEHAVIOR, csrf_clean),
+        BenchmarkCase("CORS-VULNERABLE", "cors-policy", ProofBehavior.VULNERABLE_BEHAVIOR, cors_vulnerable),
+        BenchmarkCase("CORS-CLEAN", "cors-policy", ProofBehavior.SECURE_BEHAVIOR, cors_clean),
+        BenchmarkCase("RATE-VULNERABLE", "rate-limit-invariant", ProofBehavior.VULNERABLE_BEHAVIOR, rate_vulnerable),
+        BenchmarkCase("RATE-CLEAN", "rate-limit-invariant", ProofBehavior.SECURE_BEHAVIOR, rate_clean),
+        BenchmarkCase("DEFAULT-VULNERABLE", "known-default-credential", ProofBehavior.VULNERABLE_BEHAVIOR, default_vulnerable),
+        BenchmarkCase("DEFAULT-CLEAN", "known-default-credential", ProofBehavior.SECURE_BEHAVIOR, default_clean),
         BenchmarkCase("SESSION-VULNERABLE", "session-revocation", ProofBehavior.VULNERABLE_BEHAVIOR, session_vulnerable),
         BenchmarkCase("SESSION-CLEAN", "session-revocation", ProofBehavior.SECURE_BEHAVIOR, session_clean),
         BenchmarkCase("XSS-VULNERABLE", "xss-browser-marker", ProofBehavior.VULNERABLE_BEHAVIOR, xss_vulnerable),
