@@ -236,8 +236,24 @@ class StrixAdapterTests(unittest.TestCase):
             "openai/anthropic/open_router/qwen/qwen3.8-27b",
         )
         self.assertEqual(selected["STRIX_FORCE_API"], "responses")
+        self.assertEqual(selected["LLM_DISABLE_STREAMING"], "false")
         self.assertEqual(selected["LLM_API_KEY"], "sechelix-fcc-local-noauth")
         self.assertEqual(selected["OPENAI_API_KEY"], "sechelix-fcc-local-noauth")
+
+    def test_fcc_preflight_overrides_stale_disable_streaming(self) -> None:
+        env = {
+            "SECHELIX_STRIX_USE_FCC": "1",
+            "FCC_BASE_URL": "http://127.0.0.1:8082/v1",
+            "SECHELIX_STRIX_FCC_MODEL": "anthropic/open_router/qwen/qwen3.8-27b",
+            "LLM_DISABLE_STREAMING": "true",
+        }
+        with patch(
+            "sechelix_runner.pentest.strix_adapter._probe_fcc_tool_model",
+            return_value=(True, "structured function_call verified"),
+        ):
+            selected = _prepare_fcc_strix_environment(env)
+
+        self.assertEqual(selected["LLM_DISABLE_STREAMING"], "false")
 
     def test_fcc_preflight_preserves_dedicated_gateway_key(self) -> None:
         env = {
