@@ -115,10 +115,19 @@ def load_checkpoint(path: str | Path) -> RunnerCheckpoint:
         raise CheckpointError("checkpoint completed_node_ids must be a string array")
     if not isinstance(records, dict) or not isinstance(outputs, dict):
         raise CheckpointError("checkpoint records and outputs must be objects")
+    if not all(isinstance(key, str) and isinstance(value, dict) for key, value in records.items()):
+        raise CheckpointError("checkpoint records must map node ids to objects")
+    if not all(isinstance(key, str) and isinstance(value, dict) for key, value in outputs.items()):
+        raise CheckpointError("checkpoint outputs must map node ids to objects")
     if not isinstance(routing, list) or not all(isinstance(x, dict) for x in routing):
         raise CheckpointError("checkpoint routing must be an object array")
     if not isinstance(context_views, dict) or not isinstance(budget, dict):
         raise CheckpointError("checkpoint context_views and budget must be objects")
+    if not all(
+        isinstance(key, str) and isinstance(value, dict)
+        for key, value in context_views.items()
+    ):
+        raise CheckpointError("checkpoint context_views must map node ids to objects")
 
     missing = set(completed) - set(records)
     if missing:
