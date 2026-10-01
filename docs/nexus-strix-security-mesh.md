@@ -44,6 +44,8 @@ the OpenAI Responses wire format. The underlying OpenRouter/DeepSeek/HF/etc. cre
 FCC. If the local FCC gateway itself requires a bearer token, place only that local gateway token in
 `SECHELIX_PENTEST_FCC_API_KEY`; never copy the upstream provider keys.
 
+When FCC is local and does not require authentication, do **not** create or export a provider API key for Strix. SecHelix injects a non-secret local client sentinel only into the Strix child process because the OpenAI SDK requires a non-empty credential even for an unauthenticated custom base URL. Provider credentials remain stored and used inside FCC.
+
 This mode is accepted only for loopback FCC URLs. A remote FCC URL is refused by default so a model
 prompt or local gateway credential cannot silently leave the machine.
 
