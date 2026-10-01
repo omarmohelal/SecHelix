@@ -68,7 +68,23 @@ args=(
 # requires its own Docker sandbox runtime. A derived/self-hosted worker may
 # opt in; sechelix-pentest-worker then verifies both strix and Docker before
 # advertising the capability or accepting Strix jobs.
-[ "${WORKER_ENABLE_STRIX:-0}" = "1" ] && args+=(--enable-strix)
+if [ "${WORKER_ENABLE_STRIX:-0}" = "1" ]; then
+  args+=(--enable-strix)
+
+  # Strix/LiteLLM provider routing. Only exact, documented variable names are
+  # forwarded when the operator explicitly enables Strix on this worker.
+  # Keys are never printed and no broad provider prefix is inherited.
+  [ -n "${STRIX_LLM:-}" ] && args+=(--pass-env STRIX_LLM)
+  [ -n "${LLM_API_KEY:-}" ] && args+=(--pass-env LLM_API_KEY)
+  [ -n "${LLM_API_BASE:-}" ] && args+=(--pass-env LLM_API_BASE)
+  [ -n "${STRIX_API_TYPE:-}" ] && args+=(--pass-env STRIX_API_TYPE)
+  [ -n "${STRIX_REASONING_EFFORT:-}" ] && args+=(--pass-env STRIX_REASONING_EFFORT)
+  [ -n "${STRIX_OPENROUTER_STICKY_SESSIONS:-}" ] && args+=(--pass-env STRIX_OPENROUTER_STICKY_SESSIONS)
+  [ -n "${STRIX_CACHE_BLOCK_TOKENS:-}" ] && args+=(--pass-env STRIX_CACHE_BLOCK_TOKENS)
+  [ -n "${STRIX_DEDUPE_MODEL:-}" ] && args+=(--pass-env STRIX_DEDUPE_MODEL)
+  [ -n "${DEDUPE_LLM_API_KEY:-}" ] && args+=(--pass-env DEDUPE_LLM_API_KEY)
+  [ -n "${DEDUPE_LLM_API_BASE:-}" ] && args+=(--pass-env DEDUPE_LLM_API_BASE)
+fi
 [ -n "${WORKER_STRIX_TIMEOUT:-}" ] && args+=(--strix-timeout "$WORKER_STRIX_TIMEOUT")
 [ -n "${WORKER_STRIX_SCAN_MODE:-}" ] && args+=(--strix-scan-mode "$WORKER_STRIX_SCAN_MODE")
 [ -n "${WORKER_STRIX_MAX_TURNS:-}" ] && args+=(--strix-max-turns "$WORKER_STRIX_MAX_TURNS")
