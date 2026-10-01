@@ -26,7 +26,10 @@
       ],
       "fixture_ids": [
         "EVAL-WEB-002"
-      ]
+      ],
+      "evidence_required": "Attacker-controlled content is reachable at a browser script-capable sink and can execute in the assessed context, or the code/config evidence establishes the same boundary failure.",
+      "refuted_if": "Context-correct encoding/text insertion, safe URL schemes and framework behavior prevent execution on every reachable sink.",
+      "safe_test": "Use only the deterministic SecHelix browser marker proof on LOCAL or authorized STAGING."
     },
     {
       "id": "LAUNCH-20",
@@ -41,7 +44,10 @@
       "proof_classes": [
         "CSRF_REQUEST"
       ],
-      "fixture_ids": []
+      "fixture_ids": [],
+      "evidence_required": "A browser-authenticated state-changing route can be triggered cross-site without an effective anti-CSRF boundary.",
+      "refuted_if": "Relevant routes enforce a framework CSRF token and/or trustworthy Origin/Fetch-Metadata policy with cookie settings appropriate to the flow.",
+      "safe_test": "Use one bounded fixture state change; never operate on production accounts or money."
     },
     {
       "id": "LAUNCH-21",
@@ -56,7 +62,10 @@
       "fixture_ids": [
         "EVAL-FILE-003",
         "EVAL-FILE-004"
-      ]
+      ],
+      "evidence_required": "An attacker-controlled upload can bypass size/type/content/name/storage/parser/serving controls and cross a security boundary.",
+      "refuted_if": "Uploads are size-bounded, content-validated, safely named/stored, parsed in a constrained boundary and served without unintended execution or cross-tenant access.",
+      "safe_test": "Use inert fixture files only; no polyglot malware, persistence or production storage mutation."
     },
     {
       "id": "LAUNCH-22",
@@ -73,7 +82,10 @@
       "fixture_ids": [
         "EVAL-FILE-002",
         "EVAL-FILE-003"
-      ]
+      ],
+      "evidence_required": "A caller-controlled path resolves outside the intended storage root after all decoding/canonicalization steps.",
+      "refuted_if": "The final resolved path is proven contained in the intended root and absolute/traversal/encoded traversal variants are rejected.",
+      "safe_test": "Use a temporary LOCAL fixture root and inert files."
     },
     {
       "id": "LAUNCH-23",
@@ -89,7 +101,10 @@
       ],
       "fixture_ids": [
         "EVAL-SSRF-002"
-      ]
+      ],
+      "evidence_required": "Attacker-controlled URL input can cause the server to contact a forbidden scheme/host/private address or can reach one through DNS/redirect changes.",
+      "refuted_if": "Every request hop enforces approved schemes and destinations immediately before connection, including redirects and resolved IP ranges.",
+      "safe_test": "Use only an allowlisted LOCAL callback under TargetScope."
     },
     {
       "id": "LAUNCH-24",
@@ -104,7 +119,10 @@
       "fixture_ids": [
         "EVAL-AUTH-003",
         "EVAL-AUTH-004"
-      ]
+      ],
+      "evidence_required": "A reset/recovery token or flow can be guessed, replayed, reused after success/expiry, redirected to the wrong subject, or completed without required step-up.",
+      "refuted_if": "Tokens are high-entropy, short-lived, subject-bound, single-use, invalidated on completion, and recovery does not weaken required authentication boundaries.",
+      "safe_test": "Use seeded test identities and fixture mail/token delivery; do not send real email/SMS."
     },
     {
       "id": "LAUNCH-25",
@@ -122,7 +140,10 @@
       "fixture_ids": [
         "EVAL-AUTH-002",
         "EVAL-SESS-002"
-      ]
+      ],
+      "evidence_required": "A session survives a boundary where it must rotate/revoke, remains valid after logout/revocation, or lacks required cookie/token lifecycle controls.",
+      "refuted_if": "Session identifiers rotate on privilege changes and are invalid after logout/revocation/expiry with appropriate cookie/token protections.",
+      "safe_test": "Use a fresh fixture session and explicit local/staging revocation hook."
     },
     {
       "id": "LAUNCH-26",
@@ -138,7 +159,10 @@
       "proof_classes": [],
       "fixture_ids": [
         "EVAL-SESS-001"
-      ]
+      ],
+      "evidence_required": "A JWT is accepted when its signature/algorithm/issuer/audience/expiry/required claims are not valid under trusted configuration.",
+      "refuted_if": "Verification pins allowed algorithms and trusted keys plus issuer/audience/expiry and all required claims before authority is derived.",
+      "safe_test": "Use locally generated fixture tokens only; never capture or mutate real bearer tokens."
     },
     {
       "id": "LAUNCH-27",
@@ -152,7 +176,10 @@
       ],
       "evidence_mode": "STATIC_PLUS_RUNTIME",
       "proof_classes": [],
-      "fixture_ids": []
+      "fixture_ids": [],
+      "evidence_required": "An attacker-controlled Origin receives credentialed or sensitive cross-origin access not required by the application.",
+      "refuted_if": "Allowed origins, methods, headers and credential behavior are explicit and untrusted origins cannot read protected responses.",
+      "safe_test": "Use OPTIONS/read-only requests with fixture identities; do not expose production secrets in the test."
     },
     {
       "id": "LAUNCH-28",
@@ -167,7 +194,10 @@
       ],
       "evidence_mode": "STATIC_PLUS_RUNTIME",
       "proof_classes": [],
-      "fixture_ids": []
+      "fixture_ids": [],
+      "evidence_required": "An abuse-sensitive endpoint permits a bounded sequence of requests to exceed the documented per-subject/origin/action invariant before enforcement.",
+      "refuted_if": "Server-side counters/quotas/idempotency or equivalent controls stop the bounded abuse case without relying on client throttling.",
+      "safe_test": "Use a very small predeclared request budget; never load-test, brute-force or exhaust resources."
     },
     {
       "id": "LAUNCH-29",
@@ -181,7 +211,10 @@
       ],
       "evidence_mode": "STATIC_PLUS_RUNTIME",
       "proof_classes": [],
-      "fixture_ids": []
+      "fixture_ids": [],
+      "evidence_required": "A non-production environment is reachable with weaker controls while retaining production secrets, customer data, privileged tooling or trust connectivity.",
+      "refuted_if": "Staging/test has appropriate authentication and strict separation from production secrets/data/admin trust, with only explicitly required connectivity.",
+      "safe_test": "Prefer configuration and read-only checks; never pivot from staging into production."
     },
     {
       "id": "LAUNCH-30",
@@ -195,7 +228,10 @@
       ],
       "evidence_mode": "STATIC_PLUS_RUNTIME",
       "proof_classes": [],
-      "fixture_ids": []
+      "fixture_ids": [],
+      "evidence_required": "A documented vendor/bootstrap/default credential or default account can authenticate to the assessed environment.",
+      "refuted_if": "Known default identities/tokens are disabled, removed or rotated before exposure, and bootstrap credentials cannot authenticate.",
+      "safe_test": "Test only explicitly documented defaults once against a fixture/staging target; no guessing or credential stuffing."
     },
     {
       "id": "LAUNCH-31",
@@ -211,7 +247,10 @@
       "proof_classes": [
         "WEBHOOK_SIGNATURE"
       ],
-      "fixture_ids": []
+      "fixture_ids": [],
+      "evidence_required": "A webhook can cause a side effect without valid provider authenticity or can replay a previously valid event to create an extra effect.",
+      "refuted_if": "Signature/MAC verification happens before trust, freshness/replay/idempotency is enforced, and state readback proves exactly-once behavior.",
+      "safe_test": "Use the bounded webhook signature/replay fixture with local state readback."
     },
     {
       "id": "LAUNCH-32",
@@ -231,7 +270,10 @@
       ],
       "fixture_ids": [
         "EVAL-MONEY-002"
-      ]
+      ],
+      "evidence_required": "Client-controlled price/paid state/quantity/ownership/entitlement can alter trusted money or entitlement state, or repeated transitions violate an accounting invariant.",
+      "refuted_if": "Server/provider state is authoritative and payment/ledger/entitlement transitions preserve exact documented invariants across retries and concurrency.",
+      "safe_test": "Use mocks/fixtures/staging provider state; never place real purchases or mutate customer balances."
     },
     {
       "id": "LAUNCH-33",
@@ -247,7 +289,10 @@
       ],
       "fixture_ids": [
         "EVAL-AUTHZ-002"
-      ]
+      ],
+      "evidence_required": "A subject can access another subject/tenant object by controlling or guessing an object identifier or alternate route.",
+      "refuted_if": "Every object/action lookup binds the authenticated subject/tenant/role at the trusted server/data-policy boundary.",
+      "safe_test": "Use two seeded identities and one fixture object under the bounded IDOR proof."
     },
     {
       "id": "LAUNCH-34",
@@ -263,7 +308,10 @@
       "fixture_ids": [
         "EVAL-AUTHZ-003",
         "EVAL-AUTHZ-005"
-      ]
+      ],
+      "evidence_required": "Client-supplied role/owner/tenant/subject fields can become trusted authority or mass-assign privileged fields.",
+      "refuted_if": "Identity and privilege are derived only from trusted authentication/context and server allowlists ignore/reject authority-bearing request fields.",
+      "safe_test": "Use fixture requests with inert privilege-field changes; do not modify production identities."
     },
     {
       "id": "LAUNCH-35",
@@ -277,7 +325,10 @@
       ],
       "evidence_mode": "STATIC_PLUS_RUNTIME",
       "proof_classes": [],
-      "fixture_ids": []
+      "fixture_ids": [],
+      "evidence_required": "Passwords, tokens, payment secrets or unnecessary sensitive PII are persisted to application/CI/observability logs accessible beyond the minimum required audience.",
+      "refuted_if": "Sensitive values are redacted/minimized before persistence, access is restricted and retention matches the data class.",
+      "safe_test": "Use synthetic canary values; never inject real secrets just to test logging."
     },
     {
       "id": "LAUNCH-36",
@@ -292,7 +343,10 @@
       ],
       "evidence_mode": "STATIC_PLUS_RUNTIME",
       "proof_classes": [],
-      "fixture_ids": []
+      "fixture_ids": [],
+      "evidence_required": "A deployed source map/debug/build artifact exposes unintended sensitive source, secrets, internal endpoints or other material that changes the attacker capability.",
+      "refuted_if": "Production artifacts either omit source maps/debug bundles or expose only material intentionally public and free of secrets/sensitive internals.",
+      "safe_test": "Use read-only artifact inspection; source-map presence alone is not a finding."
     }
   ]
 }
