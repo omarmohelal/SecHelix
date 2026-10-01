@@ -54,6 +54,7 @@ def fake_strix_process(
     findings: list[dict[str, object]],
     version: str = STRIX_TESTED_VERSION,
     help_text: str = STRIX_HELP,
+    write_vulnerability_index: bool = True,
 ):
     def fake_run(command, **kwargs):
         if kwargs.get("shell") is not False:
@@ -75,10 +76,11 @@ def fake_strix_process(
             json.dumps({"status": status}),
             encoding="utf-8",
         )
-        (run_dir / "vulnerabilities.json").write_text(
-            json.dumps(findings),
-            encoding="utf-8",
-        )
+        if write_vulnerability_index:
+            (run_dir / "vulnerabilities.json").write_text(
+                json.dumps(findings),
+                encoding="utf-8",
+            )
         return subprocess.CompletedProcess(
             command,
             returncode,
@@ -438,6 +440,47 @@ class StrixAdapterTests(unittest.TestCase):
             self.assertTrue(result.vulnerabilities_found)
             self.assertEqual(len(result.candidates), 1)
             self.assertTrue((root / "tool-decisions.jsonl").is_file())
+
+    def test_completed_clean_run_without_vulnerability_index_is_accepted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            engine = StrixEngine()
+            with patch.object(engine, "available", return_value=True), patch(
+                "sechelix_runner.pentest.strix_adapter.subprocess.run",
+                side_effect=fake_strix_process(
+                    root,
+                    returncode=0,
+                    status="completed",
+                    findings=[],
+                    write_vulnerability_index=False,
+                ),
+            ):
+                result = engine.run(scope=local_scope(), cwd=root, timeout=10)
+
+        self.assertTrue(result.succeeded)
+        self.assertEqual(result.candidates, ())
+        self.assertFalse(result.vulnerability_index_present)
+        self.assertEqual(result.payload_sha256, "sha256:" + __import__("hashlib").sha256(b"[]").hexdigest())
+
+    def test_findings_exit_without_vulnerability_index_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            engine = StrixEngine()
+            with patch.object(engine, "available", return_value=True), patch(
+                "sechelix_runner.pentest.strix_adapter.subprocess.run",
+                side_effect=fake_strix_process(
+                    root,
+                    returncode=2,
+                    status="completed",
+                    findings=[{"id": "vuln-1", "title": "Candidate"}],
+                    write_vulnerability_index=False,
+                ),
+            ):
+                with self.assertRaisesRegex(
+                    StrixAdapterError,
+                    "reported findings but vulnerabilities.json is missing",
+                ):
+                    engine.run(scope=local_scope(), cwd=root, timeout=10)
 
     def test_stopped_budget_run_never_counts_as_complete(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
