@@ -9,8 +9,11 @@ from unittest.mock import patch
 
 from sechelix_runner.pentest.scope import ScopeEndpoint, ScopeError, TargetScope
 from sechelix_runner.pentest.strix_adapter import (
+    STRIX_TESTED_UPSTREAM_COMMIT,
+    STRIX_TESTED_VERSION,
     StrixAdapterError,
     StrixEngine,
+    StrixEngineHealth,
     normalize_strix_vulnerabilities,
     write_strix_result,
 )
@@ -35,18 +38,35 @@ def staging_scope() -> TargetScope:
     )
 
 
+STRIX_HELP = (
+    "usage: strix [--non-interactive] --target TARGET "
+    "--scan-mode MODE --max-turns N --max-budget USD --instruction TEXT"
+)
+
+
 def fake_strix_process(
     workspace: Path,
     *,
     returncode: int,
     status: str,
     findings: list[dict[str, object]],
+    version: str = STRIX_TESTED_VERSION,
+    help_text: str = STRIX_HELP,
 ):
     def fake_run(command, **kwargs):
-        if command[0] != "strix" or command[1] != "-n":
-            raise AssertionError("Strix must run through the headless adapter")
         if kwargs.get("shell") is not False:
             raise AssertionError("Strix must never run through a shell")
+        if command == ["strix", "--version"]:
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                f"Strix {version}\n",
+                "",
+            )
+        if command == ["strix", "--help"]:
+            return subprocess.CompletedProcess(command, 0, help_text, "")
+        if command[0] != "strix" or command[1] != "-n":
+            raise AssertionError("Strix must run through the headless adapter")
         run_dir = workspace / "strix_runs" / "run-001"
         run_dir.mkdir(parents=True)
         (run_dir / "run.json").write_text(
@@ -68,6 +88,67 @@ def fake_strix_process(
 
 
 class StrixAdapterTests(unittest.TestCase):
+    def test_engine_health_accepts_only_the_tested_upstream_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            engine = StrixEngine()
+            with patch.object(engine, "available", return_value=True), patch(
+                "sechelix_runner.pentest.strix_adapter.subprocess.run",
+                side_effect=fake_strix_process(
+                    Path(tmp),
+                    returncode=0,
+                    status="completed",
+                    findings=[],
+                ),
+            ):
+                health = engine.health()
+
+        self.assertTrue(health.compatible)
+        self.assertEqual(health.compatibility, "TESTED")
+        self.assertEqual(health.version, STRIX_TESTED_VERSION)
+        self.assertEqual(
+            health.tested_upstream_commit,
+            STRIX_TESTED_UPSTREAM_COMMIT,
+        )
+        self.assertEqual(health.missing_flags, ())
+
+    def test_engine_health_rejects_an_untested_upstream_version(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            engine = StrixEngine()
+            with patch.object(engine, "available", return_value=True), patch(
+                "sechelix_runner.pentest.strix_adapter.subprocess.run",
+                side_effect=fake_strix_process(
+                    Path(tmp),
+                    returncode=0,
+                    status="completed",
+                    findings=[],
+                    version="1.6.3",
+                ),
+            ):
+                health = engine.health()
+                self.assertEqual(health.compatibility, "UNTESTED_VERSION")
+                with self.assertRaisesRegex(StrixAdapterError, "has not passed"):
+                    engine.require_compatible()
+
+    def test_engine_health_rejects_required_flag_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            engine = StrixEngine()
+            help_without_instruction = STRIX_HELP.replace("--instruction TEXT", "")
+            with patch.object(engine, "available", return_value=True), patch(
+                "sechelix_runner.pentest.strix_adapter.subprocess.run",
+                side_effect=fake_strix_process(
+                    Path(tmp),
+                    returncode=0,
+                    status="completed",
+                    findings=[],
+                    help_text=help_without_instruction,
+                ),
+            ):
+                health = engine.health()
+
+        self.assertFalse(health.compatible)
+        self.assertEqual(health.compatibility, "INCOMPATIBLE_CLI")
+        self.assertIn("--instruction", health.missing_flags)
+
     def test_local_loopback_builds_headless_bounded_command_without_proof(self) -> None:
         command = StrixEngine().build_command(
             scope=local_scope(),
@@ -278,7 +359,18 @@ class StrixAdapterTests(unittest.TestCase):
             (stale / "vulnerabilities.json").write_text("[]", encoding="utf-8")
 
             engine = StrixEngine()
-            with patch.object(engine, "available", return_value=True), patch(
+            compatible = StrixEngineHealth(
+                available=True,
+                executable="strix",
+                resolved_executable="strix",
+                version=STRIX_TESTED_VERSION,
+                compatibility="TESTED",
+            )
+            with patch.object(
+                engine,
+                "require_compatible",
+                return_value=compatible,
+            ), patch(
                 "sechelix_runner.pentest.strix_adapter.subprocess.run",
                 return_value=subprocess.CompletedProcess(
                     ["strix"],
