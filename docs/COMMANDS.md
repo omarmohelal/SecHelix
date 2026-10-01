@@ -80,6 +80,24 @@ sechelix launch-audit . --check 19 --check 33 --executor claude-code
 
 The runtime records `CANDIDATE`, `ASSESSED_NO_CANDIDATE`, `UNKNOWN`, `BLOCKED`, or `FAILED`. It intentionally does not emit `PASS`; a launch PASS still requires the canonical SecHelix evidence, independent-verification, remediation/retest, and release-gate contracts.
 
+### Resume an interrupted audit
+
+`audit` and `launch-audit` write a sealed checkpoint after every completed
+node. The default path is `.sechelix/checkpoints/<RUN-ID>.json`.
+
+```bash
+# resume remaining work with Nexus after a host/provider interruption
+sechelix audit . \
+  --resume-from .sechelix/checkpoints/RUN-0123456789ABCDEF.json \
+  --executor nexus
+```
+
+Completed nodes are not re-run. Their original model/provider/evidence records
+stay intact; only unfinished nodes use the new executor. Resume is refused if
+the checkpoint was edited or if target commit, scope, graph, caller input, or
+budget limits changed. This is interruption recovery, not a way to bypass a
+failed security check.
+
 ## SEO Audit
 
 ```text

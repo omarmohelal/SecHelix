@@ -220,6 +220,79 @@ class BudgetGovernor:
             "decisions": [d.to_dict() for d in self.decisions],
         }
 
+    def restore(self, snapshot: dict[str, Any]) -> None:
+        """Restore a previously recorded budget state for checkpoint resume.
+
+        Limits must match the governor the caller supplied for the resumed run.
+        Resume may not silently increase a budget or erase prior consumption.
+        Active reservations are refused because checkpoints are written only at
+        completed node boundaries.
+        """
+
+        if not isinstance(snapshot, dict):
+            raise ValueError("budget checkpoint must be an object")
+        limits = snapshot.get("limits")
+        usage = snapshot.get("usage")
+        decisions = snapshot.get("decisions")
+        if limits != self.limits.to_dict():
+            raise ValueError("checkpoint budget limits do not match resumed run")
+        if not isinstance(usage, dict) or not isinstance(decisions, list):
+            raise ValueError("checkpoint budget usage/decisions are malformed")
+
+        restored_actual: dict[str, float] = {}
+        restored_reserved: dict[str, float] = {}
+        restored_estimated: dict[str, float] = {}
+        for name in LIMIT_NAMES:
+            row = usage.get(name)
+            if not isinstance(row, dict):
+                raise ValueError(f"checkpoint budget is missing {name}")
+            try:
+                actual = float(row.get("actual", 0.0))
+                reserved = float(row.get("reserved", 0.0))
+                estimated = float(row.get("estimated", 0.0))
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"checkpoint budget {name} is not numeric") from exc
+            if actual < 0 or estimated < 0 or reserved < 0:
+                raise ValueError(f"checkpoint budget {name} has negative usage")
+            # max_nodes is deliberately accounted as a cumulative reservation:
+            # each admitted node consumes one slot and Runner does not release
+            # it. Other reservations represent in-flight work and therefore
+            # cannot exist at a node-boundary checkpoint.
+            if name != "max_nodes" and reserved != 0:
+                raise ValueError(
+                    f"checkpoint budget {name} contains in-flight reservation state"
+                )
+            restored_actual[name] = actual
+            restored_reserved[name] = reserved
+            restored_estimated[name] = estimated
+
+        restored_decisions: list[BudgetDecision] = []
+        for row in decisions:
+            if not isinstance(row, dict):
+                raise ValueError("checkpoint budget decision must be an object")
+            name = row.get("limit_name")
+            if name not in LIMIT_NAMES:
+                raise ValueError(f"checkpoint budget decision has unknown limit {name!r}")
+            remaining = row.get("remaining")
+            restored_decisions.append(
+                BudgetDecision(
+                    limit_name=str(name),
+                    node_id=str(row.get("node_id", "")),
+                    requested=float(row.get("requested", 0.0)),
+                    remaining=(
+                        float("inf") if remaining is None else float(remaining)
+                    ),
+                    admitted=bool(row.get("admitted")),
+                    reason=str(row.get("reason", "")),
+                )
+            )
+
+        self._actual = restored_actual
+        self._reserved = restored_reserved
+        self._estimated = restored_estimated
+        self.decisions = restored_decisions
+        self.exhausted = bool(snapshot.get("exhausted", False))
+
     @property
     def refusals(self) -> list[BudgetDecision]:
         return [d for d in self.decisions if not d.admitted]

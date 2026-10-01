@@ -191,6 +191,7 @@ sechelix doctor
 | `sechelix doctor` | Shows available components and reasoning executors |
 | `sechelix audit . --executor claude-code` | Runs an audit using Claude Code as the reasoning executor |
 | `sechelix audit . --executor gemini-cli` | Runs an audit using Gemini CLI as the reasoning executor |
+| `sechelix audit . --resume-from .sechelix/checkpoints/RUN-....json --executor nexus` | Resumes only unfinished nodes after verifying the sealed checkpoint against the same target, scope, graph and input world |
 | `sechelix launch-audit . --executor claude-code` | Runs evidence-routed AI-built-app launch checks 19-36 without turning “no candidate” into PASS |
 | `sechelix runs` | Lists saved runs and checks their integrity |
 | `sechelix coverage` | Shows what previous runs did not examine |
@@ -209,6 +210,12 @@ sechelix report --format markdown
 ```
 
 > `sechelix audit .` with the default `--executor none` intentionally does **not** pretend to analyze code. Reasoning nodes are blocked and the run remains incomplete until a real executor is configured.
+
+Audit and launch-audit runs now write a self-sealed node-boundary checkpoint under
+`.sechelix/checkpoints/` by default. If the process or host dies, pass that file
+to `--resume-from`; completed node evidence is kept, remaining nodes can use a
+different executor/provider, and resume fails closed if the target commit, scope,
+graph, input world, budget limits, or checkpoint digest changed.
 
 For all CLI flags:
 
