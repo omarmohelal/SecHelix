@@ -38,7 +38,7 @@ from .graph import GraphNode, ReasonerGraph
 from .replay import ReplayError, replay_run
 from .report import RENDERERS
 from .roles import NodeRole, NodeStatus
-from .runner import Runner
+from .runner import Runner, new_run_id
 from .storage import InvalidRunId, RunWorkspace, list_runs, persist_run, redact
 from .world import DEPTHS, build_world, describe_target
 
@@ -217,6 +217,31 @@ def _build_executor(args: argparse.Namespace):
         )
     raise RuntimeError(f"unknown executor: {choice}")
 
+def _checkpoint_run_args(
+    root: Path, args: argparse.Namespace
+) -> tuple[str | None, Path, Path | None]:
+    """Resolve automatic durable checkpoint paths for audit-style commands."""
+
+    resume = getattr(args, "resume_from", None)
+    explicit = getattr(args, "checkpoint", None)
+    if resume is not None:
+        resume_path = Path(resume).expanduser().resolve()
+        checkpoint_path = (
+            Path(explicit).expanduser().resolve()
+            if explicit is not None
+            else resume_path
+        )
+        return None, checkpoint_path, resume_path
+
+    run_id = new_run_id()
+    checkpoint_path = (
+        Path(explicit).expanduser().resolve()
+        if explicit is not None
+        else root / ".sechelix" / "checkpoints" / f"{run_id}.json"
+    )
+    return run_id, checkpoint_path, None
+
+
 def cmd_audit(args: argparse.Namespace) -> int:
     root = Path(args.path).resolve()
     if not root.is_dir():
@@ -238,12 +263,19 @@ def cmd_audit(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_USAGE
 
+    run_id, checkpoint_path, resume_from = _checkpoint_run_args(root, args)
     result = Runner(
         executor=executor,
         budget=BudgetGovernor(limits),
         target_commit=target["commit"],
         scope_id=target["scope_id"],
-    ).run(graph, world)
+    ).run(
+        graph,
+        world,
+        run_id=run_id,
+        checkpoint_path=checkpoint_path,
+        resume_from=resume_from,
+    )
 
     workspace = persist_run(root, result, graph)
 
@@ -331,13 +363,20 @@ def cmd_launch_audit(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_USAGE
 
+    run_id, checkpoint_path, resume_from = _checkpoint_run_args(root, args)
     result = Runner(
         executor=executor,
         budget=BudgetGovernor(limits),
         target_commit=target["commit"],
         scope_id=target["scope_id"],
         context_builder_factory=lambda run_world: LaunchContextBuilder(run_world, checks),
-    ).run(graph, world)
+    ).run(
+        graph,
+        world,
+        run_id=run_id,
+        checkpoint_path=checkpoint_path,
+        resume_from=resume_from,
+    )
 
     workspace = persist_run(root, result, graph)
     summary = summarize_launch_run(result, checks)
@@ -727,6 +766,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--node-timeout", type=float, default=None, dest="node_timeout",
         help="seconds allowed per reasoning node (default 300, 900 for gemini-cli)",
     )
+    audit.add_argument(
+        "--checkpoint",
+        type=Path,
+        default=None,
+        help="checkpoint file override (default: .sechelix/checkpoints/RUN-....json)",
+    )
+    audit.add_argument(
+        "--resume-from",
+        type=Path,
+        default=None,
+        help="resume remaining nodes from a sealed checkpoint after verifying target/scope/graph/input",
+    )
     _common(audit)
     audit.set_defaults(func=cmd_audit)
 
@@ -754,6 +805,18 @@ def build_parser() -> argparse.ArgumentParser:
     launch_audit.add_argument(
         "--node-timeout", type=float, default=None, dest="node_timeout",
         help="seconds allowed per reasoning node",
+    )
+    launch_audit.add_argument(
+        "--checkpoint",
+        type=Path,
+        default=None,
+        help="checkpoint file override (default: .sechelix/checkpoints/RUN-....json)",
+    )
+    launch_audit.add_argument(
+        "--resume-from",
+        type=Path,
+        default=None,
+        help="resume remaining launch checks from a sealed node-boundary checkpoint",
     )
     _common(launch_audit)
     launch_audit.set_defaults(func=cmd_launch_audit)
