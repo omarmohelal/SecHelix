@@ -244,7 +244,7 @@ class StrixAdapterTests(unittest.TestCase):
             "SECHELIX_STRIX_USE_FCC": "1",
             "FCC_BASE_URL": "http://127.0.0.1:8082/v1",
             "SECHELIX_STRIX_FCC_MODEL": "anthropic/open_router/qwen/qwen3.8-27b",
-            "SECHELIX_PENTEST_FCC_API_KEY": "local-gateway-token",
+            "SECHELIX_PENTEST_FCC_API_KEY": "EXAMPLE_LOCAL_GATEWAY_TOKEN",
         }
         with patch(
             "sechelix_runner.pentest.strix_adapter._probe_fcc_tool_model",
@@ -252,8 +252,8 @@ class StrixAdapterTests(unittest.TestCase):
         ):
             selected = _prepare_fcc_strix_environment(env)
 
-        self.assertEqual(selected["LLM_API_KEY"], "local-gateway-token")
-        self.assertEqual(selected["OPENAI_API_KEY"], "local-gateway-token")
+        self.assertEqual(selected["LLM_API_KEY"], "EXAMPLE_LOCAL_GATEWAY_TOKEN")
+        self.assertEqual(selected["OPENAI_API_KEY"], "EXAMPLE_LOCAL_GATEWAY_TOKEN")
 
     def test_fcc_preflight_refuses_remote_gateway(self) -> None:
         with self.assertRaisesRegex(StrixAdapterError, "trusted local FCC base URL"):
