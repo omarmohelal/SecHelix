@@ -283,7 +283,7 @@ def build_prompt(node: GraphNode, view: dict[str, Any], *, max_chars: int = 2400
                 "when no candidate is supportable.\n"
                 "- Any candidate raised for a launch check must include that exact "
                 "LAUNCH-XX id in hypothesis_ids.\n"
-                "- An examined check with no candidate is NOT PASS; it only means "
+                "- An examined check with no candidate is not PASS; it only means "
                 "this node produced no supportable candidate from its supplied evidence."
             )
 
