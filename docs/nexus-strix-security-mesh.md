@@ -44,6 +44,8 @@ the OpenAI Responses wire format. The underlying OpenRouter/DeepSeek/HF/etc. cre
 FCC. If the local FCC gateway itself requires a bearer token, place only that local gateway token in
 `SECHELIX_PENTEST_FCC_API_KEY`; never copy the upstream provider keys.
 
+Strix also performs intentional non-streaming SDK calls before and during a scan (LLM connection validation, context compaction, and report dedupe). Because FCC's Responses surface can still return SSE for those calls, SecHelix launches FCC-backed Strix through a narrow compatibility runner that consumes the streaming response and rebuilds the SDK ModelResponse. The pinned upstream Strix source is left unmodified, and the wrapper is enabled only for trusted local FCC endpoints.
+
 For FCC-backed Strix runs, SecHelix also forces Responses streaming on. FCC's Responses surface is SSE-first; a stale `LLM_DISABLE_STREAMING=true` can make the OpenAI SDK treat the event stream as a plain string and fail on response metadata such as `usage`. You do not need to manage this setting manually.
 
 When FCC is local and does not require authentication, do **not** create or export a provider API key for Strix. SecHelix injects a non-secret local client sentinel only into the Strix child process because the OpenAI SDK requires a non-empty credential even for an unauthenticated custom base URL. Provider credentials remain stored and used inside FCC.
