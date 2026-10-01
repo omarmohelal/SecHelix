@@ -1,0 +1,298 @@
+{
+  "schema_version": "1.0",
+  "profile": "AI-Built App Launch Audit / checks 19-36",
+  "purpose": "Machine-readable evidence routing overlay for launch checks 19-36. This overlay does not create findings or PASS results.",
+  "status_vocabulary": [
+    "CANDIDATE",
+    "ASSESSED_NO_CANDIDATE",
+    "UNKNOWN",
+    "BLOCKED",
+    "FAILED"
+  ],
+  "no_pass_rule": "PASS requires concrete evidence under the canonical SecHelix verification and release contracts.",
+  "checks": [
+    {
+      "id": "LAUNCH-19",
+      "number": "19",
+      "title": "XSS",
+      "owner_role": "BROWSER",
+      "families": [
+        "WEB",
+        "INJ"
+      ],
+      "evidence_mode": "STATIC_PLUS_RUNTIME",
+      "proof_classes": [
+        "XSS_EXECUTION"
+      ],
+      "fixture_ids": [
+        "EVAL-WEB-002"
+      ]
+    },
+    {
+      "id": "LAUNCH-20",
+      "number": "20",
+      "title": "CSRF",
+      "owner_role": "BROWSER",
+      "families": [
+        "WEB",
+        "SESS"
+      ],
+      "evidence_mode": "STATIC_PLUS_RUNTIME",
+      "proof_classes": [
+        "CSRF_REQUEST"
+      ],
+      "fixture_ids": []
+    },
+    {
+      "id": "LAUNCH-21",
+      "number": "21",
+      "title": "Insecure file uploads",
+      "owner_role": "FILES_PARSERS",
+      "families": [
+        "FILE"
+      ],
+      "evidence_mode": "STATIC_PLUS_RUNTIME",
+      "proof_classes": [],
+      "fixture_ids": [
+        "EVAL-FILE-003",
+        "EVAL-FILE-004"
+      ]
+    },
+    {
+      "id": "LAUNCH-22",
+      "number": "22",
+      "title": "Path traversal",
+      "owner_role": "FILES_PARSERS",
+      "families": [
+        "FILE"
+      ],
+      "evidence_mode": "STATIC_PLUS_RUNTIME",
+      "proof_classes": [
+        "PATH_TRAVERSAL"
+      ],
+      "fixture_ids": [
+        "EVAL-FILE-002",
+        "EVAL-FILE-003"
+      ]
+    },
+    {
+      "id": "LAUNCH-23",
+      "number": "23",
+      "title": "SSRF",
+      "owner_role": "FILES_PARSERS",
+      "families": [
+        "SSRF"
+      ],
+      "evidence_mode": "STATIC_PLUS_RUNTIME",
+      "proof_classes": [
+        "SSRF_CALLBACK"
+      ],
+      "fixture_ids": [
+        "EVAL-SSRF-002"
+      ]
+    },
+    {
+      "id": "LAUNCH-24",
+      "number": "24",
+      "title": "Broken password reset",
+      "owner_role": "AUTHENTICATION",
+      "families": [
+        "AUTH"
+      ],
+      "evidence_mode": "STATIC_PLUS_RUNTIME",
+      "proof_classes": [],
+      "fixture_ids": [
+        "EVAL-AUTH-003",
+        "EVAL-AUTH-004"
+      ]
+    },
+    {
+      "id": "LAUNCH-25",
+      "number": "25",
+      "title": "Weak session management",
+      "owner_role": "AUTHENTICATION",
+      "families": [
+        "SESS",
+        "AUTH"
+      ],
+      "evidence_mode": "STATIC_PLUS_RUNTIME",
+      "proof_classes": [
+        "SESSION_REVOCATION"
+      ],
+      "fixture_ids": [
+        "EVAL-AUTH-002",
+        "EVAL-SESS-002"
+      ]
+    },
+    {
+      "id": "LAUNCH-26",
+      "number": "26",
+      "title": "JWT secrets and validation",
+      "owner_role": "AUTHENTICATION",
+      "families": [
+        "SESS",
+        "CRYPTO",
+        "AUTH"
+      ],
+      "evidence_mode": "STATIC_PLUS_RUNTIME",
+      "proof_classes": [],
+      "fixture_ids": [
+        "EVAL-SESS-001"
+      ]
+    },
+    {
+      "id": "LAUNCH-27",
+      "number": "27",
+      "title": "Permissive CORS",
+      "owner_role": "BROWSER",
+      "families": [
+        "WEB",
+        "API",
+        "CLOUD"
+      ],
+      "evidence_mode": "STATIC_PLUS_RUNTIME",
+      "proof_classes": [],
+      "fixture_ids": []
+    },
+    {
+      "id": "LAUNCH-28",
+      "number": "28",
+      "title": "Rate limits",
+      "owner_role": "API_PROTOCOL",
+      "families": [
+        "API",
+        "AUTH",
+        "AI",
+        "OPS"
+      ],
+      "evidence_mode": "STATIC_PLUS_RUNTIME",
+      "proof_classes": [],
+      "fixture_ids": []
+    },
+    {
+      "id": "LAUNCH-29",
+      "number": "29",
+      "title": "Exposed environments",
+      "owner_role": "CLOUD_CONFIGURATION",
+      "families": [
+        "CLOUD",
+        "OPS",
+        "REL"
+      ],
+      "evidence_mode": "STATIC_PLUS_RUNTIME",
+      "proof_classes": [],
+      "fixture_ids": []
+    },
+    {
+      "id": "LAUNCH-30",
+      "number": "30",
+      "title": "Default credentials",
+      "owner_role": "AUTHENTICATION",
+      "families": [
+        "AUTH",
+        "OPS",
+        "CLOUD"
+      ],
+      "evidence_mode": "STATIC_PLUS_RUNTIME",
+      "proof_classes": [],
+      "fixture_ids": []
+    },
+    {
+      "id": "LAUNCH-31",
+      "number": "31",
+      "title": "Unsigned webhooks",
+      "owner_role": "BUSINESS_LOGIC",
+      "families": [
+        "API",
+        "CRYPTO",
+        "RACE"
+      ],
+      "evidence_mode": "STATIC_PLUS_RUNTIME",
+      "proof_classes": [
+        "WEBHOOK_SIGNATURE"
+      ],
+      "fixture_ids": []
+    },
+    {
+      "id": "LAUNCH-32",
+      "number": "32",
+      "title": "Frontend payment checks",
+      "owner_role": "BUSINESS_LOGIC",
+      "families": [
+        "MONEY",
+        "BIZ",
+        "AUTHZ"
+      ],
+      "evidence_mode": "STATIC_PLUS_RUNTIME",
+      "proof_classes": [
+        "PAYMENT_INVARIANT",
+        "MONEY_FLOW_INVARIANT",
+        "SETTLEMENT_REFUND_SEQUENCE"
+      ],
+      "fixture_ids": [
+        "EVAL-MONEY-002"
+      ]
+    },
+    {
+      "id": "LAUNCH-33",
+      "number": "33",
+      "title": "IDOR / BOLA",
+      "owner_role": "AUTHORIZATION",
+      "families": [
+        "AUTHZ"
+      ],
+      "evidence_mode": "STATIC_PLUS_RUNTIME",
+      "proof_classes": [
+        "AUTHORIZATION_IDOR"
+      ],
+      "fixture_ids": [
+        "EVAL-AUTHZ-002"
+      ]
+    },
+    {
+      "id": "LAUNCH-34",
+      "number": "34",
+      "title": "APIs + user input authority",
+      "owner_role": "AUTHORIZATION",
+      "families": [
+        "AUTHZ",
+        "API"
+      ],
+      "evidence_mode": "STATIC_PLUS_RUNTIME",
+      "proof_classes": [],
+      "fixture_ids": [
+        "EVAL-AUTHZ-003",
+        "EVAL-AUTHZ-005"
+      ]
+    },
+    {
+      "id": "LAUNCH-35",
+      "number": "35",
+      "title": "Exposed logs",
+      "owner_role": "CLOUD_CONFIGURATION",
+      "families": [
+        "PRIV",
+        "CRYPTO",
+        "OPS"
+      ],
+      "evidence_mode": "STATIC_PLUS_RUNTIME",
+      "proof_classes": [],
+      "fixture_ids": []
+    },
+    {
+      "id": "LAUNCH-36",
+      "number": "36",
+      "title": "Exposed source maps",
+      "owner_role": "CLOUD_CONFIGURATION",
+      "families": [
+        "REL",
+        "CI",
+        "PRIV",
+        "CRYPTO"
+      ],
+      "evidence_mode": "STATIC_PLUS_RUNTIME",
+      "proof_classes": [],
+      "fixture_ids": []
+    }
+  ]
+}
