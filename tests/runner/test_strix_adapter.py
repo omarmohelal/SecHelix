@@ -287,7 +287,7 @@ class StrixAdapterTests(unittest.TestCase):
                     "fatal",
                 ),
             ):
-                with self.assertRaisesRegex(StrixAdapterError, "fresh run directory"):
+                with self.assertRaisesRegex(StrixAdapterError, "unexpected status 1"):
                     engine.run(scope=local_scope(), cwd=root, timeout=10)
 
     def test_normalized_handoff_does_not_persist_stdout_stderr_or_poc(self) -> None:
