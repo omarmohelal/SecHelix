@@ -13,7 +13,7 @@ from sechelix_runner.launch_profile import (
     load_launch_checks,
     summarize_launch_run,
 )
-from sechelix_runner.pentest.proof import ProofClass
+from sechelix_runner.proof import ProofClass
 from sechelix_runner.providers.reasoning import build_prompt
 from sechelix_runner.roles import NodeRole, NodeStatus
 
