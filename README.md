@@ -171,6 +171,23 @@ A strong finding should show the affected surface, attacker control or security 
   ([compatibility](docs/reference/compatibility.md)).
 - **Authorized targets only.** It is not an internet scanner and ships no exploit payloads.
 
+## Full local runtime: SecHelix + embedded Strix
+
+For the complete local stack, including the exact Strix source revision that
+SecHelix has compatibility-tested, clone with submodules and run the bootstrap:
+
+```bash
+git clone --recurse-submodules https://github.com/omarmohelal/SecHelix.git
+cd SecHelix
+bash scripts/bootstrap-full.sh
+```
+
+This materializes Strix under `engines/strix` inside the SecHelix checkout and
+installs both projects into one Python 3.12 virtual environment. The source is
+embedded for reproducible installation, while the SecHelix adapter remains the
+authorization/evidence boundary. OpenRouter setup and first-run commands are in
+**[docs/full-install.md](docs/full-install.md)**.
+
 ## Optional CLI runtime
 
 The Agent Skill works without the Python runtime. The runtime is optional and adds stored runs, coverage tracking, replayable evidence, reports, CI-friendly exit codes, and an MCP adapter.
