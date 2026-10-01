@@ -146,6 +146,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         "available_reasoning_executors": {
             "claude-code": bool(shutil.which("claude")),
             "gemini-cli": bool(shutil.which("gemini")),
+            "nexus": bool(shutil.which("nexus")),
         },
         "redaction": "enabled",
         "core_contracts": _core_available(),
@@ -202,6 +203,18 @@ def _build_executor(args: argparse.Namespace):
         # will try first, so its default is generous rather than shared.
         default_timeout = 900.0 if args.node_timeout is None else float(args.node_timeout)
         return ReasoningExecutor(provider, timeout=default_timeout)
+    if choice == "nexus":
+        from .providers.nexus_cli import NexusCliExecutor
+        from .providers.reasoning import ReasoningExecutor
+
+        provider = NexusCliExecutor(lane=getattr(args, "model", None))
+        if not provider.available:
+            raise RuntimeError(
+                "nexus CLI not found on PATH; install/link Nexus or use another executor"
+            )
+        return ReasoningExecutor(
+            provider, timeout=float(args.node_timeout or 900.0)
+        )
     raise RuntimeError(f"unknown executor: {choice}")
 
 def cmd_audit(args: argparse.Namespace) -> int:
@@ -668,7 +681,7 @@ def build_parser() -> argparse.ArgumentParser:
     audit.add_argument("--max-seconds", type=float, default=None, dest="max_seconds")
     audit.add_argument("--max-nodes", type=int, default=None, dest="max_nodes")
     audit.add_argument(
-        "--executor", choices=("none", "claude-code", "gemini-cli"), default="none",
+        "--executor", choices=("none", "claude-code", "gemini-cli", "nexus"), default="none",
         help="reasoning executor; 'none' orchestrates without analysing code",
     )
     audit.add_argument("--model", default=None, help="provider model override")
@@ -696,7 +709,7 @@ def build_parser() -> argparse.ArgumentParser:
     launch_audit.add_argument("--max-seconds", type=float, default=None, dest="max_seconds")
     launch_audit.add_argument("--max-nodes", type=int, default=None, dest="max_nodes")
     launch_audit.add_argument(
-        "--executor", choices=("none", "claude-code", "gemini-cli"), default="none",
+        "--executor", choices=("none", "claude-code", "gemini-cli", "nexus"), default="none",
         help="reasoning executor; 'none' records all reasoning checks as blocked",
     )
     launch_audit.add_argument("--model", default=None, help="provider model override")
