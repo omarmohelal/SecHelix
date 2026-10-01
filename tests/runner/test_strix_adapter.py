@@ -247,9 +247,24 @@ class StrixAdapterTests(unittest.TestCase):
                     findings=[],
                 ),
             ):
-                result = engine.run(scope=local_scope(), cwd=root, timeout=10)
-            self.assertFalse(result.succeeded)
-            self.assertFalse(result.vulnerabilities_found)
+                with self.assertRaisesRegex(StrixAdapterError, "not complete"):
+                    engine.run(scope=local_scope(), cwd=root, timeout=10)
+
+    def test_failed_process_artifacts_are_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            engine = StrixEngine()
+            with patch.object(engine, "available", return_value=True), patch(
+                "sechelix_runner.pentest.strix_adapter.subprocess.run",
+                side_effect=fake_strix_process(
+                    root,
+                    returncode=1,
+                    status="completed",
+                    findings=[{"id": "should-not-import", "title": "Partial"}],
+                ),
+            ):
+                with self.assertRaisesRegex(StrixAdapterError, "unexpected status 1"):
+                    engine.run(scope=local_scope(), cwd=root, timeout=10)
 
     def test_run_refuses_to_reuse_stale_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
