@@ -44,7 +44,7 @@ _NEXUS_ROLE_FOR_NODE: dict[NodeRole, str] = {
     NodeRole.AI_MCP: "security-engineer",
     NodeRole.RUNTIME_VERIFICATION: "security-engineer",
     NodeRole.VARIANT_HUNTER: "security-engineer",
-    NodeRole.INDEPENDENT_VERIFIER: "security-engineer",
+    NodeRole.INDEPENDENT_VERIFIER: "review",
     NodeRole.REMEDIATOR: "lead-engineer",
     NodeRole.PATCH_VERIFIER: "qa-engineer",
     NodeRole.RELEASE_GATE: "release-engineer",
