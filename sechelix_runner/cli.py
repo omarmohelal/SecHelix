@@ -238,6 +238,21 @@ def cmd_audit(args: argparse.Namespace) -> int:
 
     target = describe_target(root)
     world = build_world(root, depth=args.depth)
+
+    seed_path = getattr(args, "seed_candidates", None)
+    if seed_path:
+        from .candidate_seed import SeedError, load_seed_candidates
+
+        try:
+            seeded = load_seed_candidates(seed_path)
+        except SeedError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return EXIT_USAGE
+        # Scanner candidates join any the run produces; the verify node then
+        # treats them exactly like a model-hunted candidate -- it must try to
+        # disprove each one, not trust the scanner that raised it.
+        world["candidates"] = list(world.get("candidates") or []) + seeded
+
     graph = _default_graph(world)
 
     limits = BudgetLimits(
@@ -612,6 +627,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="reasoning executor; 'none' orchestrates without analysing code",
     )
     audit.add_argument("--model", default=None, help="provider model override")
+    audit.add_argument(
+        "--seed-candidates", default=None, dest="seed_candidates", metavar="FILE",
+        help="normalized scanner report (adapters.cli output); its candidates are "
+             "routed through the independent verifier, not trusted as findings",
+    )
     audit.add_argument(
         "--node-timeout", type=float, default=None, dest="node_timeout",
         help="seconds allowed per reasoning node (default 300, 900 for gemini-cli)",

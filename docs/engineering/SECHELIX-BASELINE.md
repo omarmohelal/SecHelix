@@ -159,9 +159,23 @@ The `sechelix audit` CLI is therefore a thin orchestration demo; deep per-family
 hunting lives in the pentest workflow and the SKILL-driven flow with a richer
 world. `examples/expense-api/prove.py` drives the known cross-tenant bug directly.
 
-**Revised real next gap.** With scanners present and a working HTTP provider, the
-highest-value work is *not* building adapters but **populating the world so the
-hunter lanes become applicable** (and/or **wiring normalized scanner candidates
-into the verify node**) so a Semgrep/OSV `CANDIDATE` and a model-hunted one both
-reach the same independent verifier and a real `VERIFIED`/`REFUTED` outcome on
-the demo.
+**Slice done — scanner candidates reach the independent verifier.** Added
+`--seed-candidates FILE` to `sechelix audit` (`sechelix_runner/candidate_seed.py`,
+14 unit tests). It maps normalized `adapters.cli` output into neutral verifier
+candidates — claim, location, non-conclusive provenance (tool + rule) — and
+**drops the scanner's severity/confidence** so the verifier reconstructs the
+claim rather than trusting it. Proven live: seeding an OSV `CRITICAL`
+(`GHSA-DEMO-0001` against a non-existent `package-lock.json`) into
+`examples/expense-api` made the `verify` node applicable and it **ran on the
+scanner candidate** ("every candidate is independently verified", spend $0.012).
+
+**Finding — verifier model adherence (qwen3.8-27b).** That run ended
+`INCOMPLETE`, not with a verdict: the verifier output **failed the strict schema**
+("provider output failed schema: assessment sha256:1863…") because the model did
+not echo the bound `candidate_ref` verbatim (the exact contract hardened in
+commit d437155). This is the system working as designed — a scanner's CRITICAL
+did **not** become a finding, and the gate returned `INCOMPLETE` rather than a
+false `PASS`. The gap is **model instruction-adherence in the verifier role**,
+not the seeding path. Next: route the `INDEPENDENT_VERIFIER` role to a more
+faithful model (the brief's per-task routing), then re-run for a real
+`REFUTED`/`VERIFIED`. The seeding path and the fail-closed boundary are proven.
