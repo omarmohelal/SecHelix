@@ -85,7 +85,15 @@ class GeminiCliExecutor:
         if process is not None and process.poll() is None:
             process.kill()
 
-    def invoke(self, prompt: str, *, timeout: float = 300.0) -> ProviderResult:
+    def invoke(
+        self,
+        prompt: str,
+        *,
+        timeout: float = 300.0,
+        response_schema: dict[str, Any] | None = None,
+    ) -> ProviderResult:
+        # The CLI is already told the required shape in the prompt; it has no
+        # structured-output knob here, so response_schema is accepted and ignored.
         if not self.available:
             raise ProviderError(
                 f"{self.binary} not found; install Gemini CLI or choose another executor"

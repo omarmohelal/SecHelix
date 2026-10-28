@@ -205,25 +205,25 @@ def _build_executor(args: argparse.Namespace):
         default_timeout = 900.0 if args.node_timeout is None else float(args.node_timeout)
         return ReasoningExecutor(provider, timeout=default_timeout)
     if choice == "openrouter":
-        from .providers.openrouter import ENV_API_KEY, OpenRouterExecutor
+        from .providers.openrouter import KEY_ENV, OpenRouterExecutor
         from .providers.reasoning import ReasoningExecutor
 
         provider = OpenRouterExecutor(model=getattr(args, "model", None))
         if not provider.available:
             raise RuntimeError(
-      f"{ENV_API_KEY} not set; export an OpenRouter key or use --executor none"
+      f"{KEY_ENV} not set; export an OpenRouter key or use --executor none"
             )
         return ReasoningExecutor(
             provider, timeout=float(args.node_timeout or 300.0)
         )
     if choice == "wasm-gateway":
-        from .providers.wasm_gateway import ENV_API_KEY, WasmGatewayExecutor
+        from .providers.wasm_gateway import KEY_ENV, WasmGatewayExecutor
         from .providers.reasoning import ReasoningExecutor
 
         provider = WasmGatewayExecutor(model=getattr(args, "model", None))
         if not provider.available:
             raise RuntimeError(
-      f"{ENV_API_KEY} not set; export a wasm gateway key or use --executor none"
+      f"{KEY_ENV} not set; export a wasm gateway key or use --executor none"
             )
         return ReasoningExecutor(
             provider, timeout=float(args.node_timeout or 300.0)

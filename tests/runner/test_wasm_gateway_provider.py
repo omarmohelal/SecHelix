@@ -17,7 +17,7 @@ from sechelix_runner.providers.base import ProviderError
 from sechelix_runner.providers.wasm_gateway import (
     DEFAULT_BASE_URL,
     DEFAULT_MODEL,
-    ENV_API_KEY,
+    KEY_ENV,
     WasmGatewayExecutor,
 )
 
@@ -106,7 +106,7 @@ class WasmGatewayTests(unittest.TestCase):
         self.assertNotIn(_KEY, message)
 
     def test_env_key_is_read(self) -> None:
-        with patch.dict("os.environ", {ENV_API_KEY: _KEY}, clear=False):
+        with patch.dict("os.environ", {KEY_ENV: _KEY}, clear=False):
             provider = WasmGatewayExecutor()
         self.assertTrue(provider.available)
 

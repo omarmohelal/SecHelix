@@ -14,9 +14,13 @@ import unittest
 import urllib.error
 from unittest.mock import patch
 
-from sechelix_runner.providers.base import ProviderError
+from sechelix_runner.providers.base import (
+    NODE_OUTPUT_SCHEMA,
+    ProviderError,
+    strictify,
+)
 from sechelix_runner.providers.openrouter import (
-    ENV_API_KEY,
+    KEY_ENV,
     ENV_MODEL,
     OpenRouterExecutor,
     _parse_completion,
@@ -179,9 +183,51 @@ class InvokeTests(unittest.TestCase):
         self.assertNotIn(_KEY, repr(result))
 
 
+class StructuredOutputTests(unittest.TestCase):
+    def test_strictify_tightens_without_mutating(self) -> None:
+        original = {
+            "type": "object",
+            "required": ["candidates"],
+            "properties": {
+                "candidates": {"type": "array", "items": {
+                    "type": "object",
+                    "required": ["claim"],
+                    "properties": {"claim": {"type": "string"}, "why": {"type": "string"}},
+                }},
+                "notes": {"type": "string"},
+            },
+        }
+        before = json.dumps(original, sort_keys=True)
+        strict = strictify(original)
+        self.assertEqual(json.dumps(original, sort_keys=True), before)  # not mutated
+        self.assertFalse(strict["additionalProperties"])
+        self.assertEqual(set(strict["required"]), {"candidates", "notes"})
+        item = strict["properties"]["candidates"]["items"]
+        self.assertFalse(item["additionalProperties"])
+        self.assertEqual(set(item["required"]), {"claim", "why"})
+
+    def test_response_format_sent_only_when_schema_given(self) -> None:
+        bodies = []
+
+        def fake_urlopen(request, timeout=None):
+            bodies.append(json.loads(request.data.decode("utf-8")))
+            return FakeResponse(_ok_body())
+
+        provider = OpenRouterExecutor(api_key=_KEY, model="m")
+        with patch("urllib.request.urlopen", fake_urlopen):
+            provider.invoke("p", timeout=5)
+            provider.invoke("p", timeout=5, response_schema=NODE_OUTPUT_SCHEMA)
+
+        self.assertNotIn("response_format", bodies[0])
+        rf = bodies[1]["response_format"]
+        self.assertEqual(rf["type"], "json_schema")
+        self.assertTrue(rf["json_schema"]["strict"])
+        self.assertFalse(rf["json_schema"]["schema"]["additionalProperties"])
+
+
 class EnvTests(unittest.TestCase):
     def test_env_key_and_model_are_read(self) -> None:
-        with patch.dict("os.environ", {ENV_API_KEY: _KEY, ENV_MODEL: "env/model"}, clear=False):
+        with patch.dict("os.environ", {KEY_ENV: _KEY, ENV_MODEL: "env/model"}, clear=False):
             provider = OpenRouterExecutor()
         self.assertTrue(provider.available)
         self.assertEqual(provider.model, "env/model")

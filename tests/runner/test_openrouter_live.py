@@ -18,13 +18,13 @@ from __future__ import annotations
 import os
 import unittest
 
-from sechelix_runner.providers.openrouter import ENV_API_KEY, ENV_MODEL, OpenRouterExecutor
+from sechelix_runner.providers.openrouter import KEY_ENV, ENV_MODEL, OpenRouterExecutor
 
-_HAS_KEY = bool(os.environ.get(ENV_API_KEY))
+_HAS_KEY = bool(os.environ.get(KEY_ENV))
 _MODEL = os.environ.get(ENV_MODEL) or "openai/gpt-4o-mini"
 
 
-@unittest.skipUnless(_HAS_KEY, f"{ENV_API_KEY} not set; skipping live OpenRouter call")
+@unittest.skipUnless(_HAS_KEY, f"{KEY_ENV} not set; skipping live OpenRouter call")
 class OpenRouterLiveTests(unittest.TestCase):
     def test_real_chat_completion(self) -> None:
         provider = OpenRouterExecutor(model=_MODEL)

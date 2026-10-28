@@ -30,9 +30,9 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from .base import ProviderError, ProviderResult
+from .base import ProviderError, ProviderResult, strictify
 
-ENV_API_KEY = "SECHELIX_OPENROUTER_API_KEY"
+KEY_ENV = "SECHELIX_OPENROUTER_API_KEY"
 ENV_MODEL = "SECHELIX_OPENROUTER_MODEL"
 ENV_BASE_URL = "SECHELIX_OPENROUTER_BASE_URL"
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
@@ -52,7 +52,7 @@ class OpenRouterExecutor:
         referer: str | None = None,
         title: str | None = None,
     ) -> None:
-        self.api_key = api_key if api_key is not None else os.environ.get(ENV_API_KEY)
+        self.api_key = api_key if api_key is not None else os.environ.get(KEY_ENV)
         self.model = model or os.environ.get(ENV_MODEL)
         self.base_url = (base_url or os.environ.get(ENV_BASE_URL) or DEFAULT_BASE_URL).rstrip("/")
         # OpenRouter uses these only for its public app-attribution leaderboard;
@@ -79,10 +79,16 @@ class OpenRouterExecutor:
             except Exception:
                 pass
 
-    def invoke(self, prompt: str, *, timeout: float = 300.0) -> ProviderResult:
+    def invoke(
+        self,
+        prompt: str,
+        *,
+        timeout: float = 300.0,
+        response_schema: dict[str, Any] | None = None,
+    ) -> ProviderResult:
         if not self.api_key:
             raise ProviderError(
-                f"{ENV_API_KEY} is not set; export an OpenRouter key or choose another executor"
+                f"{KEY_ENV} is not set; export an OpenRouter key or choose another executor"
             )
         if not self.model:
             raise ProviderError(
@@ -90,16 +96,27 @@ class OpenRouterExecutor:
                 "(for example 'openai/gpt-4o-mini')"
             )
 
-        body = json.dumps(
-            {
-                "model": self.model,
-                "messages": [{"role": "user", "content": prompt}],
-                # Ask OpenRouter to fold spend into the usage block so cost is
-                # measured rather than guessed. Ignored by hosts that do not
-                # support it, which is why cost stays Optional below.
-                "usage": {"include": True},
+        request_body: dict[str, Any] = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+            # Ask OpenRouter to fold spend into the usage block so cost is
+            # measured rather than guessed. Ignored by hosts that do not
+            # support it, which is why cost stays Optional below.
+            "usage": {"include": True},
+        }
+        if response_schema is not None:
+            # Constrain the model to the node's schema. strictify() makes it an
+            # OpenAI-strict-compatible shape; the downstream validator still runs,
+            # so this only raises the odds of a conforming response.
+            request_body["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "sechelix_node",
+                    "strict": True,
+                    "schema": strictify(response_schema),
+                },
             }
-        ).encode("utf-8")
+        body = json.dumps(request_body).encode("utf-8")
 
         request = urllib.request.Request(
             f"{self.base_url}/chat/completions",
@@ -223,4 +240,4 @@ def _string_or_none(value: Any) -> str | None:
     return value if isinstance(value, str) and value else None
 
 
-__all__ = ["OpenRouterExecutor", "ENV_API_KEY", "ENV_MODEL", "ENV_BASE_URL", "DEFAULT_BASE_URL"]
+__all__ = ["OpenRouterExecutor", "KEY_ENV", "ENV_MODEL", "ENV_BASE_URL", "DEFAULT_BASE_URL"]

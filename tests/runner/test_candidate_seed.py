@@ -37,7 +37,9 @@ class MapTests(unittest.TestCase):
         self.assertIn("rule GHSA-DEMO-0001", c["why"])
         self.assertEqual(c["scanner"], "osv")
         self.assertEqual(c["rule_id"], "GHSA-DEMO-0001")
-        self.assertEqual(c["evidence_id"], _REC["evidence_id"])
+        # The adapter's observation id must NOT ride along: it is not a registered
+        # SecHelix evidence id, and the verifier citing it would fail the binding.
+        self.assertNotIn("evidence_id", c)
 
     def test_scanner_severity_never_carried(self) -> None:
         c = candidate_from_record(_REC)

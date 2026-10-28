@@ -36,6 +36,19 @@ Takeaway: `qwen/qwen3.8-27b` supports every feature the routing layer needs
 (tool-use orchestration, structured verification output). The same adapter
 accepts any OpenRouter model via `--model` or `SECHELIX_OPENROUTER_MODEL`.
 
+### Structured output (schema enforcement)
+
+`ProviderExecutor.invoke` takes an optional `response_schema`. When the reasoner
+runs a node it passes that node's schema (`NODE_OUTPUT_SCHEMA`, or
+`VERIFIER_OUTPUT_SCHEMA` for the independent verifier). The HTTP providers send it
+as `response_format: json_schema` after `strictify()` tightens it to the
+OpenAI-strict shape (every field required, `additionalProperties:false`); local
+agent CLIs ignore it (they are told the shape in the prompt). This never relaxes
+the downstream validator — it only makes a conforming response far more likely.
+It is what lets a live model pass the strict verifier contract: without it,
+plain-prompt models dropped the bound `candidate_ref` or `refutation_attempt`
+and every verify node failed closed.
+
 ## wasm gateway (ai.wasmjsvm.com) — built, not yet live-verified
 
 Adapter: `sechelix_runner/providers/wasm_gateway.py`, sharing OpenRouter's

@@ -14,12 +14,12 @@ from __future__ import annotations
 import os
 import unittest
 
-from sechelix_runner.providers.wasm_gateway import ENV_API_KEY, WasmGatewayExecutor
+from sechelix_runner.providers.wasm_gateway import KEY_ENV, WasmGatewayExecutor
 
-_HAS_KEY = bool(os.environ.get(ENV_API_KEY))
+_HAS_KEY = bool(os.environ.get(KEY_ENV))
 
 
-@unittest.skipUnless(_HAS_KEY, f"{ENV_API_KEY} not set; skipping live wasm gateway call")
+@unittest.skipUnless(_HAS_KEY, f"{KEY_ENV} not set; skipping live wasm gateway call")
 class WasmGatewayLiveTests(unittest.TestCase):
     def test_real_chat_completion(self) -> None:
         provider = WasmGatewayExecutor()

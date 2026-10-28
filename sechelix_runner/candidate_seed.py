@@ -83,8 +83,13 @@ def candidate_from_record(record: dict[str, Any]) -> dict[str, Any]:
         candidate["scanner"] = tool
     if isinstance(rule_id, str) and rule_id:
         candidate["rule_id"] = rule_id
-    if isinstance(record.get("evidence_id"), str):
-        candidate["evidence_id"] = record["evidence_id"]
+    # Deliberately NOT carried: the adapter's observation id. It is a digest of
+    # the scanner's own report, not a registered SecHelix evidence id, so if it
+    # reached the verifier's view the verifier could cite it -- and the binding
+    # check correctly rejects a citation to evidence that is not in the
+    # least-context view. A scanner candidate arrives with no reproduction
+    # evidence; the verifier must treat it as UNPROVEN until SecHelix produces
+    # real evidence, not inherit the scanner's own say-so as a citation.
     return candidate
 
 

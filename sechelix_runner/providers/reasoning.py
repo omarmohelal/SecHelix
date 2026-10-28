@@ -322,8 +322,20 @@ class ReasoningExecutor:
         prompt = build_prompt(node, view)
         self.prompts.append((node.node_id, prompt))
 
+        # Tell a structured-output-capable provider exactly which schema this node
+        # must return. A provider that cannot constrain output ignores it; the
+        # downstream validator below still runs either way, so this never relaxes
+        # the fail-closed check -- it only makes a conforming response more likely.
+        response_schema = (
+            VERIFIER_OUTPUT_SCHEMA
+            if node.role is NodeRole.INDEPENDENT_VERIFIER
+            else NODE_OUTPUT_SCHEMA
+        )
+
         try:
-            result = self.provider.invoke(prompt, timeout=self.timeout)
+            result = self.provider.invoke(
+                prompt, timeout=self.timeout, response_schema=response_schema
+            )
         except ProviderError as exc:
             return NodeOutcome(status=NodeStatus.FAILED, error=str(exc))
 

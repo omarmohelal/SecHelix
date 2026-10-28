@@ -37,8 +37,9 @@ class FakeProvider:
         self.usage = usage
         self.prompts: list[str] = []
 
-    def invoke(self, prompt: str, *, timeout: float) -> ProviderResult:
+    def invoke(self, prompt: str, *, timeout: float, response_schema=None) -> ProviderResult:
         self.prompts.append(prompt)
+        self.last_response_schema = response_schema
         if self.raises:
             raise self.raises
         return ProviderResult(text=self.text, **self.usage)
@@ -47,6 +48,22 @@ class FakeProvider:
 def run_node(provider, role=NodeRole.AUTHORIZATION, view=None) -> NodeOutcome:
     executor = ReasoningExecutor(provider, timeout=5)
     return executor.execute(GraphNode("n", role), view or {"routes": ["/a"]})
+
+
+class SchemaRoutingTests(unittest.TestCase):
+    def test_verifier_role_gets_verifier_schema(self) -> None:
+        from sechelix_runner.providers.base import VERIFIER_OUTPUT_SCHEMA, NODE_OUTPUT_SCHEMA
+
+        verifier_payload = (
+            '{"assessments":[]}'
+        )
+        provider = FakeProvider(verifier_payload)
+        run_node(provider, role=NodeRole.INDEPENDENT_VERIFIER, view={"candidates": []})
+        self.assertIs(provider.last_response_schema, VERIFIER_OUTPUT_SCHEMA)
+
+        hunter = FakeProvider('{"candidates": []}')
+        run_node(hunter, role=NodeRole.AUTHORIZATION)
+        self.assertIs(hunter.last_response_schema, NODE_OUTPUT_SCHEMA)
 
 
 class JsonExtractionTests(unittest.TestCase):

@@ -169,13 +169,26 @@ claim rather than trusting it. Proven live: seeding an OSV `CRITICAL`
 `examples/expense-api` made the `verify` node applicable and it **ran on the
 scanner candidate** ("every candidate is independently verified", spend $0.012).
 
-**Finding — verifier model adherence (qwen3.8-27b).** That run ended
-`INCOMPLETE`, not with a verdict: the verifier output **failed the strict schema**
-("provider output failed schema: assessment sha256:1863…") because the model did
-not echo the bound `candidate_ref` verbatim (the exact contract hardened in
-commit d437155). This is the system working as designed — a scanner's CRITICAL
-did **not** become a finding, and the gate returned `INCOMPLETE` rather than a
-false `PASS`. The gap is **model instruction-adherence in the verifier role**,
-not the seeding path. Next: route the `INDEPENDENT_VERIFIER` role to a more
-faithful model (the brief's per-task routing), then re-run for a real
-`REFUTED`/`VERIFIED`. The seeding path and the fail-closed boundary are proven.
+**Resolved — structured output makes the verifier work end to end.** The first
+seeded run ended `INCOMPLETE`: via the plain-prompt path neither qwen3.8-27b nor
+gpt-4o-mini produced the strict verifier schema (one dropped the bound
+`candidate_ref`, the other omitted `refutation_attempt`). The fix was **structured
+output**: the HTTP providers now send `response_format: json_schema` built from a
+`strictify()` of the node's own schema (`NODE_OUTPUT_SCHEMA` /
+`VERIFIER_OUTPUT_SCHEMA`), proven first in isolation — qwen then echoed
+`candidate_ref` verbatim and passed the real `validate_verifier_output` with zero
+problems.
+
+A second bug surfaced and was fixed in the seed mapper: it carried the adapter's
+observation id into the candidate, the verifier cited it, and the binding check
+correctly rejected a citation to evidence not in the least-context view. The id
+is now dropped (a scanner candidate arrives with no reproduction evidence).
+
+**Milestone — full differentiator loop, live.** `sechelix audit
+examples/expense-api --executor openrouter --seed-candidates osv_norm.json` now
+runs green: `map` → `architecture` → **`verify` SUCCEEDED** → **`gate`
+SUCCEEDED**, "all mandatory nodes satisfied". The independent verifier classified
+the scanner's `CRITICAL` as **`LIKELY_BUT_UNPROVEN` with empty `evidence_ids`** —
+it refused to promote a scanner's say-so to `VERIFIED` without independent
+evidence. Scanner candidate → independent verifier → evidence-based verdict →
+release gate, end to end on a live model, is proven.

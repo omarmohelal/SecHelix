@@ -99,6 +99,35 @@ VERIFIER_OUTPUT_SCHEMA: dict[str, Any] = {
 }
 
 
+def strictify(schema: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of ``schema`` tightened for OpenAI-style strict structured output.
+
+    Strict ``json_schema`` response formats require every object to set
+    ``additionalProperties: false`` and to list *all* of its properties as
+    ``required``. SecHelix's schemas intentionally leave some fields optional, so
+    this derives a strict-compatible shape from them without editing the canonical
+    schema: a model is forced to emit every field (optional ones simply come back
+    empty), which still validates against the more lenient hand-rolled checks.
+
+    The original is not mutated.
+    """
+    import copy
+
+    def walk(node: Any) -> Any:
+        if not isinstance(node, dict):
+            return node
+        if node.get("type") == "object" and isinstance(node.get("properties"), dict):
+            node["additionalProperties"] = False
+            node["required"] = list(node["properties"].keys())
+            for value in node["properties"].values():
+                walk(value)
+        if node.get("type") == "array" and isinstance(node.get("items"), dict):
+            walk(node["items"])
+        return node
+
+    return walk(copy.deepcopy(schema))
+
+
 class ProviderError(RuntimeError):
     """The provider could not be used, or returned something unusable."""
 
@@ -122,8 +151,21 @@ class ProviderExecutor(Protocol):
 
     name: str
 
-    def invoke(self, prompt: str, *, timeout: float) -> ProviderResult:
-        """Run one isolated request. No memory of any previous call."""
+    def invoke(
+        self,
+        prompt: str,
+        *,
+        timeout: float,
+        response_schema: dict[str, Any] | None = None,
+    ) -> ProviderResult:
+        """Run one isolated request. No memory of any previous call.
+
+        ``response_schema`` is an optional JSON schema the node expects back. A
+        provider that can constrain output to it (an HTTP gateway with structured
+        outputs) should; one that cannot (a local agent CLI that is already told
+        the shape in the prompt) ignores it. Enforcing it never weakens the
+        downstream schema check -- it only makes a conforming response more likely.
+        """
         ...
 
 

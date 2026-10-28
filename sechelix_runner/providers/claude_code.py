@@ -59,7 +59,14 @@ class ClaudeCodeExecutor:
         if process is not None and process.poll() is None:
             process.kill()
 
-    def invoke(self, prompt: str, *, timeout: float = 300.0) -> ProviderResult:
+    def invoke(
+        self,
+        prompt: str,
+        *,
+        timeout: float = 300.0,
+        response_schema: dict[str, Any] | None = None,
+    ) -> ProviderResult:
+        # Shape is given in the prompt; response_schema is accepted and ignored.
         if not self.available:
             raise ProviderError(
                 f"{self.binary} not found; install Claude Code or choose another executor"

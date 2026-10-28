@@ -23,11 +23,12 @@ import json
 import os
 import urllib.error
 import urllib.request
+from typing import Any
 
-from .base import ProviderError, ProviderResult
+from .base import ProviderError, ProviderResult, strictify
 from .openrouter import _parse_completion, _safe_error_body
 
-ENV_API_KEY = "SECHELIX_WASM_API_KEY"
+KEY_ENV = "SECHELIX_WASM_API_KEY"
 ENV_MODEL = "SECHELIX_WASM_MODEL"
 ENV_BASE_URL = "SECHELIX_WASM_BASE_URL"
 DEFAULT_BASE_URL = "https://ai.wasmjsvm.com/v1"
@@ -46,7 +47,7 @@ class WasmGatewayExecutor:
         model: str | None = None,
         base_url: str | None = None,
     ) -> None:
-        self.api_key = api_key if api_key is not None else os.environ.get(ENV_API_KEY)
+        self.api_key = api_key if api_key is not None else os.environ.get(KEY_ENV)
         self.model = model or os.environ.get(ENV_MODEL) or DEFAULT_MODEL
         self.base_url = (base_url or os.environ.get(ENV_BASE_URL) or DEFAULT_BASE_URL).rstrip("/")
         self._response = None
@@ -63,15 +64,34 @@ class WasmGatewayExecutor:
             except Exception:
                 pass
 
-    def invoke(self, prompt: str, *, timeout: float = 300.0) -> ProviderResult:
+    def invoke(
+        self,
+        prompt: str,
+        *,
+        timeout: float = 300.0,
+        response_schema: dict[str, Any] | None = None,
+    ) -> ProviderResult:
         if not self.api_key:
             raise ProviderError(
-                f"{ENV_API_KEY} is not set; export a wasm gateway key or choose another executor"
+                f"{KEY_ENV} is not set; export a wasm gateway key or choose another executor"
             )
 
-        body = json.dumps(
-            {"model": self.model, "messages": [{"role": "user", "content": prompt}]}
-        ).encode("utf-8")
+        request_body: dict[str, Any] = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        if response_schema is not None:
+            # The gateway's structured-output support is unverified; send the
+            # standard OpenAI shape and fail closed if the gateway rejects it.
+            request_body["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "sechelix_node",
+                    "strict": True,
+                    "schema": strictify(response_schema),
+                },
+            }
+        body = json.dumps(request_body).encode("utf-8")
 
         request = urllib.request.Request(
             f"{self.base_url}/chat/completions",
@@ -106,4 +126,4 @@ class WasmGatewayExecutor:
         return _parse_completion(payload, fallback_model=self.model, provider="wasm-gateway")
 
 
-__all__ = ["WasmGatewayExecutor", "ENV_API_KEY", "ENV_MODEL", "ENV_BASE_URL", "DEFAULT_BASE_URL", "DEFAULT_MODEL"]
+__all__ = ["WasmGatewayExecutor", "KEY_ENV", "ENV_MODEL", "ENV_BASE_URL", "DEFAULT_BASE_URL", "DEFAULT_MODEL"]
