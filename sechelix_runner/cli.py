@@ -146,6 +146,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         "available_reasoning_executors": {
             "claude-code": bool(shutil.which("claude")),
             "gemini-cli": bool(shutil.which("gemini")),
+            "openrouter": bool(os.environ.get("SECHELIX_OPENROUTER_API_KEY")),
         },
         "redaction": "enabled",
         "core_contracts": _core_available(),
@@ -202,6 +203,18 @@ def _build_executor(args: argparse.Namespace):
         # will try first, so its default is generous rather than shared.
         default_timeout = 900.0 if args.node_timeout is None else float(args.node_timeout)
         return ReasoningExecutor(provider, timeout=default_timeout)
+    if choice == "openrouter":
+        from .providers.openrouter import ENV_API_KEY, OpenRouterExecutor
+        from .providers.reasoning import ReasoningExecutor
+
+        provider = OpenRouterExecutor(model=getattr(args, "model", None))
+        if not provider.available:
+            raise RuntimeError(
+      f"{ENV_API_KEY} not set; export an OpenRouter key or use --executor none"
+            )
+        return ReasoningExecutor(
+            provider, timeout=float(args.node_timeout or 300.0)
+        )
     raise RuntimeError(f"unknown executor: {choice}")
 
 def cmd_audit(args: argparse.Namespace) -> int:
@@ -582,7 +595,7 @@ def build_parser() -> argparse.ArgumentParser:
     audit.add_argument("--max-seconds", type=float, default=None, dest="max_seconds")
     audit.add_argument("--max-nodes", type=int, default=None, dest="max_nodes")
     audit.add_argument(
-        "--executor", choices=("none", "claude-code", "gemini-cli"), default="none",
+        "--executor", choices=("none", "claude-code", "gemini-cli", "openrouter"), default="none",
         help="reasoning executor; 'none' orchestrates without analysing code",
     )
     audit.add_argument("--model", default=None, help="provider model override")
