@@ -147,6 +147,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             "claude-code": bool(shutil.which("claude")),
             "gemini-cli": bool(shutil.which("gemini")),
             "openrouter": bool(os.environ.get("SECHELIX_OPENROUTER_API_KEY")),
+            "wasm-gateway": bool(os.environ.get("SECHELIX_WASM_API_KEY")),
         },
         "redaction": "enabled",
         "core_contracts": _core_available(),
@@ -211,6 +212,18 @@ def _build_executor(args: argparse.Namespace):
         if not provider.available:
             raise RuntimeError(
       f"{ENV_API_KEY} not set; export an OpenRouter key or use --executor none"
+            )
+        return ReasoningExecutor(
+            provider, timeout=float(args.node_timeout or 300.0)
+        )
+    if choice == "wasm-gateway":
+        from .providers.wasm_gateway import ENV_API_KEY, WasmGatewayExecutor
+        from .providers.reasoning import ReasoningExecutor
+
+        provider = WasmGatewayExecutor(model=getattr(args, "model", None))
+        if not provider.available:
+            raise RuntimeError(
+      f"{ENV_API_KEY} not set; export a wasm gateway key or use --executor none"
             )
         return ReasoningExecutor(
             provider, timeout=float(args.node_timeout or 300.0)
@@ -595,7 +608,7 @@ def build_parser() -> argparse.ArgumentParser:
     audit.add_argument("--max-seconds", type=float, default=None, dest="max_seconds")
     audit.add_argument("--max-nodes", type=int, default=None, dest="max_nodes")
     audit.add_argument(
-        "--executor", choices=("none", "claude-code", "gemini-cli", "openrouter"), default="none",
+        "--executor", choices=("none", "claude-code", "gemini-cli", "openrouter", "wasm-gateway"), default="none",
         help="reasoning executor; 'none' orchestrates without analysing code",
     )
     audit.add_argument("--model", default=None, help="provider model override")

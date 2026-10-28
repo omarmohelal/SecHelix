@@ -15,7 +15,7 @@ model-neutral, malformed output fails closed, and unmeasured accounting is
 | `claude-code` | local agent CLI | `--executor claude-code` | Claude Code CLI owns it | present |
 | `gemini-cli` | local agent CLI | `--executor gemini-cli` | Gemini CLI owns it | WORKING |
 | `openrouter` | HTTP (OpenAI-compatible) | `--executor openrouter` | `SECHELIX_OPENROUTER_API_KEY` | **WORKING — live-verified** |
-| wasm gateway | HTTP (OpenAI-compatible) | planned | `SECHELIX_WASM_API_KEY` | planned (slice 4) |
+| `wasm-gateway` | HTTP (OpenAI-compatible) | `--executor wasm-gateway` | `SECHELIX_WASM_API_KEY` | **built; live-unverified** (no key yet) |
 
 ## OpenRouter — verified capability matrix
 
@@ -35,6 +35,29 @@ key confined to the `Authorization` header). Probed live on 2026-10-29 with
 Takeaway: `qwen/qwen3.8-27b` supports every feature the routing layer needs
 (tool-use orchestration, structured verification output). The same adapter
 accepts any OpenRouter model via `--model` or `SECHELIX_OPENROUTER_MODEL`.
+
+## wasm gateway (ai.wasmjsvm.com) — built, not yet live-verified
+
+Adapter: `sechelix_runner/providers/wasm_gateway.py`, sharing OpenRouter's
+fail-closed parser and key-safety. The request is intentionally **conservative**
+— a plain `model` + `messages` chat completion with no OpenRouter-only fields —
+because the brief warns the gateway may not implement every OpenAI feature.
+
+Defaults: base `https://ai.wasmjsvm.com/v1`, model `deepseek-v4.1-flash`, key
+`SECHELIX_WASM_API_KEY`.
+
+**Blocker:** no key is set, so connectivity and the capability matrix are
+**unverified**. Unit tests (request shape + key-safety) pass; the live test
+(`tests/runner/test_wasm_gateway_live.py`) skips. To verify, export the key and:
+
+```bash
+python scripts/probe_provider.py --key-env SECHELIX_WASM_API_KEY \
+    --base https://ai.wasmjsvm.com/v1 --model deepseek-v4.1-flash
+python -m pytest -q tests/runner/test_wasm_gateway_live.py -rs
+```
+
+Then fill a verified capability matrix here, exactly as OpenRouter's above. Until
+then, do not assume tool calling / streaming / JSON mode work on this gateway.
 
 ## Configuration
 

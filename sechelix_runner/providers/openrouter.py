@@ -161,7 +161,9 @@ def _safe_error_body(exc: urllib.error.HTTPError) -> str:
     return raw[:300] or "no response body"
 
 
-def _parse_completion(payload: str, *, fallback_model: str) -> ProviderResult:
+def _parse_completion(
+    payload: str, *, fallback_model: str, provider: str = "openrouter"
+) -> ProviderResult:
     try:
         obj = json.loads(payload)
     except json.JSONDecodeError as exc:
@@ -196,7 +198,7 @@ def _parse_completion(payload: str, *, fallback_model: str) -> ProviderResult:
     return ProviderResult(
         text=content,
         model=_string_or_none(obj.get("model")) or fallback_model,
-        provider="openrouter",
+        provider=provider,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         cost_usd=cost_usd,
