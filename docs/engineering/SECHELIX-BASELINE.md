@@ -81,7 +81,7 @@ Legend: **WORKING** (verified here) · **PARTIAL** (code + unit tests, real-targ
 | Provider abstraction | WORKING | `ProviderExecutor` fail-closed, model-neutral |
 | claude-code executor | PARTIAL | present; `available=False` in this env |
 | gemini-cli executor | WORKING | present; `available=True` in this env |
-| **External scanners** (Semgrep, CodeQL, Gitleaks, Trivy, OSV, ZAP, Nuclei) | MISSING | no adapters wired in; CodeQL only as a GitHub workflow |
+| **External scanners** (Semgrep, CodeQL, Gitleaks, Trivy, OSV, ZAP, Nuclei, opengrep, npm/pnpm-audit, playwright, safety) | WORKING | `adapters/` has 12 stdlib normalizers → one `CANDIDATE`/`UNASSESSED` envelope (`sechelix-evidence/v1`); tool severity kept as `trusted_for_assessment:false`; 20 adapter tests pass; `python -m adapters.cli <tool> <report>` |
 | **OpenRouter provider** (brief Provider A) | WORKING (live-verified 2026-10-29) | `providers/openrouter.py`; chat/tools/streaming/JSON/errors all pass on `qwen/qwen3.8-27b` — see SECHELIX-PROVIDERS.md |
 | **wasm/DeepSeek gateway** (brief Provider B) | MISSING | no `wasmjsvm`/`deepseek-v4`/`SECHELIX_WASM_API_KEY` anywhere |
 | **In-engine Nexus/FCC router** (brief Provider C) | MISSING | Nexus exists only as external MCP tooling, not wired into the runner |
@@ -122,3 +122,46 @@ evidence-backed run**, not a rewrite:
    real reasoning executor, producing a verified finding + a refuted candidate + a release gate.
 
 Each step is independently testable and preserves every existing contract and safety boundary.
+
+---
+
+## 8. Addendum — verified work (2026-10-29, same day)
+
+Two corrections and one real milestone, from executing against the live system.
+
+**Correction A — external scanners are not MISSING.** `adapters/` already ships
+12 standard-library normalizers (semgrep, opengrep, codeql/sarif, osv, trivy,
+gitleaks, npm-audit, pnpm-audit, playwright, zap, nuclei, safety). Every record
+is emitted as `CANDIDATE`/`UNASSESSED` under `sechelix-evidence/v1`, with the
+tool's own severity retained only as `tool_signal.trusted_for_assessment:false`;
+`adapters/safety.py` builds bounded scope-aware commands but never executes them.
+20 adapter tests pass. The matrix row and Section 5 item 3 are corrected
+accordingly. The first draft under-inspected `adapters/`.
+
+**Correction B — OpenRouter is now WORKING, live-verified.** Provider built and
+probed against `qwen/qwen3.8-27b`: chat, token+cost accounting, tool calling,
+streaming, JSON mode, and error shapes all pass (see `SECHELIX-PROVIDERS.md`).
+
+**Milestone — first live end-to-end assessment.** `sechelix audit
+examples/expense-api --executor openrouter` ran the real reasoner graph on the
+live model: `map` + `architecture` + release `gate` nodes executed, the
+independent `verify` node was correctly **skipped** ("no candidates to verify"),
+nothing blocked or failed, spend **$0.0042** against a $0.75 cap. A second run at
+`--depth standard` behaved identically ($0.0022).
+
+**Why no candidates (verified in code).** `_default_graph` is **applicability-
+gated, not depth-gated**: a reasoning lane is added only when its required
+world-context exists (`ROLE_CONTEXT[role]["required"]`). On the expense-api world
+only the `architecture` lane qualified; the hunter lanes' required inputs were
+absent, so they never ran — which is why `--depth quick` and `--depth standard`
+produced the same 4-node route. Depth affects world breadth, not the node set.
+The `sechelix audit` CLI is therefore a thin orchestration demo; deep per-family
+hunting lives in the pentest workflow and the SKILL-driven flow with a richer
+world. `examples/expense-api/prove.py` drives the known cross-tenant bug directly.
+
+**Revised real next gap.** With scanners present and a working HTTP provider, the
+highest-value work is *not* building adapters but **populating the world so the
+hunter lanes become applicable** (and/or **wiring normalized scanner candidates
+into the verify node**) so a Semgrep/OSV `CANDIDATE` and a model-hunted one both
+reach the same independent verifier and a real `VERIFIED`/`REFUTED` outcome on
+the demo.
