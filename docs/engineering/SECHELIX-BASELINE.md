@@ -82,7 +82,7 @@ Legend: **WORKING** (verified here) · **PARTIAL** (code + unit tests, real-targ
 | claude-code executor | PARTIAL | present; `available=False` in this env |
 | gemini-cli executor | WORKING | present; `available=True` in this env |
 | **External scanners** (Semgrep, CodeQL, Gitleaks, Trivy, OSV, ZAP, Nuclei) | MISSING | no adapters wired in; CodeQL only as a GitHub workflow |
-| **OpenRouter provider** (brief Provider A) | MISSING | no code, no `SECHELIX_OPENROUTER_API_KEY` reference |
+| **OpenRouter provider** (brief Provider A) | WORKING (live-verified 2026-10-29) | `providers/openrouter.py`; chat/tools/streaming/JSON/errors all pass on `qwen/qwen3.8-27b` — see SECHELIX-PROVIDERS.md |
 | **wasm/DeepSeek gateway** (brief Provider B) | MISSING | no `wasmjsvm`/`deepseek-v4`/`SECHELIX_WASM_API_KEY` anywhere |
 | **In-engine Nexus/FCC router** (brief Provider C) | MISSING | Nexus exists only as external MCP tooling, not wired into the runner |
 | **Embedded Strix engine** | MISSING | no submodule/vendor; `strix` appears only in docs + one sandbox comment |
