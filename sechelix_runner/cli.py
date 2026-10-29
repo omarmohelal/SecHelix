@@ -38,7 +38,7 @@ from .graph import GraphNode, ReasonerGraph
 from .replay import ReplayError, replay_run
 from .report import RENDERERS
 from .roles import NodeRole, NodeStatus
-from .runner import Runner
+from .runner import Runner, new_run_id
 from .storage import InvalidRunId, RunWorkspace, list_runs, persist_run, redact
 from .world import DEPTHS, build_world, describe_target
 
@@ -146,6 +146,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         "available_reasoning_executors": {
             "claude-code": bool(shutil.which("claude")),
             "gemini-cli": bool(shutil.which("gemini")),
+            "nexus": bool(shutil.which("nexus")),
             "openrouter": bool(os.environ.get("SECHELIX_OPENROUTER_API_KEY")),
             "wasm-gateway": bool(os.environ.get("SECHELIX_WASM_API_KEY")),
         },
@@ -204,6 +205,18 @@ def _build_executor(args: argparse.Namespace):
         # will try first, so its default is generous rather than shared.
         default_timeout = 900.0 if args.node_timeout is None else float(args.node_timeout)
         return ReasoningExecutor(provider, timeout=default_timeout)
+    if choice == "nexus":
+        from .providers.nexus_cli import NexusCliExecutor
+        from .providers.reasoning import ReasoningExecutor
+
+        provider = NexusCliExecutor(lane=getattr(args, "model", None))
+        if not provider.available:
+            raise RuntimeError(
+                "nexus CLI not found on PATH; install/link Nexus or use another executor"
+            )
+        return ReasoningExecutor(
+            provider, timeout=float(args.node_timeout or 900.0)
+        )
     if choice == "openrouter":
         from .providers.openrouter import KEY_ENV, OpenRouterExecutor
         from .providers.reasoning import ReasoningExecutor
@@ -229,6 +242,31 @@ def _build_executor(args: argparse.Namespace):
             provider, timeout=float(args.node_timeout or 300.0)
         )
     raise RuntimeError(f"unknown executor: {choice}")
+
+def _checkpoint_run_args(
+    root: Path, args: argparse.Namespace
+) -> tuple[str | None, Path, Path | None]:
+    """Resolve automatic durable checkpoint paths for audit-style commands."""
+
+    resume = getattr(args, "resume_from", None)
+    explicit = getattr(args, "checkpoint", None)
+    if resume is not None:
+        resume_path = Path(resume).expanduser().resolve()
+        checkpoint_path = (
+            Path(explicit).expanduser().resolve()
+            if explicit is not None
+            else resume_path
+        )
+        return None, checkpoint_path, resume_path
+
+    run_id = new_run_id()
+    checkpoint_path = (
+        Path(explicit).expanduser().resolve()
+        if explicit is not None
+        else root / ".sechelix" / "checkpoints" / f"{run_id}.json"
+    )
+    return run_id, checkpoint_path, None
+
 
 def cmd_audit(args: argparse.Namespace) -> int:
     root = Path(args.path).resolve()
@@ -266,12 +304,19 @@ def cmd_audit(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_USAGE
 
+    run_id, checkpoint_path, resume_from = _checkpoint_run_args(root, args)
     result = Runner(
         executor=executor,
         budget=BudgetGovernor(limits),
         target_commit=target["commit"],
         scope_id=target["scope_id"],
-    ).run(graph, world)
+    ).run(
+        graph,
+        world,
+        run_id=run_id,
+        checkpoint_path=checkpoint_path,
+        resume_from=resume_from,
+    )
 
     workspace = persist_run(root, result, graph)
 
@@ -311,6 +356,99 @@ def cmd_audit(args: argparse.Namespace) -> int:
         blind = coverage_report["blind_spots"]
         print(f"blind   {len(blind)} item(s) never covered or stale")
     return EXIT_OK if not result.unsatisfied_mandatory else EXIT_NOT_CLEAN
+
+
+def cmd_launch_audit(args: argparse.Namespace) -> int:
+    """Run evidence-routed AI-built-app launch checks 19-36.
+
+    The command deliberately reports CANDIDATE / ASSESSED_NO_CANDIDATE /
+    UNKNOWN / BLOCKED / FAILED.  It never turns "nothing found" into PASS.
+    """
+
+    from .launch_profile import (
+        LaunchContextBuilder,
+        build_launch_graph,
+        load_launch_checks,
+        summarize_launch_run,
+    )
+
+    root = Path(args.path).resolve()
+    if not root.is_dir():
+        print(f"error: {root} is not a directory", file=sys.stderr)
+        return EXIT_USAGE
+
+    checks = load_launch_checks()
+    if args.check:
+        wanted = {f"LAUNCH-{number}" for number in args.check}
+        checks = tuple(check for check in checks if check.id in wanted)
+    if not checks:
+        print("error: no launch checks selected", file=sys.stderr)
+        return EXIT_USAGE
+
+    target = describe_target(root)
+    world = build_world(root, depth=args.depth)
+    # These keys make absence explicit so the verifier/gate cannot confuse a
+    # missing collection with a clean one.
+    world.setdefault("candidates", [])
+    world.setdefault("findings", [])
+    graph = build_launch_graph(checks)
+
+    limits = BudgetLimits(
+        max_cost_usd=args.max_cost,
+        max_duration_seconds=args.max_seconds,
+        max_nodes=args.max_nodes,
+    )
+    try:
+        executor = _build_executor(args)
+    except RuntimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+
+    run_id, checkpoint_path, resume_from = _checkpoint_run_args(root, args)
+    result = Runner(
+        executor=executor,
+        budget=BudgetGovernor(limits),
+        target_commit=target["commit"],
+        scope_id=target["scope_id"],
+        context_builder_factory=lambda run_world: LaunchContextBuilder(run_world, checks),
+    ).run(
+        graph,
+        world,
+        run_id=run_id,
+        checkpoint_path=checkpoint_path,
+        resume_from=resume_from,
+    )
+
+    workspace = persist_run(root, result, graph)
+    summary = summarize_launch_run(result, checks)
+    summary["run_id"] = result.run_id
+    summary["target_commit"] = result.target_commit
+    summary["unsatisfied_mandatory"] = list(result.unsatisfied_mandatory)
+    workspace.write_json("launch-checks.json", summary)
+    workspace.write_manifest()
+
+    if args.json:
+        print(json.dumps(redact(summary), indent=2, sort_keys=True))
+    else:
+        print(f"launch  {result.run_id}")
+        print(f"commit  {result.target_commit}")
+        for row in summary["checks"]:
+            print(
+                f"  {row['number']:>2}  {row['execution_state']:<22} "
+                f"{row['title']}"
+            )
+        print()
+        print("note    ASSESSED_NO_CANDIDATE is not PASS; release evidence is separate.")
+        print(f"saved   {workspace.path}")
+
+    unresolved = {
+        "CANDIDATE",
+        "UNKNOWN",
+        "BLOCKED",
+        "FAILED",
+    }
+    states = {str(row["execution_state"]) for row in summary["checks"]}
+    return EXIT_NOT_CLEAN if states & unresolved else EXIT_OK
 
 
 def _print_run(result: Any, workspace: RunWorkspace) -> None:
@@ -597,6 +735,44 @@ def cmd_fix_check(args: argparse.Namespace) -> int:
     return EXIT_OK if result.ready else EXIT_NOT_CLEAN
 
 
+def cmd_benchmark_models(args: argparse.Namespace) -> int:
+    """Generate a blind prediction packet for one Nexus lane.
+
+    This command deliberately does not score the packet. Ground truth stays
+    outside the model process and scoring remains a separate explicit step.
+    """
+
+    from .model_benchmark import (
+        ModelBenchmarkError,
+        run_nexus_benchmark,
+        write_prediction_packet,
+    )
+
+    try:
+        packet = run_nexus_benchmark(
+            cases_path=args.cases,
+            lane=args.lane,
+            sechelix_commit=args.sechelix_commit,
+            fixture_suite_version=args.fixture_suite_version,
+            timeout_per_case=args.timeout_per_case,
+        )
+        write_prediction_packet(args.output, packet)
+    except (ModelBenchmarkError, OSError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+
+    if args.json:
+        print(json.dumps(packet, indent=2, sort_keys=True))
+    else:
+        print(f"benchmark lane   {args.lane}")
+        print(f"cases            {packet['case_count']}")
+        print(f"predictions      {args.output}")
+        print("scoring          NOT_RUN (freeze this packet, then score separately)")
+        print(f"cost             {packet['cost']}")
+        print(f"time_seconds     {packet['time_seconds']}")
+    return EXIT_OK
+
+
 # -- entry point -------------------------------------------------------------
 
 
@@ -623,7 +799,9 @@ def build_parser() -> argparse.ArgumentParser:
     audit.add_argument("--max-seconds", type=float, default=None, dest="max_seconds")
     audit.add_argument("--max-nodes", type=int, default=None, dest="max_nodes")
     audit.add_argument(
-        "--executor", choices=("none", "claude-code", "gemini-cli", "openrouter", "wasm-gateway"), default="none",
+        "--executor",
+        choices=("none", "claude-code", "gemini-cli", "nexus", "openrouter", "wasm-gateway"),
+        default="none",
         help="reasoning executor; 'none' orchestrates without analysing code",
     )
     audit.add_argument("--model", default=None, help="provider model override")
@@ -636,8 +814,60 @@ def build_parser() -> argparse.ArgumentParser:
         "--node-timeout", type=float, default=None, dest="node_timeout",
         help="seconds allowed per reasoning node (default 300, 900 for gemini-cli)",
     )
+    audit.add_argument(
+        "--checkpoint",
+        type=Path,
+        default=None,
+        help="checkpoint file override (default: .sechelix/checkpoints/RUN-....json)",
+    )
+    audit.add_argument(
+        "--resume-from",
+        type=Path,
+        default=None,
+        help="resume remaining nodes from a sealed checkpoint after verifying target/scope/graph/input",
+    )
     _common(audit)
     audit.set_defaults(func=cmd_audit)
+
+    launch_audit = sub.add_parser(
+        "launch-audit",
+        help="run evidence-routed AI-built-app launch checks 19-36",
+    )
+    launch_audit.add_argument("path", nargs="?", default=".")
+    launch_audit.add_argument("--depth", choices=sorted(DEPTHS), default="standard")
+    launch_audit.add_argument(
+        "--check",
+        action="append",
+        choices=tuple(f"{number:02d}" for number in range(19, 37)),
+        default=[],
+        help="run only one launch check number; repeatable (default: 19-36)",
+    )
+    launch_audit.add_argument("--max-cost", type=float, default=None, dest="max_cost")
+    launch_audit.add_argument("--max-seconds", type=float, default=None, dest="max_seconds")
+    launch_audit.add_argument("--max-nodes", type=int, default=None, dest="max_nodes")
+    launch_audit.add_argument(
+        "--executor", choices=("none", "claude-code", "gemini-cli", "nexus"), default="none",
+        help="reasoning executor; 'none' records all reasoning checks as blocked",
+    )
+    launch_audit.add_argument("--model", default=None, help="provider model override")
+    launch_audit.add_argument(
+        "--node-timeout", type=float, default=None, dest="node_timeout",
+        help="seconds allowed per reasoning node",
+    )
+    launch_audit.add_argument(
+        "--checkpoint",
+        type=Path,
+        default=None,
+        help="checkpoint file override (default: .sechelix/checkpoints/RUN-....json)",
+    )
+    launch_audit.add_argument(
+        "--resume-from",
+        type=Path,
+        default=None,
+        help="resume remaining launch checks from a sealed node-boundary checkpoint",
+    )
+    _common(launch_audit)
+    launch_audit.set_defaults(func=cmd_launch_audit)
 
     scout = sub.add_parser(
         "scout",
@@ -692,6 +922,46 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _common(fix_check)
     fix_check.set_defaults(func=cmd_fix_check)
+
+    benchmark_models = sub.add_parser(
+        "benchmark-models",
+        help="generate a sealed blind prediction packet for one Nexus lane",
+    )
+    benchmark_models.add_argument(
+        "--cases",
+        required=True,
+        type=Path,
+        help="sealed blind cases.json; ground truth must not be present",
+    )
+    benchmark_models.add_argument(
+        "--lane",
+        required=True,
+        help="exact Nexus lane/model route to evaluate",
+    )
+    benchmark_models.add_argument(
+        "--output",
+        required=True,
+        type=Path,
+        help="prediction packet path; score it only after this file is frozen",
+    )
+    benchmark_models.add_argument(
+        "--sechelix-commit",
+        required=True,
+        help="exact SecHelix commit associated with the sealed packet",
+    )
+    benchmark_models.add_argument(
+        "--fixture-suite-version",
+        required=True,
+        help="human-readable fixture suite/version label",
+    )
+    benchmark_models.add_argument(
+        "--timeout-per-case",
+        type=float,
+        default=300.0,
+        help="maximum seconds for each isolated model judgment",
+    )
+    _common(benchmark_models)
+    benchmark_models.set_defaults(func=cmd_benchmark_models)
 
     runs = sub.add_parser("runs", help="list recorded runs and their integrity")
     runs.add_argument("path", nargs="?", default=".")

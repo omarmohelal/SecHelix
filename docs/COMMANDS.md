@@ -68,6 +68,36 @@ After fixes, re-run the failed/unknown checks and produce the normal SecHelix re
 
 The 36-check launch profile is documented in [`references/ai-built-app-launch.md`](../references/ai-built-app-launch.md). It is a practical minimum launch filter over the larger SecHelix catalog, not a replacement for the full audit.
 
+Optional runtime execution for the image/checklist half (19-36):
+
+```bash
+# all checks 19-36
+sechelix launch-audit . --executor claude-code
+
+# targeted checks, for example XSS + IDOR/BOLA
+sechelix launch-audit . --check 19 --check 33 --executor claude-code
+```
+
+The runtime records `CANDIDATE`, `ASSESSED_NO_CANDIDATE`, `UNKNOWN`, `BLOCKED`, or `FAILED`. It intentionally does not emit `PASS`; a launch PASS still requires the canonical SecHelix evidence, independent-verification, remediation/retest, and release-gate contracts.
+
+### Resume an interrupted audit
+
+`audit` and `launch-audit` write a sealed checkpoint after every completed
+node. The default path is `.sechelix/checkpoints/<RUN-ID>.json`.
+
+```bash
+# resume remaining work with Nexus after a host/provider interruption
+sechelix audit . \
+  --resume-from .sechelix/checkpoints/RUN-0123456789ABCDEF.json \
+  --executor nexus
+```
+
+Completed nodes are not re-run. Their original model/provider/evidence records
+stay intact; only unfinished nodes use the new executor. Resume is refused if
+the checkpoint was edited or if target commit, scope, graph, caller input, or
+budget limits changed. This is interruption recovery, not a way to bypass a
+failed security check.
+
 ## SEO Audit
 
 ```text

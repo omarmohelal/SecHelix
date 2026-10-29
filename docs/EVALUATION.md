@@ -97,7 +97,10 @@ precision, and says so.
 bounded LOCAL proof primitives. Its vulnerable/clean pairs have explicit ground
 truth and may report primitive-level case accuracy, vulnerable-behavior recall,
 clean-behavior rejection rate, inconclusive rate, request count and elapsed
-time.
+time. The current paired primitive set also covers CORS policy, a declared
+small rate-limit boundary, and one exact known-default credential attempt. These
+stay literal-loopback-only and bounded; they are not generalized load testing or
+credential guessing.
 
 Those numbers must be labeled `DYNAMIC_PROOF_PRIMITIVE_BENCHMARK`. They are
 not verified precision, end-to-end detection recall, independent-verifier

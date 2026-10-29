@@ -174,9 +174,13 @@ Arena or production-effectiveness result.
 SecHelix's deterministic proof primitives. It now covers every bounded `ProofClass` currently implemented by the LOCAL
 proof executor, with one vulnerable and one clean sibling per class. Coverage
 includes authorization/IDOR, race/idempotency, webhook signature/replay, XSS,
-SSRF callback, path traversal, CSRF, session revocation, state transition,
-payment invariants, workflow sequencing, cross-entity money flow, and
-settlement/refund sequencing.
+SSRF callback, path traversal, CSRF, CORS policy, a tiny declared rate-limit
+invariant, one exact known-default credential attempt, session revocation, state
+transition, payment invariants, workflow sequencing, cross-entity money flow,
+and settlement/refund sequencing. The CORS pair uses read-only requests, the
+rate-limit pair sends only one request above a predeclared allowance (at most
+six total), and the known-default pair performs exactly one fixture login
+attempt; none of these are load, guessing, or credential-stuffing benchmarks.
 
 Run it with:
 

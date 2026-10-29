@@ -264,6 +264,29 @@ def build_prompt(node: GraphNode, view: dict[str, Any], *, max_chars: int = 2400
         else _SHARED_RULES
     )
 
+    if node.role is not NodeRole.INDEPENDENT_VERIFIER:
+        launch_checks = view.get("launch_checks")
+        if isinstance(launch_checks, list) and launch_checks:
+            launch_ids = [
+                str(item.get("id"))
+                for item in launch_checks
+                if isinstance(item, dict) and item.get("id")
+            ]
+            task += (
+                " Evaluate every assigned launch check explicitly: "
+                + ", ".join(launch_ids)
+                + "."
+            )
+            rules += (
+                "\nLaunch-profile rules:\n"
+                "- Put every assigned LAUNCH-XX id in examined exactly once, even "
+                "when no candidate is supportable.\n"
+                "- Any candidate raised for a launch check must include that exact "
+                "LAUNCH-XX id in hypothesis_ids.\n"
+                "- An examined check with no candidate is not PASS; it only means "
+                "this node produced no supportable candidate from its supplied evidence."
+            )
+
     payload = dict(view)
     if node.role is NodeRole.INDEPENDENT_VERIFIER:
         candidates = payload.get("candidates") or []
@@ -333,9 +356,23 @@ class ReasoningExecutor:
         )
 
         try:
-            result = self.provider.invoke(
-                prompt, timeout=self.timeout, response_schema=response_schema
-            )
+            # Role-aware providers (Nexus) pick a model/persona from node.role;
+            # structured-output providers (OpenRouter, wasm) constrain the output
+            # to response_schema. These are independent capabilities, so thread
+            # the schema through both paths -- a provider that cannot honor it
+            # ignores it, and the fail-closed validator below runs regardless.
+            role_invoke = getattr(self.provider, "invoke_for_role", None)
+            if callable(role_invoke):
+                result = role_invoke(
+                    node.role,
+                    prompt,
+                    timeout=self.timeout,
+                    response_schema=response_schema,
+                )
+            else:
+                result = self.provider.invoke(
+                    prompt, timeout=self.timeout, response_schema=response_schema
+                )
         except ProviderError as exc:
             return NodeOutcome(status=NodeStatus.FAILED, error=str(exc))
 

@@ -48,6 +48,13 @@ def scan_text(path: Path, text: str) -> list[str]:
 def scan_paths(paths: Iterable[Path]) -> list[str]:
     findings = []
     for path in paths:
+        # A git submodule is tracked as a gitlink (mode 160000), which appears
+        # as a directory in a populated checkout. Its contents are scanned by
+        # the upstream project and dependency review; this repository-level
+        # scanner should neither recurse across that ownership boundary nor
+        # fail because read_bytes() was asked to open a directory.
+        if path.is_dir():
+            continue
         try:
             data = path.read_bytes()
         except OSError as exc:
