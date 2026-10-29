@@ -724,5 +724,68 @@ class StrixAdapterTests(unittest.TestCase):
             self.assertIn('"stdout_persisted": false', rendered)
 
 
+class FailClosedContainmentGate(unittest.TestCase):
+    """A protected (isolated) scan is accepted only if containment is proven.
+
+    These exercise the adapter's fail-closed gate deterministically, with the
+    real docker lifecycle replaced by a controllable ``firewalled_strix_sandbox``
+    stand-in (acceptance criterion A).
+    """
+
+    @staticmethod
+    def _fake_containment(*, failure=None, contained=False):
+        import contextlib as _contextlib
+
+        from sechelix_runner.pentest.strix_sandbox_net import FirewalledSandbox
+
+        @_contextlib.contextmanager
+        def _cm(**_kwargs):
+            state = FirewalledSandbox(target_port=3000)
+            state.saw_sandbox = True
+            state.failure = failure
+            if contained:
+                state.contained.set()
+            yield state
+
+        return _cm
+
+    def _run_isolated(self, fake_cm):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            engine = StrixEngine()
+            with patch.object(engine, "available", return_value=True), patch(
+                "sechelix_runner.pentest.strix_adapter.subprocess.run",
+                side_effect=fake_strix_process(
+                    root, returncode=0, status="completed", findings=[]
+                ),
+            ), patch(
+                "sechelix_runner.pentest.strix_adapter.firewalled_strix_sandbox",
+                side_effect=fake_cm,
+            ):
+                return engine.run(
+                    scope=local_scope(),
+                    cwd=root,
+                    timeout=10,
+                    env={"SECHELIX_STRIX_ISOLATE_NETWORK": "1"},
+                )
+
+    def test_refused_when_containment_fails(self) -> None:
+        cm = self._fake_containment(failure="egress is not bounded")
+        with self.assertRaises(StrixAdapterError) as ctx:
+            self._run_isolated(cm)
+        self.assertIn("containment failed", str(ctx.exception))
+
+    def test_refused_when_containment_never_proven(self) -> None:
+        cm = self._fake_containment(failure=None, contained=False)
+        with self.assertRaises(StrixAdapterError) as ctx:
+            self._run_isolated(cm)
+        self.assertIn("never proven", str(ctx.exception))
+
+    def test_accepted_when_containment_proven(self) -> None:
+        cm = self._fake_containment(contained=True)
+        result = self._run_isolated(cm)
+        self.assertTrue(result.succeeded)
+
+
 if __name__ == "__main__":
     unittest.main()
