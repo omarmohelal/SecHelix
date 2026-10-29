@@ -72,12 +72,48 @@ python -m sechelix_runner.pentest.autodiscovery http://127.0.0.1:8077 \
 Tests: `tests/runner/test_discovery_engine.py` (6, spins up the real app).
 Tokens are redacted from all output.
 
+## Full remediation loop (discover -> verify -> fix -> retest)
+
+`verifier.py` and `remediate.py` close the loop end to end (acceptance C -> D -> E),
+run by `autodiscovery.run_remediation` over a `RemediationTarget`:
+
+1. stand the target up **vulnerable** (throwaway copy) and **discover** candidates;
+2. an **independent verifier** -- separate code path, re-derives attacker/owner
+   from fresh listings, reads nothing from the discovery engine's state --
+   reproduces each confirmed candidate against the vulnerable copy (**CONFIRMED**);
+3. apply the target's **reference fix** (`fix.patch`) to an isolated copy;
+4. the independent verifier re-runs against the **fixed** copy (**REFUTED**);
+5. the **regression suite** runs against the fixed copy.
+
+A candidate is FIXED only when it was reproduced before, refused after, *and* the
+suite passes -- never because a patch merely applied. The working tree is never
+touched; both states run from temp copies.
+
+Real report on `examples/expense-api`:
+
+```
+bola GET /api/receipts/{id}
+  before: CONFIRMED  approver/northwind read object 201 owned by tenant value 2 (HTTP 200)
+  after : REFUTED    cross-tenant read was refused (HTTP 404); object-level ownership holds
+  FIXED : True
+regression: test_tenancy.py rc=0 OK   prove.py rc=0 OK
+ALL_FIXED: True
+```
+
+Honesty note: the fix applied is the target's **reference** remediation, not an
+LLM-synthesised patch. What is proven here is the discover -> independent-verify ->
+before/after-regression -> retest loop with real HTTP evidence. Autonomous patch
+*synthesis* for arbitrary code is a separate, unclaimed capability.
+
+Tests: `tests/runner/test_remediation_flow.py` (4, spins up both states as real
+subprocesses and runs the suites).
+
 ## Next slices (not done here)
 
+* **Autonomous fix synthesis** (step 5 above currently applies the reference fix):
+  localize the root cause in source and generate the minimal scoped-query patch.
 * **Guide Strix** with the inventory + ranked hypotheses (the deterministic engine
-  is the reliable floor; Strix can widen it). This is the remaining half of "use
-  this inventory to guide Strix".
+  is the reliable floor; Strix can widen it). The remaining half of "guide Strix".
 * **Multi-framework route extraction** (Flask/FastAPI/Express/Next.js/OpenAPI/
   GraphQL) beyond documented-route + REST inference.
-* **Write / state-changing endpoints** and the broader hypothesis classes
-  (invalid state transitions, idempotency).
+* **Write / state-changing endpoints** and broader hypothesis classes.
