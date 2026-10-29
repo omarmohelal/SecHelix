@@ -16,6 +16,7 @@ from sechelix_runner.pentest.strix_adapter import (
     StrixAdapterError,
     StrixEngine,
     StrixEngineHealth,
+    _default_health_timeout,
     _prepare_fcc_strix_environment,
     coverage_out_of_scope_hosts,
     normalize_strix_vulnerabilities,
@@ -509,6 +510,53 @@ class StrixAdapterTests(unittest.TestCase):
     def test_missing_coverage_is_not_treated_as_a_scope_escape(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(coverage_out_of_scope_hosts(Path(tmp), local_scope()), ())
+
+    def test_health_timeout_override_is_bounded(self) -> None:
+        import os
+        from unittest.mock import patch as _patch
+
+        cases = {"": 5.0, "20": 20.0, "30": 30.0, "0": 5.0, "-1": 5.0, "99": 5.0, "x": 5.0}
+        for raw, expected in cases.items():
+            with _patch.dict(os.environ, {"SECHELIX_STRIX_HEALTH_TIMEOUT": raw}):
+                self.assertEqual(_default_health_timeout(), expected)
+
+    def test_coverage_guard_allows_sandbox_aliases_under_isolation(self) -> None:
+        coverage = {
+            "entries": [
+                {"surface": "http://sechelix-target:8077 (target via proxy)"},
+                {"surface": "http://sechelix-gateway:8082/v1 (reasoning gateway)"},
+            ],
+            "gaps": [],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            (run_dir / "coverage.json").write_text(json.dumps(coverage), encoding="utf-8")
+            # Without the alias allowlist the proxy hostnames look out of scope.
+            self.assertTrue(coverage_out_of_scope_hosts(run_dir, local_scope()))
+            # Under isolated-network containment the aliases are legitimate.
+            self.assertEqual(
+                coverage_out_of_scope_hosts(
+                    run_dir,
+                    local_scope(),
+                    allowed_hosts=frozenset({"sechelix-target", "sechelix-gateway"}),
+                ),
+                (),
+            )
+
+    def test_normalizer_allows_sandbox_alias_endpoint_under_isolation(self) -> None:
+        rows = [{"id": "v1", "title": "x", "endpoint": "http://sechelix-target:8077/api"}]
+        with self.assertRaisesRegex(StrixAdapterError, "outside the approved pentest scope"):
+            normalize_strix_vulnerabilities(
+                rows, payload_sha256="sha256:0", run_name="r", scope=local_scope()
+            )
+        out = normalize_strix_vulnerabilities(
+            rows,
+            payload_sha256="sha256:0",
+            run_name="r",
+            scope=local_scope(),
+            allowed_hosts=frozenset({"sechelix-target"}),
+        )
+        self.assertEqual(len(out), 1)
 
     def test_completed_run_that_escaped_scope_is_refused(self) -> None:
         coverage = {
