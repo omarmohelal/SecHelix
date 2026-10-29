@@ -14,7 +14,6 @@ This is acceptance criteria C and D for milestone 1, run against the real app.
 
 from __future__ import annotations
 
-import sys
 import threading
 import unittest
 from http.server import ThreadingHTTPServer
@@ -27,10 +26,9 @@ from sechelix_runner.pentest.autodiscovery import (
     run_discovery,
 )
 
-EXPENSE_API = Path(__file__).resolve().parents[2] / "examples" / "expense-api"
-sys.path.insert(0, str(EXPENSE_API))
+from tests.runner.expense_fixture import load_expense_app
 
-import app as expense_app  # noqa: E402  (fixture under examples/expense-api)
+expense_app = load_expense_app()  # fixture under examples/expense-api, isolated
 
 # Labels only -- tenant + role, as an operator knows their own test users. These
 # never say which object is sensitive.
