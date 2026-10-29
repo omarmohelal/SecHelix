@@ -17,6 +17,7 @@ from sechelix_runner.pentest.strix_adapter import (
     StrixEngine,
     StrixEngineHealth,
     _prepare_fcc_strix_environment,
+    coverage_out_of_scope_hosts,
     normalize_strix_vulnerabilities,
     write_strix_result,
 )
@@ -56,6 +57,7 @@ def fake_strix_process(
     version: str = STRIX_TESTED_VERSION,
     help_text: str = STRIX_HELP,
     write_vulnerability_index: bool = True,
+    coverage: dict | None = None,
 ):
     def fake_run(command, **kwargs):
         if kwargs.get("shell") is not False:
@@ -80,6 +82,11 @@ def fake_strix_process(
         if write_vulnerability_index:
             (run_dir / "vulnerabilities.json").write_text(
                 json.dumps(findings),
+                encoding="utf-8",
+            )
+        if coverage is not None:
+            (run_dir / "coverage.json").write_text(
+                json.dumps(coverage),
                 encoding="utf-8",
             )
         return subprocess.CompletedProcess(
@@ -462,6 +469,96 @@ class StrixAdapterTests(unittest.TestCase):
         self.assertEqual(result.candidates, ())
         self.assertFalse(result.vulnerability_index_present)
         self.assertEqual(result.payload_sha256, "sha256:" + hashlib.sha256(b"[]").hexdigest())
+
+    def test_coverage_out_of_scope_hosts_flags_sibling_surfaces(self) -> None:
+        coverage = {
+            "schema_version": 1,
+            "scope": {"targets": [{"original": "http://127.0.0.1:3000"}]},
+            "entries": [
+                {"surface": "http://127.0.0.1:3000 (authenticated API)"},
+                {"surface": "http://127.0.0.1:9999 (sibling admin service)"},
+            ],
+            "gaps": [
+                {"surface": 'ws://127.0.0.1:8070 (WebSocket "SiblingServer")'},
+                {"surface": "http://evil.example.com/ (third-party host in a link)"},
+            ],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            (run_dir / "coverage.json").write_text(json.dumps(coverage), encoding="utf-8")
+            escaped = coverage_out_of_scope_hosts(run_dir, local_scope())
+        self.assertEqual(
+            escaped,
+            (
+                "http://127.0.0.1:9999",
+                "http://evil.example.com/",
+                "ws://127.0.0.1:8070",
+            ),
+        )
+
+    def test_coverage_out_of_scope_hosts_accepts_in_scope_only(self) -> None:
+        coverage = {
+            "entries": [{"surface": "http://127.0.0.1:3000 (authenticated API)"}],
+            "gaps": [{"surface": "http://127.0.0.1:3000/reports (needs follow-up)"}],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            (run_dir / "coverage.json").write_text(json.dumps(coverage), encoding="utf-8")
+            self.assertEqual(coverage_out_of_scope_hosts(run_dir, local_scope()), ())
+
+    def test_missing_coverage_is_not_treated_as_a_scope_escape(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(coverage_out_of_scope_hosts(Path(tmp), local_scope()), ())
+
+    def test_completed_run_that_escaped_scope_is_refused(self) -> None:
+        coverage = {
+            "entries": [
+                {"surface": "http://127.0.0.1:3000 (target)"},
+                {"surface": "http://127.0.0.1:8082 (sibling LLM gateway)"},
+            ],
+            "gaps": [],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            engine = StrixEngine()
+            with patch.object(engine, "available", return_value=True), patch(
+                "sechelix_runner.pentest.strix_adapter.subprocess.run",
+                side_effect=fake_strix_process(
+                    root,
+                    returncode=0,
+                    status="completed",
+                    findings=[],
+                    write_vulnerability_index=False,
+                    coverage=coverage,
+                ),
+            ):
+                with self.assertRaisesRegex(
+                    StrixAdapterError,
+                    r"outside the authorized scope: http://127\.0\.0\.1:8082",
+                ):
+                    engine.run(scope=local_scope(), cwd=root, timeout=10)
+
+    def test_completed_run_with_in_scope_coverage_is_accepted(self) -> None:
+        coverage = {
+            "entries": [{"surface": "http://127.0.0.1:3000 (target)"}],
+            "gaps": [],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            engine = StrixEngine()
+            with patch.object(engine, "available", return_value=True), patch(
+                "sechelix_runner.pentest.strix_adapter.subprocess.run",
+                side_effect=fake_strix_process(
+                    root,
+                    returncode=0,
+                    status="completed",
+                    findings=[],
+                    write_vulnerability_index=False,
+                    coverage=coverage,
+                ),
+            ):
+                result = engine.run(scope=local_scope(), cwd=root, timeout=10)
+        self.assertTrue(result.succeeded)
 
     def test_findings_exit_without_vulnerability_index_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
