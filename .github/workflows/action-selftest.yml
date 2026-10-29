@@ -30,7 +30,7 @@ concurrency:
 jobs:
   incomplete-is-reported-honestly:
     name: executor none reports INCOMPLETE and does not fail the job
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sechelix-wsl]
     permissions:
       contents: read
     steps:
@@ -80,7 +80,7 @@ jobs:
 
   fail-on-incomplete-actually-fails:
     name: fail-on incomplete turns the same run red
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sechelix-wsl]
     permissions:
       contents: read
     steps:
@@ -109,7 +109,7 @@ jobs:
 
   inputs-cannot-inject-commands:
     name: a hostile input is data, not a command
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sechelix-wsl]
     permissions:
       contents: read
     steps:
@@ -140,7 +140,7 @@ jobs:
 
   gate-vocabulary-tests:
     name: outcome mapping unit tests
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sechelix-wsl]
     permissions:
       contents: read
     steps:
