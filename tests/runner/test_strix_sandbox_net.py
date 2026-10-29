@@ -1,39 +1,53 @@
 from __future__ import annotations
 
 import subprocess
+import time
 import unittest
 from unittest.mock import patch
 
 from sechelix_runner.pentest.strix_sandbox_net import (
     SandboxNetworkError,
-    isolated_strix_network,
+    _apply_egress_firewall,
+    _firewall_script,
+    _running_sandbox_ids,
+    _sandbox_host_gateways,
+    _valid_ip,
+    firewalled_strix_sandbox,
     isolation_requested,
-    rewrite_target_in_command,
 )
 
 
-def _record_docker(
+def _fake_docker(
     calls: list[list[str]],
     *,
-    fail_on: str | None = None,
-    inspect_members: str = "",
+    sandbox_id: str | None = "sbx123",
+    gw4: str = "192.168.65.254",
+    gw6: str = "",
 ):
+    """A ``subprocess.run`` stand-in that models the docker calls we make."""
+
     def fake_run(command, **kwargs):
         if kwargs.get("shell") is not False:
             raise AssertionError("docker must never run through a shell")
         calls.append(list(command))
         verb = command[1] if len(command) > 1 else ""
-        if fail_on is not None and verb == fail_on:
-            return subprocess.CompletedProcess(command, 1, "", "boom")
-        # `network inspect` reports which containers remain on the network.
-        if command[1:3] == ["network", "inspect"]:
-            return subprocess.CompletedProcess(command, 0, inspect_members, "")
-        return subprocess.CompletedProcess(command, 0, "ok", "")
+        out = "ok"
+        if verb == "ps":
+            # Mirrors `docker ps --format '{{.ID}} {{.Image}}'`: one sandbox row
+            # plus an unrelated container that must be ignored.
+            rows = ["deadbeef alpine:3.20"]
+            if sandbox_id:
+                rows.insert(0, f"{sandbox_id} ghcr.io/usestrix/strix-sandbox:1.3.0")
+            out = "\n".join(rows)
+        elif verb == "exec" and "getent" in command:
+            out = (f"{gw4} host.docker.internal" if "ahostsv4" in command
+                   else (f"{gw6} host.docker.internal" if gw6 else ""))
+        return subprocess.CompletedProcess(command, 0, out, "")
 
     return fake_run
 
 
-class SandboxNetHelpers(unittest.TestCase):
+class SandboxHelpers(unittest.TestCase):
     def test_isolation_requested_truthy_values(self) -> None:
         for v in ("1", "true", "YES", "on"):
             self.assertTrue(isolation_requested({"SECHELIX_STRIX_ISOLATE_NETWORK": v}))
@@ -41,133 +55,115 @@ class SandboxNetHelpers(unittest.TestCase):
             self.assertFalse(isolation_requested({"SECHELIX_STRIX_ISOLATE_NETWORK": v}))
         self.assertFalse(isolation_requested({}))
 
-    def test_rewrite_target_in_command(self) -> None:
-        cmd = ("strix", "-n", "--target", "http://host.docker.internal:8077", "--scan-mode", "quick")
-        out = rewrite_target_in_command(cmd, "http://sechelix-target:8077")
-        self.assertEqual(out[3], "http://sechelix-target:8077")
-        self.assertEqual(out[:3], ("strix", "-n", "--target"))
+    def test_valid_ip(self) -> None:
+        self.assertEqual(_valid_ip("192.168.65.254"), "192.168.65.254")
+        self.assertEqual(_valid_ip("fd00::1"), "fd00::1")
+        for bad in ("", "host.docker.internal", "1.2.3.4; rm -rf /", "999.1.1.1"):
+            self.assertIsNone(_valid_ip(bad))
 
-    def test_rewrite_target_requires_a_target_flag(self) -> None:
+    def test_firewall_script_accepts_target_then_drops_gateway(self) -> None:
+        script = _firewall_script(ipv4_gw="192.168.65.254", ipv6_gw=None, target_port=8077)
+        # established accept precedes the target accept, which precedes the drop.
+        est = script.index("ESTABLISHED,RELATED -j ACCEPT")
+        accept = script.index("--dport 8077 -j ACCEPT")
+        drop = script.index("-d 192.168.65.254 -j DROP")
+        self.assertLess(est, accept)
+        self.assertLess(accept, drop)
+        self.assertIn("iptables", script)
+        self.assertNotIn("ip6tables", script)  # no v6 gateway given
+
+    def test_firewall_script_covers_ipv6_when_present(self) -> None:
+        script = _firewall_script(ipv4_gw="192.168.65.254", ipv6_gw="fd00::254", target_port=443)
+        self.assertIn("ip6tables -A OUTPUT -d fd00::254 -j DROP", script)
+        self.assertIn("iptables -A OUTPUT -d 192.168.65.254 -j DROP", script)
+
+    def test_firewall_script_rejects_bad_port(self) -> None:
         with self.assertRaises(SandboxNetworkError):
-            rewrite_target_in_command(("strix", "-n"), "http://x:1")
+            _firewall_script(ipv4_gw="192.168.65.254", ipv6_gw=None, target_port=0)
 
-
-class IsolatedNetworkLifecycle(unittest.TestCase):
-    def test_target_and_gateway_are_proxied_and_torn_down(self) -> None:
+    def test_running_sandbox_ids_matches_image_name_not_tagless_ancestor(self) -> None:
+        # A tagless `--filter ancestor=` resolves to :latest and matches nothing;
+        # detection must match the sandbox image name and ignore other images.
         calls: list[list[str]] = []
-        with patch(
-            "sechelix_runner.pentest.strix_sandbox_net.subprocess.run",
-            side_effect=_record_docker(calls),
-        ):
-            with isolated_strix_network(
+        with patch("sechelix_runner.pentest.strix_sandbox_net.subprocess.run",
+                   side_effect=_fake_docker(calls, sandbox_id="sbx123")):
+            ids = _running_sandbox_ids(docker="docker")
+        self.assertEqual(ids, ["sbx123"])  # the alpine row is ignored
+        self.assertNotIn("ancestor=ghcr.io/usestrix/strix-sandbox", calls[0])
+        self.assertIn("{{.ID}} {{.Image}}", calls[0])
+
+    def test_sandbox_host_gateways_parses_getent(self) -> None:
+        calls: list[list[str]] = []
+        with patch("sechelix_runner.pentest.strix_sandbox_net.subprocess.run",
+                   side_effect=_fake_docker(calls, gw4="192.168.65.254", gw6="fd00::254")):
+            v4, v6 = _sandbox_host_gateways("sbx123", docker="docker")
+        self.assertEqual(v4, "192.168.65.254")
+        self.assertEqual(v6, "fd00::254")
+
+    def test_apply_egress_firewall_runs_a_netns_sidecar(self) -> None:
+        calls: list[list[str]] = []
+        with patch("sechelix_runner.pentest.strix_sandbox_net.subprocess.run",
+                   side_effect=_fake_docker(calls)):
+            _apply_egress_firewall(
+                "sbx123", ipv4_gw="192.168.65.254", ipv6_gw=None,
+                target_port=8077, docker="docker",
+            )
+        run = next(c for c in calls if c[1] == "run")
+        self.assertIn("--net=container:sbx123", run)
+        self.assertIn("NET_ADMIN", run)
+        self.assertEqual(run[-2], "-c")
+        self.assertIn("--dport 8077 -j ACCEPT", run[-1])
+
+
+class FirewalledSandboxLifecycle(unittest.TestCase):
+    def test_watcher_firewalls_the_sandbox_then_teardown_removes_it(self) -> None:
+        calls: list[list[str]] = []
+        with patch("sechelix_runner.pentest.strix_sandbox_net.subprocess.run",
+                   side_effect=_fake_docker(calls, sandbox_id="sbx123")):
+            with firewalled_strix_sandbox(
                 target_url="http://host.docker.internal:8077",
-                gateway_base_url="http://127.0.0.1:8082/v1",
+                poll_interval=0.01,
             ) as sandbox:
-                # URLs rewritten to the fixed aliases, ports preserved.
-                self.assertEqual(sandbox.target_url, "http://sechelix-target:8077")
-                self.assertEqual(sandbox.gateway_base_url, "http://sechelix-gateway:8082/v1")
-                self.assertEqual(
-                    sandbox.allowed_hosts,
-                    frozenset({"sechelix-target", "sechelix-gateway"}),
-                )
-                self.assertTrue(sandbox.network.startswith("sechelix-strix-iso-"))
+                # Wait for the watcher to firewall the discovered sandbox.
+                deadline = time.monotonic() + 3.0
+                while "sbx123" not in sandbox.firewalled and time.monotonic() < deadline:
+                    time.sleep(0.02)
+                self.assertIn("sbx123", sandbox.firewalled)
+                self.assertEqual(sandbox.target_port, 8077)
+        # The sidecar applied the rules...
+        self.assertTrue(any(c[1] == "run" and "--net=container:sbx123" in c for c in calls))
+        # ...and teardown force-removed the firewalled sandbox.
+        self.assertTrue(any(c[1] == "rm" and c[:3] == ["docker", "rm", "-f"]
+                            and "sbx123" in c for c in calls))
 
-        verbs = [(c[1], c) for c in calls]
-        # internal network created
-        create = [c for v, c in verbs if v == "network" and c[2] == "create"]
-        self.assertEqual(len(create), 1)
-        self.assertIn("--internal", create[0])
-        # two proxies forward to the host ports via host.docker.internal
-        runs = [c for v, c in verbs if v == "run"]
-        self.assertEqual(len(runs), 2)
-        joined = " ".join(" ".join(c) for c in runs)
-        self.assertIn("TCP-LISTEN:8077,fork,reuseaddr", joined)
-        self.assertIn("TCP:host.docker.internal:8077", joined)
-        self.assertIn("TCP-LISTEN:8082,fork,reuseaddr", joined)
-        self.assertIn("TCP:host.docker.internal:8082", joined)
-        for c in runs:
-            self.assertIn("host.docker.internal:host-gateway", c)  # --add-host value
-        # proxies joined the internal net under the fixed aliases
-        connects = [c for v, c in verbs if v == "network" and c[2] == "connect"]
-        self.assertEqual(len(connects), 2)
-        aliases = {c[c.index("--alias") + 1] for c in connects}
-        self.assertEqual(aliases, {"sechelix-target", "sechelix-gateway"})
-        # teardown removed both proxies and the network
-        removed = [c for v, c in verbs if v in ("rm",) or (v == "network" and c[2] == "rm")]
-        self.assertEqual(len([c for c in removed if c[1] == "rm"]), 2)
-        self.assertTrue(any(c[1] == "network" and c[2] == "rm" for v, c in verbs))
-
-    def test_no_gateway_proxies_only_the_target(self) -> None:
+    def test_no_sandbox_is_a_clean_noop(self) -> None:
         calls: list[list[str]] = []
-        with patch(
-            "sechelix_runner.pentest.strix_sandbox_net.subprocess.run",
-            side_effect=_record_docker(calls),
-        ):
-            with isolated_strix_network(
+        with patch("sechelix_runner.pentest.strix_sandbox_net.subprocess.run",
+                   side_effect=_fake_docker(calls, sandbox_id="")):
+            with firewalled_strix_sandbox(
                 target_url="http://host.docker.internal:8077",
-                gateway_base_url=None,
+                poll_interval=0.01,
             ) as sandbox:
-                self.assertIsNone(sandbox.gateway_base_url)
-                self.assertEqual(sandbox.allowed_hosts, frozenset({"sechelix-target"}))
-        runs = [c for c in calls if len(c) > 1 and c[1] == "run"]
-        self.assertEqual(len(runs), 1)
+                time.sleep(0.1)
+                self.assertEqual(sandbox.firewalled, set())
+        # Nothing was firewalled, so nothing is removed.
+        self.assertFalse(any(c[1] == "run" for c in calls))
+        self.assertFalse(any(c[1] == "rm" for c in calls))
 
-    def test_teardown_runs_even_when_the_body_raises(self) -> None:
-        calls: list[list[str]] = []
-        with patch(
-            "sechelix_runner.pentest.strix_sandbox_net.subprocess.run",
-            side_effect=_record_docker(calls),
-        ):
-            with self.assertRaises(RuntimeError):
-                with isolated_strix_network(
-                    target_url="http://host.docker.internal:8077"
-                ):
-                    raise RuntimeError("Strix blew up")
-        self.assertTrue(any(c[1] == "rm" for c in calls if len(c) > 1))
-        self.assertTrue(
-            any(c[1] == "network" and len(c) > 2 and c[2] == "rm" for c in calls)
-        )
+    def test_watcher_errors_never_escape(self) -> None:
+        # A docker failure in the watcher must not crash the run; the context
+        # still enters and exits cleanly.
+        def boom(command, **kwargs):
+            return subprocess.CompletedProcess(command, 1, "", "nope")
 
-    def test_teardown_force_removes_leftover_sandbox_and_network(self) -> None:
-        # A timed-out run can leave Strix's sandbox attached to the per-run
-        # network; teardown must force it off before removing the network, or
-        # the network leaks and the orphan can be reused uncontained.
-        calls: list[list[str]] = []
-        with patch(
-            "sechelix_runner.pentest.strix_sandbox_net.subprocess.run",
-            side_effect=_record_docker(calls, inspect_members="inspiring_nobel"),
-        ):
-            with isolated_strix_network(
-                target_url="http://host.docker.internal:8077"
-            ):
-                pass
-        # The leftover sandbox was force-removed...
-        self.assertTrue(
-            any(c[:2] == ["docker", "rm"] and "inspiring_nobel" in c for c in calls),
-            calls,
-        )
-        # ...before the network was removed.
-        rm_member = next(
-            i for i, c in enumerate(calls)
-            if c[:2] == ["docker", "rm"] and "inspiring_nobel" in c
-        )
-        net_rm = next(
-            i for i, c in enumerate(calls)
-            if c[1:3] == ["network", "rm"]
-        )
-        self.assertLess(rm_member, net_rm)
-
-    def test_network_create_failure_is_reported(self) -> None:
-        calls: list[list[str]] = []
-        with patch(
-            "sechelix_runner.pentest.strix_sandbox_net.subprocess.run",
-            side_effect=_record_docker(calls, fail_on="network"),
-        ):
-            with self.assertRaises(SandboxNetworkError):
-                with isolated_strix_network(
-                    target_url="http://host.docker.internal:8077"
-                ):
-                    self.fail("should not enter the body when setup fails")
+        with patch("sechelix_runner.pentest.strix_sandbox_net.subprocess.run",
+                   side_effect=boom):
+            with firewalled_strix_sandbox(
+                target_url="http://host.docker.internal:8077",
+                poll_interval=0.01,
+            ) as sandbox:
+                time.sleep(0.05)
+                self.assertEqual(sandbox.firewalled, set())
 
 
 if __name__ == "__main__":
