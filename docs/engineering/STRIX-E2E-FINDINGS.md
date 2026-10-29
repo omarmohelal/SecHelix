@@ -56,12 +56,13 @@ that assessed a host `scope.allows_url` rejects — closing the gap where a
 finding-free recon run would otherwise pass as clean. Validated against the real
 `coverage.json` (flags `:8082` and `ws://:8070`) and in unit tests.
 
-**Prevention (milestone 3 — shipped and empirically proven):** Strix exposes
-`STRIX_DOCKER_SANDBOX_NETWORK` (`strix/runtime/docker_client.py`), so SecHelix
-can place the sandbox on a network it controls without modifying the pinned
-engine. The sandbox always gets `host.docker.internal -> host-gateway`, but on a
-Docker **internal** network that route is dead (no host gateway), so the
-container can reach only other containers on that network.
+**Prevention (milestone 3 — network blocking proven; NOT yet assessment-ready,
+see "Known limitation" below):** Strix exposes `STRIX_DOCKER_SANDBOX_NETWORK`
+(`strix/runtime/docker_client.py`), so SecHelix can place the sandbox on a
+network it controls without modifying the pinned engine. The sandbox always gets
+`host.docker.internal -> host-gateway`, but on a Docker **internal** network that
+route is dead (no host gateway), so the container can reach only other containers
+on that network.
 
 **Architecture insight that simplifies this:** the LLM reasoning calls are made
 by the openai-agents SDK in the **host** process (the Strix CLI / FCC runner),
@@ -122,8 +123,29 @@ The coverage guard above remains as defense-in-depth, told the sandbox aliases
 (`sechelix-target`) are in scope: if a future change reopens an escape, a run
 that still reached an out-of-scope host is refused.
 
+**Known limitation — the `--internal` topology breaks Caido (blocks a real
+assessment).** The internal network severs *all* host↔sandbox traffic, not only
+the sandbox→sibling path we meant to cut. But Strix's **host** process drives
+Caido — its HTTP-interception proxy, the backbone of its web testing — over a
+port the sandbox exposes (48080). On a normal bridge that port is published to
+`127.0.0.1`; on an `--internal` network nothing is published, so the host
+resolves Caido at the sandbox's internal IP (`http://172.21.0.3:48080`) and
+**cannot reach it**. Caido then never becomes ready
+(`InstanceNotReadyError: Instance not ready after 5 attempts` →
+`Caido bootstrap failed; proxy tools unavailable`), every agent HTTP request
+fails at the proxy layer (surfaced to the agent as "could not acquire a
+connection to the database"), and the run completes having assessed nothing. The
+non-isolated run drove Caido fine and did full recon, which pins the cause on the
+isolation. So today's containment **blocks siblings correctly but disables the
+assessment** — it is a safety net for a run you do not need to complete, not yet
+a mode you can run a real test in. Fixing it needs a topology that blocks only
+the sandbox→other-host-services path while leaving host→sandbox:48080 and
+sandbox→target intact (e.g. a normal network plus egress firewall rules in the
+sandbox via its `NET_ADMIN` cap, instead of a blanket `--internal` network).
+
 Host-networked (non-isolated) Strix runs remain **uncontained** and must be
-treated as such; set `SECHELIX_STRIX_ISOLATE_NETWORK=1` for containment (see
+treated as such; `SECHELIX_STRIX_ISOLATE_NETWORK=1` contains the sandbox but, per
+the limitation above, cannot yet complete a real assessment (see
 `PRODUCTION-READINESS.md`).
 
 ### B. Budget / latency — discovery did not complete (still open)
@@ -132,15 +154,27 @@ turns / 13-min wall-clock spent its budget on recon + sibling-mapping + an
 unfinished "Auth Gate Bypass" agent and **did not reach** `/api/receipts/<id>`,
 so Strix itself did not surface the BOLA.
 
-Raising the budget did **not** close this: a contained run at **45 turns /
-2000s** still exhausted its time on recon and SecHelix fail-closed on the
-timeout (`SCAN_EXIT=2`, refused — the run never counted as complete). The
-coverage for that run again shows only the target, confirming the recon that
-burned the budget stayed in scope. So the blocker is throughput, not scope: the
-local reasoning model is too slow for this agent to finish `quick` discovery in
-a tolerable wall-clock. The vuln is real and independently proven (§3); closing
-this needs a **faster reasoning model** (or a much larger time budget), not more
-turns against the current one.
+Raising the budget did **not** close this on the slow model: a contained run at
+**45 turns / 2000s** still exhausted its time on recon and SecHelix fail-closed
+on the timeout (`SCAN_EXIT=2`, refused — the run never counted as complete),
+coverage again in scope.
+
+**A faster model fixes the throughput problem.** Rerun on OpenRouter
+`openai/gpt-4o-mini` (probed at ~1 s/call vs the local gateway's 3.5–20 s): the
+contained run **completed within budget** (`run_status: completed`,
+`SCAN_EXIT=0`) — no timeout. Wiring: non-FCC path, env overrides cli-config to
+point Strix at OpenRouter as an OpenAI-compatible endpoint
+(`STRIX_LLM=openai/openai/gpt-4o-mini`, `LLM_API_BASE=https://openrouter.ai/api/v1`);
+reasoning is host-side so containment is unchanged.
+
+But it **still surfaced no BOLA**, and this time *not* because of latency: the
+run hit the §A **Known limitation** — Caido failed to bootstrap under the
+`--internal` network, so the agent had no working HTTP proxy and assessed
+nothing (it also guessed `/api/v1/users` rather than the real
+`/api/receipts/<id>`). So the two blockers are now separated: throughput is
+solved by a faster model; what remains is the containment-breaks-Caido topology
+fix. Until that lands, confirm "Strix itself finds the BOLA" with a **faster
+model and isolation off**. The vuln is real and independently proven (§3).
 
 ## Reproduction notes
 - Bootstrap: `bash scripts/bootstrap-full.sh` (venv + pinned Strix + Playwright
