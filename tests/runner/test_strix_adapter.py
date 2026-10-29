@@ -16,7 +16,9 @@ from sechelix_runner.pentest.strix_adapter import (
     StrixAdapterError,
     StrixEngine,
     StrixEngineHealth,
+    _default_health_timeout,
     _prepare_fcc_strix_environment,
+    coverage_out_of_scope_hosts,
     normalize_strix_vulnerabilities,
     write_strix_result,
 )
@@ -56,6 +58,7 @@ def fake_strix_process(
     version: str = STRIX_TESTED_VERSION,
     help_text: str = STRIX_HELP,
     write_vulnerability_index: bool = True,
+    coverage: dict | None = None,
 ):
     def fake_run(command, **kwargs):
         if kwargs.get("shell") is not False:
@@ -80,6 +83,11 @@ def fake_strix_process(
         if write_vulnerability_index:
             (run_dir / "vulnerabilities.json").write_text(
                 json.dumps(findings),
+                encoding="utf-8",
+            )
+        if coverage is not None:
+            (run_dir / "coverage.json").write_text(
+                json.dumps(coverage),
                 encoding="utf-8",
             )
         return subprocess.CompletedProcess(
@@ -463,6 +471,143 @@ class StrixAdapterTests(unittest.TestCase):
         self.assertFalse(result.vulnerability_index_present)
         self.assertEqual(result.payload_sha256, "sha256:" + hashlib.sha256(b"[]").hexdigest())
 
+    def test_coverage_out_of_scope_hosts_flags_sibling_surfaces(self) -> None:
+        coverage = {
+            "schema_version": 1,
+            "scope": {"targets": [{"original": "http://127.0.0.1:3000"}]},
+            "entries": [
+                {"surface": "http://127.0.0.1:3000 (authenticated API)"},
+                {"surface": "http://127.0.0.1:9999 (sibling admin service)"},
+            ],
+            "gaps": [
+                {"surface": 'ws://127.0.0.1:8070 (WebSocket "SiblingServer")'},
+                {"surface": "http://evil.example.com/ (third-party host in a link)"},
+            ],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            (run_dir / "coverage.json").write_text(json.dumps(coverage), encoding="utf-8")
+            escaped = coverage_out_of_scope_hosts(run_dir, local_scope())
+        self.assertEqual(
+            escaped,
+            (
+                "http://127.0.0.1:9999",
+                "http://evil.example.com/",
+                "ws://127.0.0.1:8070",
+            ),
+        )
+
+    def test_coverage_out_of_scope_hosts_accepts_in_scope_only(self) -> None:
+        coverage = {
+            "entries": [{"surface": "http://127.0.0.1:3000 (authenticated API)"}],
+            "gaps": [{"surface": "http://127.0.0.1:3000/reports (needs follow-up)"}],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            (run_dir / "coverage.json").write_text(json.dumps(coverage), encoding="utf-8")
+            self.assertEqual(coverage_out_of_scope_hosts(run_dir, local_scope()), ())
+
+    def test_missing_coverage_is_not_treated_as_a_scope_escape(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(coverage_out_of_scope_hosts(Path(tmp), local_scope()), ())
+
+    def test_health_timeout_override_is_bounded(self) -> None:
+        import os
+        from unittest.mock import patch as _patch
+
+        cases = {"": 5.0, "20": 20.0, "30": 30.0, "0": 5.0, "-1": 5.0, "99": 5.0, "x": 5.0}
+        for raw, expected in cases.items():
+            with _patch.dict(os.environ, {"SECHELIX_STRIX_HEALTH_TIMEOUT": raw}):
+                self.assertEqual(_default_health_timeout(), expected)
+
+    def test_coverage_guard_allows_sandbox_aliases_under_isolation(self) -> None:
+        coverage = {
+            "entries": [
+                {"surface": "http://sechelix-target:8077 (target via proxy)"},
+                {"surface": "http://sechelix-gateway:8082/v1 (reasoning gateway)"},
+            ],
+            "gaps": [],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            (run_dir / "coverage.json").write_text(json.dumps(coverage), encoding="utf-8")
+            # Without the alias allowlist the proxy hostnames look out of scope.
+            self.assertTrue(coverage_out_of_scope_hosts(run_dir, local_scope()))
+            # Under isolated-network containment the aliases are legitimate.
+            self.assertEqual(
+                coverage_out_of_scope_hosts(
+                    run_dir,
+                    local_scope(),
+                    allowed_hosts=frozenset({"sechelix-target", "sechelix-gateway"}),
+                ),
+                (),
+            )
+
+    def test_normalizer_allows_sandbox_alias_endpoint_under_isolation(self) -> None:
+        rows = [{"id": "v1", "title": "x", "endpoint": "http://sechelix-target:8077/api"}]
+        with self.assertRaisesRegex(StrixAdapterError, "outside the approved pentest scope"):
+            normalize_strix_vulnerabilities(
+                rows, payload_sha256="sha256:0", run_name="r", scope=local_scope()
+            )
+        out = normalize_strix_vulnerabilities(
+            rows,
+            payload_sha256="sha256:0",
+            run_name="r",
+            scope=local_scope(),
+            allowed_hosts=frozenset({"sechelix-target"}),
+        )
+        self.assertEqual(len(out), 1)
+
+    def test_completed_run_that_escaped_scope_is_refused(self) -> None:
+        coverage = {
+            "entries": [
+                {"surface": "http://127.0.0.1:3000 (target)"},
+                {"surface": "http://127.0.0.1:8082 (sibling LLM gateway)"},
+            ],
+            "gaps": [],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            engine = StrixEngine()
+            with patch.object(engine, "available", return_value=True), patch(
+                "sechelix_runner.pentest.strix_adapter.subprocess.run",
+                side_effect=fake_strix_process(
+                    root,
+                    returncode=0,
+                    status="completed",
+                    findings=[],
+                    write_vulnerability_index=False,
+                    coverage=coverage,
+                ),
+            ):
+                with self.assertRaisesRegex(
+                    StrixAdapterError,
+                    r"outside the authorized scope: http://127\.0\.0\.1:8082",
+                ):
+                    engine.run(scope=local_scope(), cwd=root, timeout=10)
+
+    def test_completed_run_with_in_scope_coverage_is_accepted(self) -> None:
+        coverage = {
+            "entries": [{"surface": "http://127.0.0.1:3000 (target)"}],
+            "gaps": [],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            engine = StrixEngine()
+            with patch.object(engine, "available", return_value=True), patch(
+                "sechelix_runner.pentest.strix_adapter.subprocess.run",
+                side_effect=fake_strix_process(
+                    root,
+                    returncode=0,
+                    status="completed",
+                    findings=[],
+                    write_vulnerability_index=False,
+                    coverage=coverage,
+                ),
+            ):
+                result = engine.run(scope=local_scope(), cwd=root, timeout=10)
+        self.assertTrue(result.succeeded)
+
     def test_findings_exit_without_vulnerability_index_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -577,6 +722,69 @@ class StrixAdapterTests(unittest.TestCase):
             self.assertNotIn("DO_NOT_COPY_THIS", rendered)
             self.assertNotIn("raw output not persisted", rendered)
             self.assertIn('"stdout_persisted": false', rendered)
+
+
+class FailClosedContainmentGate(unittest.TestCase):
+    """A protected (isolated) scan is accepted only if containment is proven.
+
+    These exercise the adapter's fail-closed gate deterministically, with the
+    real docker lifecycle replaced by a controllable ``firewalled_strix_sandbox``
+    stand-in (acceptance criterion A).
+    """
+
+    @staticmethod
+    def _fake_containment(*, failure=None, contained=False):
+        import contextlib as _contextlib
+
+        from sechelix_runner.pentest.strix_sandbox_net import FirewalledSandbox
+
+        @_contextlib.contextmanager
+        def _cm(**_kwargs):
+            state = FirewalledSandbox(target_port=3000)
+            state.saw_sandbox = True
+            state.failure = failure
+            if contained:
+                state.contained.set()
+            yield state
+
+        return _cm
+
+    def _run_isolated(self, fake_cm):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            engine = StrixEngine()
+            with patch.object(engine, "available", return_value=True), patch(
+                "sechelix_runner.pentest.strix_adapter.subprocess.run",
+                side_effect=fake_strix_process(
+                    root, returncode=0, status="completed", findings=[]
+                ),
+            ), patch(
+                "sechelix_runner.pentest.strix_adapter.firewalled_strix_sandbox",
+                side_effect=fake_cm,
+            ):
+                return engine.run(
+                    scope=local_scope(),
+                    cwd=root,
+                    timeout=10,
+                    env={"SECHELIX_STRIX_ISOLATE_NETWORK": "1"},
+                )
+
+    def test_refused_when_containment_fails(self) -> None:
+        cm = self._fake_containment(failure="egress is not bounded")
+        with self.assertRaises(StrixAdapterError) as ctx:
+            self._run_isolated(cm)
+        self.assertIn("containment failed", str(ctx.exception))
+
+    def test_refused_when_containment_never_proven(self) -> None:
+        cm = self._fake_containment(failure=None, contained=False)
+        with self.assertRaises(StrixAdapterError) as ctx:
+            self._run_isolated(cm)
+        self.assertIn("never proven", str(ctx.exception))
+
+    def test_accepted_when_containment_proven(self) -> None:
+        cm = self._fake_containment(contained=True)
+        result = self._run_isolated(cm)
+        self.assertTrue(result.succeeded)
 
 
 if __name__ == "__main__":

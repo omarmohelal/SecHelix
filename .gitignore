@@ -28,3 +28,10 @@ __pycache__/
 
 # Serena tool workspace (local only)
 .serena/
+
+# Local virtualenv created by scripts/bootstrap-full.sh
+.venv/
+
+# Session chat exports (local only). These transcripts can contain tool output,
+# file contents, environment values or secrets and must never be committed.
+.claude/exports/
