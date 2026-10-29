@@ -56,29 +56,60 @@ that assessed a host `scope.allows_url` rejects — closing the gap where a
 finding-free recon run would otherwise pass as clean. Validated against the real
 `coverage.json` (flags `:8082` and `ws://:8070`) and in unit tests.
 
-**Prevention (milestone 3 — designed, implementation pending):** Strix exposes
+**Prevention (milestone 3 — shipped and empirically proven):** Strix exposes
 `STRIX_DOCKER_SANDBOX_NETWORK` (`strix/runtime/docker_client.py`), so SecHelix
 can place the sandbox on a network it controls without modifying the pinned
 engine. The sandbox always gets `host.docker.internal -> host-gateway`, but on a
 Docker **internal** network that route is dead (no host gateway), so the
-container can reach only other containers on that network. The containment is
-then:
+container can reach only other containers on that network.
 
-1. Create a per-run **internal** Docker network `N`.
-2. Start one **dual-homed proxy** container `P` (attached to `N` *and* a normal
-   bridge with host-gateway) that forwards exactly two ports: one to the
-   authorized target, one to the reasoning gateway. Nothing else is forwarded.
-3. Run Strix with `STRIX_DOCKER_SANDBOX_NETWORK=N`; rewrite its target URL and
-   `LLM_API_BASE` to `P`. Strix can now reach only the target and the gateway;
-   every other host service (the `:8082` admin surface, `ws://:8070`, …) is
-   unroutable.
-4. Tear down `P` and `N` on exit.
+**Architecture insight that simplifies this:** the LLM reasoning calls are made
+by the openai-agents SDK in the **host** process (the Strix CLI / FCC runner),
+*not* inside the sandbox. Only tool/recon execution (bash, HTTP to the target)
+runs in the sandbox container. So the sandbox never needs to reach the reasoning
+gateway at all — **only the authorized target** must be reachable from it. The
+containment therefore proxies just the target (it also avoids tripping the FCC
+runner's trusted-loopback gateway check, since `LLM_API_BASE` is left untouched
+host-side):
 
-The coverage guard above remains as defense-in-depth: if a future change
-reopens an escape, a run that still reached an out-of-scope host is refused.
+1. Create a per-run **internal** Docker network `N` (`--internal`).
+2. Start one **dual-homed proxy** container `P` (on `N` under the fixed alias
+   `sechelix-target`, *and* a bridge with `host.docker.internal:host-gateway`)
+   that forwards exactly one port to the authorized target. Nothing else.
+3. Run Strix with `STRIX_DOCKER_SANDBOX_NETWORK=N` and its `--target` rewritten
+   to `http://sechelix-target:<port>`. The sandbox can now reach only the
+   target; every host service (the `:8082` reasoning gateway, `ws://:8070`, and
+   even host loopback `:8077`) is unroutable.
+4. Tear down `P` and `N` on exit (best-effort, never masking the run outcome).
 
-Until the above lands, host-networked Strix runs are **uncontained** and must be
-treated as such (see `PRODUCTION-READINESS.md`).
+Implemented in `sechelix_runner/pentest/strix_sandbox_net.py`
+(`isolated_strix_network`) and wired into `strix_adapter.run()` behind
+`SECHELIX_STRIX_ISOLATE_NETWORK=1`; 15 unit tests cover the helper and the
+adapter's allowed-alias handling.
+
+**Proof (from inside the real `strix-sandbox:1.3.0` container on `N`, with all
+three host services genuinely listening — 8077→401, 8082→200, 8070→400):**
+
+| From inside the contained sandbox → | raw socket | curl `--noproxy` |
+|---|---|---|
+| `sechelix-target:8077` (authorized target, via proxy) | REACHABLE (`172.21.0.2`) | `http=401` (reached) |
+| `host.docker.internal:8082` (reasoning gateway) | blocked | `rc=7` (no connect) |
+| `host.docker.internal:8070` (ws service) | blocked | `rc=7` (no connect) |
+| `host.docker.internal:8077` (direct host loopback) | blocked | — |
+
+(An unqualified `curl` inside the sandbox returns `rc=0` even for a blocked
+sibling, because its in-container caido proxy answers with an HTTP error that
+`-o /dev/null` without `--fail` treats as success. The raw socket and
+`--noproxy` direct connect are the authoritative network-layer tests, and both
+confirm the siblings are unreachable.)
+
+The coverage guard above remains as defense-in-depth, told the sandbox aliases
+(`sechelix-target`) are in scope: if a future change reopens an escape, a run
+that still reached an out-of-scope host is refused.
+
+Host-networked (non-isolated) Strix runs remain **uncontained** and must be
+treated as such; set `SECHELIX_STRIX_ISOLATE_NETWORK=1` for containment (see
+`PRODUCTION-READINESS.md`).
 
 ### B. Budget / latency — discovery did not complete
 At the local gateway model's latency (~3.5–20 s/call), a `quick` scan with 25
