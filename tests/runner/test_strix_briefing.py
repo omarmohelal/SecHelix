@@ -12,7 +12,6 @@ Three things are proven here:
 
 from __future__ import annotations
 
-import sys
 import threading
 import unittest
 from http.server import ThreadingHTTPServer
@@ -30,10 +29,9 @@ from sechelix_runner.pentest.strix_adapter import StrixEngine
 from sechelix_runner.pentest.strix_briefing import briefing_from_report, build_briefing
 from sechelix_runner.sandbox import ExecutionMode
 
-EXPENSE_API = Path(__file__).resolve().parents[2] / "examples" / "expense-api"
-sys.path.insert(0, str(EXPENSE_API))
+from tests.runner.expense_fixture import load_expense_app
 
-import app as expense_app  # noqa: E402  (fixture under examples/expense-api)
+expense_app = load_expense_app()  # fixture under examples/expense-api, isolated
 
 IDENTITIES = [
     Identity(name="ada", token="tok-ada", tenant="northwind", role="approver"),
