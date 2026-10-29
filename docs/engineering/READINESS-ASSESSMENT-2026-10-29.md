@@ -92,10 +92,25 @@ is not available on this machine. This is an install gap, not a code gap.
 
 - Targeted suites run green: autodiscovery discovery (6), fix synthesis (9),
   remediation loop (8), Strix briefing + adapter (50). 
-- A full-tree `unittest discover` run was executed; note a pre-existing
-  module-name collision surfaces one loader `ERROR` in discovery
-  (`unittest.loader._FailedTest`) independent of these changes — the affected
-  module imports cleanly on its own. Full-suite pass/fail is tracked separately.
+- The first full-tree `unittest discover` run **did not complete**: it was killed
+  by its 900 s timeout (exit 124) after 1,611 OK / 2 skipped / 0 FAIL / 1 ERROR.
+  Two defects, both now fixed:
+  - `scripts/check_install_snippets.py` walked the whole tree (`rglob("*")`,
+    including `.git`, `.venv`, the engine submodule); over the WSL `/mnt/c` mount
+    that took >4 minutes. It now uses `git ls-files` like its sibling checks
+    (`test_repository_checks`: 15 s, 9 OK).
+  - The 1 ERROR (`test_report_renderer` failing to load) was **caused by this
+    session's own tests**, not pre-existing: `test_discovery_engine` and
+    `test_strix_briefing` put the expense-api fixture on `sys.path`, and its flat
+    `reports.py` shadowed the repository's `reports` package for every later test.
+    A fixture loader (`tests/runner/expense_fixture.py`) now restores
+    `sys.path`/`sys.modules`; a control run reproduces the old failure and the
+    ordered run passes (34 OK).
+- Clean full-suite result after the fixes: **1,895 tests, OK, 2 skipped, exit 0,
+  220 s** (`python -m unittest discover -s tests`, WSL runner). The skip gates that
+  can fire here are the live-provider tests, which need an API key the
+  non-interactive shell does not export; Docker-gated sandbox tests ran. These are
+  unit/integration tests, not acceptance — no live LLM or Strix run is included.
 
 ## Honest bottom line
 
