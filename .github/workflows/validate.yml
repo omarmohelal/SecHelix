@@ -97,6 +97,8 @@ jobs:
         run: python scripts/check_commit_hygiene.py
       - name: Check installation snippets
         run: python scripts/check_install_snippets.py
+      - name: Check self-hosted runner safety
+        run: python scripts/check_runner_safety.py
       - name: Run report, gate, eval, and QA tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Run adapter and agent-profile tests
