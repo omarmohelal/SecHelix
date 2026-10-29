@@ -12,7 +12,12 @@ from sechelix_runner.pentest.strix_sandbox_net import (
 )
 
 
-def _record_docker(calls: list[list[str]], *, fail_on: str | None = None):
+def _record_docker(
+    calls: list[list[str]],
+    *,
+    fail_on: str | None = None,
+    inspect_members: str = "",
+):
     def fake_run(command, **kwargs):
         if kwargs.get("shell") is not False:
             raise AssertionError("docker must never run through a shell")
@@ -20,6 +25,9 @@ def _record_docker(calls: list[list[str]], *, fail_on: str | None = None):
         verb = command[1] if len(command) > 1 else ""
         if fail_on is not None and verb == fail_on:
             return subprocess.CompletedProcess(command, 1, "", "boom")
+        # `network inspect` reports which containers remain on the network.
+        if command[1:3] == ["network", "inspect"]:
+            return subprocess.CompletedProcess(command, 0, inspect_members, "")
         return subprocess.CompletedProcess(command, 0, "ok", "")
 
     return fake_run
@@ -119,6 +127,35 @@ class IsolatedNetworkLifecycle(unittest.TestCase):
         self.assertTrue(
             any(c[1] == "network" and len(c) > 2 and c[2] == "rm" for c in calls)
         )
+
+    def test_teardown_force_removes_leftover_sandbox_and_network(self) -> None:
+        # A timed-out run can leave Strix's sandbox attached to the per-run
+        # network; teardown must force it off before removing the network, or
+        # the network leaks and the orphan can be reused uncontained.
+        calls: list[list[str]] = []
+        with patch(
+            "sechelix_runner.pentest.strix_sandbox_net.subprocess.run",
+            side_effect=_record_docker(calls, inspect_members="inspiring_nobel"),
+        ):
+            with isolated_strix_network(
+                target_url="http://host.docker.internal:8077"
+            ):
+                pass
+        # The leftover sandbox was force-removed...
+        self.assertTrue(
+            any(c[:2] == ["docker", "rm"] and "inspiring_nobel" in c for c in calls),
+            calls,
+        )
+        # ...before the network was removed.
+        rm_member = next(
+            i for i, c in enumerate(calls)
+            if c[:2] == ["docker", "rm"] and "inspiring_nobel" in c
+        )
+        net_rm = next(
+            i for i, c in enumerate(calls)
+            if c[1:3] == ["network", "rm"]
+        )
+        self.assertLess(rm_member, net_rm)
 
     def test_network_create_failure_is_reported(self) -> None:
         calls: list[list[str]] = []
