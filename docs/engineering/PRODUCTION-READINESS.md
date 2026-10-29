@@ -39,8 +39,10 @@ one thing blocks calling the live Strix discovery loop acceptance-complete:
    both the raw-socket and direct-curl layers. The coverage-record guard remains
    as defense-in-depth. See `STRIX-E2E-FINDINGS.md`.
 2. **Budget/latency (remaining).** At the current gateway model's latency a
-   quick scan did not finish in 13 min / 25 turns. Either raise the
-   wall-clock/turn budget on a contained run or use a faster model, then confirm
-   Strix itself surfaces the expense-API BOLA.
+   quick scan did not finish in 13 min / 25 turns — and raising the budget did
+   not help: a **contained** run at 45 turns / 2000s still exhausted its time in
+   recon and SecHelix fail-closed on the timeout (coverage again in scope). The
+   blocker is reasoning throughput, not scope: needs a **faster model** (or a
+   much larger time budget) before Strix itself surfaces the expense-API BOLA.
 
 Do not upgrade the pinned engine unless compatibility tests justify it.

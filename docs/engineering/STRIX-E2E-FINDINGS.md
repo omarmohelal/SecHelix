@@ -103,6 +103,21 @@ sibling, because its in-container caido proxy answers with an HTTP error that
 `--noproxy` direct connect are the authoritative network-layer tests, and both
 confirm the siblings are unreachable.)
 
+**Confirmed on a live credit-spending run** (`SECHELIX_STRIX_ISOLATE_NETWORK=1`,
+45 turns): the full run's `coverage.json` recorded **only** the authorized
+target — `http://host.docker.internal:8077` and its proxy alias
+`http://sechelix-target:8077` — and **no** sibling surfaces (`:8082`, `ws://:8070`),
+in contrast to the uncontained run (§A) that probed both. So containment holds
+not just in the isolated smoke test but through a real agentic run.
+
+**Teardown robustness:** a timed-out or killed run can leave Strix's own sandbox
+container attached to the per-run network, which blocks `network rm` and leaves
+an uncontained orphan a later run could reuse. Observed once (a 2000s-timeout
+run leaked `sechelix-strix-iso-*` + its sandbox). `isolated_strix_network` now
+force-removes any container still on the per-run network before deleting it (the
+network name is uniquely ours, so anything on it is this run's leftover);
+unit-tested.
+
 The coverage guard above remains as defense-in-depth, told the sandbox aliases
 (`sechelix-target`) are in scope: if a future change reopens an escape, a run
 that still reached an out-of-scope host is refused.
@@ -111,13 +126,21 @@ Host-networked (non-isolated) Strix runs remain **uncontained** and must be
 treated as such; set `SECHELIX_STRIX_ISOLATE_NETWORK=1` for containment (see
 `PRODUCTION-READINESS.md`).
 
-### B. Budget / latency — discovery did not complete
+### B. Budget / latency — discovery did not complete (still open)
 At the local gateway model's latency (~3.5–20 s/call), a `quick` scan with 25
 turns / 13-min wall-clock spent its budget on recon + sibling-mapping + an
 unfinished "Auth Gate Bypass" agent and **did not reach** `/api/receipts/<id>`,
-so Strix itself did not surface the BOLA. The vuln is real and independently
-proven (§3); what remains is letting a *contained* run reach it — raise the
-turn/time budget or use a faster model.
+so Strix itself did not surface the BOLA.
+
+Raising the budget did **not** close this: a contained run at **45 turns /
+2000s** still exhausted its time on recon and SecHelix fail-closed on the
+timeout (`SCAN_EXIT=2`, refused — the run never counted as complete). The
+coverage for that run again shows only the target, confirming the recon that
+burned the budget stayed in scope. So the blocker is throughput, not scope: the
+local reasoning model is too slow for this agent to finish `quick` discovery in
+a tolerable wall-clock. The vuln is real and independently proven (§3); closing
+this needs a **faster reasoning model** (or a much larger time budget), not more
+turns against the current one.
 
 ## Reproduction notes
 - Bootstrap: `bash scripts/bootstrap-full.sh` (venv + pinned Strix + Playwright
