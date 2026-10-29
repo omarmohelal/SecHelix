@@ -100,18 +100,63 @@ regression: test_tenancy.py rc=0 OK   prove.py rc=0 OK
 ALL_FIXED: True
 ```
 
-Honesty note: the fix applied is the target's **reference** remediation, not an
-LLM-synthesised patch. What is proven here is the discover -> independent-verify ->
-before/after-regression -> retest loop with real HTTP evidence. Autonomous patch
-*synthesis* for arbitrary code is a separate, unclaimed capability.
+The fix in step 3 can come from either of two sources, held to the same bar.
 
-Tests: `tests/runner/test_remediation_flow.py` (4, spins up both states as real
-subprocesses and runs the suites).
+Tests: `tests/runner/test_remediation_flow.py` (8: the loop in both fix modes,
+spinning up both states as real subprocesses and running the suites).
+
+## Autonomous fix synthesis (deterministic, no reference patch)
+
+`fix_synth.py` makes step 3 real: instead of applying the target's `fix.patch`,
+it **localizes the root cause in source and synthesizes the minimal scoped-query
+patch** for the cross-tenant object-read class. Run with `run_remediation(target,
+synthesize=True)`.
+
+Given only the confirmed BOLA candidate (which names the tenant field, `org_id`)
+and the app's source, it:
+
+1. scans the app's own `*.py` for a parameterized `SELECT` that fetches an object
+   by its resource id whose `WHERE` does **not** constrain the tenant column;
+2. finds the authenticated principal already resolved in that handler (an
+   assignment from `identify`/`authenticate`/…) to bind the caller's tenant from;
+3. rewrites the lookup to `... AND org_id = ?` with `person["org_id"]` bound at the
+   matching parameter position — a no-row result then falls through to the
+   handler's existing 404, so the diff adds one predicate and one bound value and
+   nothing else;
+4. **abstains** (emits no patch) if any precondition fails — no parameterized id
+   predicate, the query already scopes by the tenant column, the params are not an
+   inline tuple, or no principal is in scope. The flow then reports that synthesis
+   produced no patch rather than inventing one or silently falling back to the
+   reference fix.
+
+The patch is never trusted because it was generated. It is proven by the **same**
+before/after independent-verification regression and retest suite as the reference
+fix. Real run on `examples/expense-api` (reference `fix.patch` played no part):
+
+```
+FIX SOURCE: synthesized
+LOCALIZED : app.py -- object fetched by 'id' with a query that does not constrain the caller's 'org_id'
+SYNTHESIZED PATCH
+   row = self.store.execute(
+-      "SELECT * FROM receipt WHERE id = ?", (receipt_id,)
++      "SELECT * FROM receipt WHERE id = ? AND org_id = ?", (receipt_id, person["org_id"])
+   ).fetchone()
+  bola GET /api/receipts/{id}
+    before: CONFIRMED  read object 201 owned by tenant value 2 (HTTP 200)
+    after : REFUTED    cross-tenant read was refused (HTTP 404)
+    FIXED : True
+regression: test_tenancy.py rc=0 OK   prove.py rc=0 OK
+ALL_FIXED: True
+```
+
+This is deliberately narrow: one root-cause shape, with explicit preconditions and
+honest abstention — not a general code-repair model. The synthesized patch is the
+behavioural core of the hand-written reference fix, derived from source rather than
+supplied. Tests: `tests/runner/test_fix_synthesis.py` (9: the real-app synthesis
+and four abstention cases).
 
 ## Next slices (not done here)
 
-* **Autonomous fix synthesis** (step 5 above currently applies the reference fix):
-  localize the root cause in source and generate the minimal scoped-query patch.
 * **Guide Strix** with the inventory + ranked hypotheses (the deterministic engine
   is the reliable floor; Strix can widen it). The remaining half of "guide Strix".
 * **Multi-framework route extraction** (Flask/FastAPI/Express/Next.js/OpenAPI/
