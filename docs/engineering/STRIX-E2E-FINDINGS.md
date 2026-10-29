@@ -56,10 +56,29 @@ that assessed a host `scope.allows_url` rejects — closing the gap where a
 finding-free recon run would otherwise pass as clean. Validated against the real
 `coverage.json` (flags `:8082` and `ws://:8070`) and in unit tests.
 
-**Prevention (next milestone, needs infra):** run Strix on a dedicated Docker
-network exposing only the target plus a scoped gateway path, no host loopback.
-Until then, host-networked Strix runs are **uncontained** and must be treated as
-such (see `PRODUCTION-READINESS.md`).
+**Prevention (milestone 3 — designed, implementation pending):** Strix exposes
+`STRIX_DOCKER_SANDBOX_NETWORK` (`strix/runtime/docker_client.py`), so SecHelix
+can place the sandbox on a network it controls without modifying the pinned
+engine. The sandbox always gets `host.docker.internal -> host-gateway`, but on a
+Docker **internal** network that route is dead (no host gateway), so the
+container can reach only other containers on that network. The containment is
+then:
+
+1. Create a per-run **internal** Docker network `N`.
+2. Start one **dual-homed proxy** container `P` (attached to `N` *and* a normal
+   bridge with host-gateway) that forwards exactly two ports: one to the
+   authorized target, one to the reasoning gateway. Nothing else is forwarded.
+3. Run Strix with `STRIX_DOCKER_SANDBOX_NETWORK=N`; rewrite its target URL and
+   `LLM_API_BASE` to `P`. Strix can now reach only the target and the gateway;
+   every other host service (the `:8082` admin surface, `ws://:8070`, …) is
+   unroutable.
+4. Tear down `P` and `N` on exit.
+
+The coverage guard above remains as defense-in-depth: if a future change
+reopens an escape, a run that still reached an out-of-scope host is refused.
+
+Until the above lands, host-networked Strix runs are **uncontained** and must be
+treated as such (see `PRODUCTION-READINESS.md`).
 
 ### B. Budget / latency — discovery did not complete
 At the local gateway model's latency (~3.5–20 s/call), a `quick` scan with 25
