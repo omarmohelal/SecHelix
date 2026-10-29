@@ -36,7 +36,7 @@ showing no attacker string reaches SQL) in both phases. Reproduce:
 
 ## Open gaps
 
-### A. Scope containment — the sandbox is not network-isolated (security)
+### A. Scope containment — fail-closed bounded egress (shipped and proven)
 The authorization boundary handed to Strix is a **prompt-level instruction**
 ("interact only with the declared authorized host(s)"). An autonomous agent can
 ignore it, and in this run it did: Strix's recon probed **sibling loopback
@@ -56,68 +56,100 @@ that assessed a host `scope.allows_url` rejects — closing the gap where a
 finding-free recon run would otherwise pass as clean. Validated against the real
 `coverage.json` (flags `:8082` and `ws://:8070`) and in unit tests.
 
-**Prevention (milestone 3 — shipped and proven working): an in-netns egress
-firewall.** Keep Strix on its **default** network so its published ports and
-`host.docker.internal` route are untouched — Caido bootstraps exactly as it does
-uncontained — and constrain egress from *inside* the sandbox's network namespace
-instead of rerouting it.
+**Prevention (shipped and proven working): a fail-closed, bounded-egress
+in-netns firewall.** Keep Strix on its **default** network so its published
+ports and `host.docker.internal` route are untouched — Caido bootstraps exactly
+as it does uncontained — and constrain egress from *inside* the sandbox's network
+namespace with a **default-DROP** policy, proven from inside the sandbox before
+the run is accepted.
 
-*Why not a custom Docker network (the first attempt, now abandoned).* Strix
-exposes `STRIX_DOCKER_SANDBOX_NETWORK`, so the sandbox can be put on a per-run
-`--internal` network + a dual-homed target proxy. That provably blocks the
-siblings, but it also **breaks the assessment**: setting that knob makes Strix
-drop the sandbox's published ports and resolve **Caido** (its HTTP-interception
-proxy, the backbone of its web testing) at the container's own network IP. On
-Docker Desktop / WSL2 the host cannot reach a container IP (measured — true even
-on a normal bridge), so Caido never bootstraps
-(`InstanceNotReadyError` → "proxy tools unavailable"), every agent HTTP request
-fails, and the run assesses nothing. So a custom network is a non-starter here.
+*Why not a custom Docker network (the first attempt, abandoned).* Strix exposes
+`STRIX_DOCKER_SANDBOX_NETWORK`, so the sandbox can be put on a per-run
+`--internal` network + a dual-homed target proxy. That blocks egress, but it also
+**breaks the assessment**: that knob makes Strix drop the sandbox's published
+ports and resolve **Caido** (its HTTP-interception proxy, the backbone of its web
+testing) at the container's own network IP. On Docker Desktop / WSL2 the host
+cannot reach a container IP (measured — true even on a normal bridge), so Caido
+never bootstraps (`InstanceNotReadyError` → "proxy tools unavailable"), every
+agent HTTP request fails, and the run assesses nothing. So a custom network is a
+non-starter here.
 
-*The shipped design.* The sandbox reaches the authorized target **and** the
-sibling host services through the same `host.docker.internal` gateway IP
-(`192.168.65.254` on Docker Desktop), differing only by port — so filter that
-gateway by port:
+*The shipped design (bounded egress, not just a sibling-port filter).* An
+earlier version filtered only the `host.docker.internal` gateway by port — which
+left the sandbox's **ordinary outbound internet access wide open**; that is *not*
+a real egress boundary. The shipped policy is default-DROP:
 
 1. Leave `STRIX_DOCKER_SANDBOX_NETWORK` unset (default network; Caido works).
 2. A background watcher spots the sandbox the moment it appears (matched by image
    name — a tagless `--filter ancestor=` resolves to `:latest` and matches
-   nothing).
-3. Because the strix-sandbox image has no `iptables` and we cannot inject one at
-   creation, a short-lived **sidecar** that shares the sandbox's network
-   namespace (`--net=container:<sandbox>` + `NET_ADMIN`) carries its own
-   `iptables` and installs rules on the gateway IP: accept established/related,
-   accept the single target port, drop everything else. Rules persist in the
-   shared namespace and die with the sandbox.
-4. On exit the watcher stops and force-removes any sandbox it firewalled (a
-   timed-out run can orphan one, and an orphan is a reuse hazard).
+   nothing) and **pauses it immediately** so it cannot emit a packet while the
+   rules go in. This shrinks the create-to-enforce race to the sub-second
+   detection latency rather than the whole rule-install duration.
+3. A short-lived **sidecar** built from a **pinned, prebuilt helper image**
+   (`sechelix-strix-fw`, iptables baked in — no per-scan `apk` download) shares
+   the sandbox's netns (`--net=container:<sandbox>` + `NET_ADMIN`) and installs a
+   default-DROP OUTPUT chain: accept loopback (Caido + the embedded DNS resolver
+   at `127.0.0.11`), established/related, DNS to the resolver, and the single
+   target port on the gateway — **drop everything else** (other gateway ports,
+   sibling services, and the entire public internet). Rules persist in the shared
+   namespace and die with the sandbox.
+4. The watcher **unpauses and independently verifies from inside the sandbox**
+   that the target connects while a non-target gateway port and the public
+   internet are dropped. Only then is the run marked *contained*. Any failure
+   kills the sandbox; `strix_adapter` **refuses a run that is not proven
+   contained** (fail-closed — nothing is silently continued).
 
-The LLM reasoning is made by the host process, not the sandbox, so nothing the
-sandbox legitimately needs (other than the target) lives behind the gateway; a
-blanket drop of the other gateway ports costs the assessment nothing.
+*Per-run ownership (safe under concurrency).* At entry we snapshot the
+pre-existing sandboxes (`baseline`) and never touch them, and we claim each newly
+appearing sandbox through an **atomic cross-process registry** (one lock file per
+container id, carrying the owner pid). A sandbox owned by another live run is
+skipped; teardown force-removes **only** sandboxes this run claimed; a startup
+reaper clears claims whose owner process is dead and removes the orphan. A run
+can therefore never firewall or delete another scan's container.
+
+The LLM reasoning runs in the host CLI process, not the sandbox, so nothing the
+sandbox legitimately needs (other than the target) lives beyond the firewall; a
+default drop costs the assessment nothing.
 
 Implemented in `sechelix_runner/pentest/strix_sandbox_net.py`
-(`firewalled_strix_sandbox`) and wired into `strix_adapter.run()` behind
-`SECHELIX_STRIX_ISOLATE_NETWORK=1`; 11 unit tests cover the helper.
+(`firewalled_strix_sandbox`, `_contain_one`, claim registry, helper image) and
+wired into `strix_adapter.run()` behind `SECHELIX_STRIX_ISOLATE_NETWORK=1`;
+**22 unit tests** cover the module and **3 adapter tests** cover the fail-closed
+gate.
 
-**Proof — live, from inside the real Strix sandbox during a contained OpenRouter
-run** (`SECHELIX_STRIX_ISOLATE_NETWORK=1`, with the real reasoning gateway
-genuinely serving HTTP 200 on `:8082`):
+**Proof A — mechanism, LLM-free, against a real strix-sandbox container:** the
+target port is reachable (rc 0) while a sibling host port *and the public
+internet* (`1.1.1.1:80`, `8.8.8.8:443`) are dropped (rc 28), DNS still resolves
+the target, `_verify_containment` passes, a pre-existing foreign sandbox is left
+running and un-firewalled, and teardown leaves zero sidecars.
+
+**Proof B — live, from inside the real Strix sandbox during a contained
+OpenRouter run** (`SECHELIX_STRIX_ISOLATE_NETWORK=1`, the real reasoning gateway
+serving on `:8082`):
 
 | From inside the running sandbox → | Result |
 |---|---|
-| `host.docker.internal:8077` (authorized target) | **http=200** — reachable |
-| `host.docker.internal:8082` (reasoning gateway, live) | **blocked** (`rc=28` timeout) |
-| `host.docker.internal:8070` (ws service) | **blocked** (`rc=28` timeout) |
+| `host.docker.internal:8077` (authorized target) | **http=200, rc=0** — reachable |
+| `host.docker.internal:8082` (reasoning gateway, live) | **blocked** (`rc=28`) |
+| `host.docker.internal:9999` (dead port) | **blocked** (`rc=28`, drop not reset) |
+| `1.1.1.1:80` (public internet) | **blocked** (`rc=28`) |
 
-And in the same run: **Caido bootstrapped** (`host=http://127.0.0.1:45933`,
-project selected — no failure), the run **completed in budget**, `coverage.json`
-recorded **only** the target, and teardown left zero sandboxes/sidecars. So the
-containment now blocks siblings *and* keeps the assessment working — the
-`--internal` Caido breakage is resolved.
+And in the same run: the adapter **accepted** it (`SCAN_EXIT=0` — containment was
+proven), **Caido bootstrapped** (`host=http://127.0.0.1:45915`, project
+selected — no failure, *despite the pause*), `coverage.json` recorded **only**
+the target, and teardown left **zero** sandboxes, sidecars, and claim files. So
+the containment is a real bounded-egress boundary *and* keeps the assessment
+working.
+
+**Known, bounded limitation.** Strix creates the sandbox itself, so there is a
+sub-second window between the sandbox starting and the watcher pausing it, before
+which a rule is not yet in force. The sandbox spends that first moment on Caido
+bootstrap (host-driven), not egress, and the coverage-record guard below refuses
+any run that still reached an out-of-scope host — but the window is non-zero.
+Closing it fully would require a sandbox-creation hook Strix does not expose.
 
 The coverage-record guard remains as fail-closed defence in depth, using the
-real target scope: if the firewall's small apply-after-start window were ever
-lost, a run that still reached an out-of-scope host is refused.
+real target scope.
 
 Host-networked runs without `SECHELIX_STRIX_ISOLATE_NETWORK=1` remain
 **uncontained** and must be treated as such.
