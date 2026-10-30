@@ -160,11 +160,19 @@ class RunResult:
     _mandatory: dict[str, bool] = field(default_factory=dict)
 
 
-#: What one node is assumed to cost when the caller gives no estimate. Small and
-#: deliberately not tuned to any provider -- a real estimate comes from the
-#: planner, and this only exists so an unconfigured run still reserves something
-#: rather than treating every node as free.
+#: What one node is assumed to cost when the caller gives no estimate and no
+#: cost ceiling is set. Under a ceiling, an un-estimated node instead reserves
+#: the largest per-node cost measured so far (see ``_largest_measured_cost``).
 DEFAULT_NODE_COST_USD = 0.0
+
+
+def _largest_measured_cost(result: "RunResult") -> float:
+    """The most any node has measurably cost in this run, or 0.0 before any has.
+
+    Restored records count, so a resumed run keeps its learned estimate.
+    """
+    costs = [r.cost_usd for r in result.records.values() if r.cost_usd is not None]
+    return max(costs, default=0.0)
 
 
 def _world_has_candidates(world: dict[str, Any]) -> bool:
@@ -459,7 +467,20 @@ class Runner:
             result.context_views[node_id] = view.to_dict()
 
             # Budget admission. A refusal blocks the node with the limit named.
-            estimate = self._estimates.get(node_id, DEFAULT_NODE_COST_USD)
+            #
+            # Under a cost ceiling a node without an explicit estimate reserves
+            # the largest per-node cost measured so far in this run, and must
+            # find some budget left: with no estimates at all the ceiling would
+            # otherwise never be checked before a node runs. One node can still
+            # overshoot by its own cost; explicit estimates close that gap.
+            cost_limited = self.budget.limit("max_cost_usd") is not None
+            explicit_estimate = node_id in self._estimates
+            if explicit_estimate:
+                estimate = self._estimates[node_id]
+            elif cost_limited:
+                estimate = _largest_measured_cost(result)
+            else:
+                estimate = DEFAULT_NODE_COST_USD
             try:
                 self.budget.reserve("max_nodes", 1, node_id)
             except BudgetExceeded as exc:
@@ -473,9 +494,12 @@ class Runner:
                 continue
 
             reserved_cost = 0.0
-            if estimate:
+            if estimate or cost_limited:
                 try:
-                    self.budget.reserve("max_cost_usd", estimate, node_id)
+                    self.budget.reserve(
+                        "max_cost_usd", estimate, node_id,
+                        require_headroom=cost_limited and not explicit_estimate,
+                    )
                     reserved_cost = estimate
                 except BudgetExceeded as exc:
                     self.budget.release("max_nodes", 1)
@@ -719,7 +743,14 @@ class Runner:
         record.error = outcome.error
         record.blocker = outcome.blocker
 
-        self.budget.settle("max_cost_usd", reserved_cost, outcome.cost_usd or 0.0)
+        if (outcome.cost_usd is None and outcome.model_invoked
+                and self.budget.limit("max_cost_usd") is not None):
+            # A paid provider ran but reported no amount. Recording it as free is
+            # exactly how a ceiling stops binding; charge the reservation, or mark
+            # the ceiling unenforceable if nothing was reserved.
+            self.budget.settle_unmeasured("max_cost_usd", reserved_cost, node_id)
+        else:
+            self.budget.settle("max_cost_usd", reserved_cost, outcome.cost_usd or 0.0)
         if outcome.input_tokens:
             self.budget.spend("max_input_tokens", outcome.input_tokens)
             self.budget.spend("max_total_tokens", outcome.input_tokens)

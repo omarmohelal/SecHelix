@@ -40,6 +40,12 @@ class NodeOutcome:
     A mock run has no token count, and writing ``0`` would understate a later
     budget report -- "not measured" and "measured as zero" are different claims
     and the governor treats them differently.
+
+    ``model_invoked`` says a paid reasoning provider was called (or attempted)
+    for this node, so money may have been spent whatever ``cost_usd`` says.
+    Deterministic executors leave it ``False``: their ``None`` cost means no
+    model ran. Under a cost ceiling the runner charges an unmeasured
+    ``model_invoked`` outcome rather than recording it as free.
     """
 
     status: NodeStatus
@@ -52,6 +58,7 @@ class NodeOutcome:
     provider: str | None = None
     error: str | None = None
     blocker: str | None = None
+    model_invoked: bool = False
 
     @property
     def output_digest(self) -> str:

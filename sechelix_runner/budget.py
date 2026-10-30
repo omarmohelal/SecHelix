@@ -45,6 +45,22 @@ class BudgetExceeded(RuntimeError):
         self.remaining = remaining
 
 
+class BudgetUnenforceable(BudgetExceeded):
+    """A limit can no longer be checked, so further work under it is refused.
+
+    Raised once spend the governor could not measure has happened with nothing
+    reserved to charge for it. The true remainder is then unknown; admitting
+    more work would turn the ceiling back into a suggestion.
+    """
+
+    def __init__(self, limit_name: str, requested: float, reason: str) -> None:
+        RuntimeError.__init__(self, f"{limit_name} budget unenforceable: {reason}")
+        self.limit_name = limit_name
+        self.requested = requested
+        self.remaining = float("inf")
+        self.reason = reason
+
+
 #: Every governed quantity. Absent from a ``BudgetLimits`` means "no limit",
 #: which is different from a limit of zero.
 LIMIT_NAMES = (
@@ -124,6 +140,8 @@ class BudgetGovernor:
         #: Set once any limit has refused work, so the report can say the run
         #: was shaped by its budget rather than by the target.
         self.exhausted: bool = False
+        #: Limits whose remainder became unknowable, with the reason why.
+        self._unenforceable: dict[str, str] = {}
 
     # -- reading -------------------------------------------------------------
 
@@ -155,15 +173,36 @@ class BudgetGovernor:
     def can_afford(self, name: str, amount: float) -> bool:
         return self.remaining(name) >= float(amount)
 
-    def reserve(self, name: str, amount: float, node_id: str) -> None:
+    def unenforceable(self, name: str) -> str | None:
+        """Why ``name`` can no longer be enforced, or ``None`` if it still can."""
+        return self._unenforceable.get(name)
+
+    def reserve(
+        self, name: str, amount: float, node_id: str, *, require_headroom: bool = False
+    ) -> None:
         """Hold ``amount`` for ``node_id`` or raise :class:`BudgetExceeded`.
 
         Reserving before running is what closes the concurrency hole: two nodes
         cannot both pass a check against the same remainder.
+
+        ``require_headroom`` is for work whose cost is not known in advance: the
+        amount held is only a guess, so the node is also refused once nothing at
+        all remains. Without it, a zero estimate would be admitted forever.
         """
         amount = float(amount)
+        reason = self._unenforceable.get(name)
+        if reason is not None:
+            self.exhausted = True
+            self.decisions.append(
+                BudgetDecision(name, node_id, amount, float("inf"), admitted=False,
+                               reason=f"unenforceable: {reason}")
+            )
+            raise BudgetUnenforceable(name, amount, reason)
         remaining = self.remaining(name)
-        if amount > remaining:
+        out_of_headroom = (
+            require_headroom and self.limit(name) is not None and remaining <= 0
+        )
+        if amount > remaining or out_of_headroom:
             self.exhausted = True
             self.decisions.append(
                 BudgetDecision(name, node_id, amount, remaining, admitted=False,
@@ -183,6 +222,32 @@ class BudgetGovernor:
         """Convert a reservation into real spend."""
         self.release(name, reserved_amount)
         self._actual[name] += float(actual_amount)
+
+    def settle_unmeasured(self, name: str, reserved_amount: float, node_id: str) -> None:
+        """Settle work that may have spent but reported no amount.
+
+        The reservation is the only bound available, so it is charged in full and
+        the substitution is recorded. With nothing reserved there is nothing to
+        charge: the remainder becomes unknown and the limit is marked
+        unenforceable, so every later reservation under it is refused.
+        """
+        reserved_amount = float(reserved_amount)
+        if reserved_amount > 0:
+            self.settle(name, reserved_amount, reserved_amount)
+            self.decisions.append(
+                BudgetDecision(name, node_id, reserved_amount, self.remaining(name),
+                               admitted=True,
+                               reason="usage unmeasured; charged the reserved estimate")
+            )
+            return
+        self.release(name, reserved_amount)
+        reason = (f"node {node_id} spent an unmeasured amount with nothing reserved; "
+                  "supply per-node estimates or use a provider that reports usage")
+        self._unenforceable[name] = reason
+        self.decisions.append(
+            BudgetDecision(name, node_id, 0.0, float("inf"), admitted=True,
+                           reason=f"usage unmeasured; {reason}")
+        )
 
     def spend(self, name: str, amount: float) -> None:
         """Record consumption that was not reserved (already-incurred cost).
@@ -218,6 +283,7 @@ class BudgetGovernor:
                 for name in LIMIT_NAMES
             },
             "decisions": [d.to_dict() for d in self.decisions],
+            "unenforceable": dict(self._unenforceable),
         }
 
     def restore(self, snapshot: dict[str, Any]) -> None:
@@ -287,11 +353,21 @@ class BudgetGovernor:
                 )
             )
 
+        # A resume must not lift an unenforceable limit: the spend that made it
+        # unknowable still happened. Older checkpoints predate the key.
+        unenforceable = snapshot.get("unenforceable", {})
+        if not isinstance(unenforceable, dict) or any(
+            name not in LIMIT_NAMES or not isinstance(reason, str)
+            for name, reason in unenforceable.items()
+        ):
+            raise ValueError("checkpoint budget unenforceable state is malformed")
+
         self._actual = restored_actual
         self._reserved = restored_reserved
         self._estimated = restored_estimated
         self.decisions = restored_decisions
         self.exhausted = bool(snapshot.get("exhausted", False))
+        self._unenforceable = dict(unenforceable)
 
     @property
     def refusals(self) -> list[BudgetDecision]:

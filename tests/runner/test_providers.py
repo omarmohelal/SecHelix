@@ -387,6 +387,21 @@ class AccountingTests(unittest.TestCase):
         for value in (outcome.model, outcome.input_tokens, outcome.cost_usd):
             self.assertIsNone(value)
 
+    def test_every_provider_call_is_marked_as_possible_spend(self) -> None:
+        # Success, unparseable output and a provider error all followed a call
+        # that may have been billed; the budget must not read their None as free.
+        for provider in (FakeProvider(), FakeProvider("not json"),
+                         FakeProvider(raises=ProviderError("timeout"))):
+            self.assertTrue(run_node(provider).model_invoked)
+
+    def test_evidence_computed_roles_are_not_marked_as_spend(self) -> None:
+        provider = FakeProvider()
+        executor = ReasoningExecutor(provider, timeout=5,
+                                     skip_roles=frozenset({NodeRole.AUTHORIZATION}))
+        outcome = executor.execute(GraphNode("n", NodeRole.AUTHORIZATION), {})
+        self.assertFalse(outcome.model_invoked)
+        self.assertEqual(provider.prompts, [], "a skipped role must not call the provider")
+
     def test_envelope_without_model_usage_yields_none_not_zero(self) -> None:
         model, provider, cost, tin, tout = _accounting({})
         self.assertEqual((model, provider, cost, tin, tout), (None, None, None, None, None))
