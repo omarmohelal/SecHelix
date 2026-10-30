@@ -65,9 +65,15 @@ is not available on this machine. This is an install gap, not a code gap.
    (`pentest_service.py:210`); model-level fallback/preflight exists only on the
    FCC/Strix lane (`strix_adapter.py:151,276`), not the main reasoning providers.
    The brief's "provider fallback with approval" is unbuilt for that path.
-3. **Budget can under-count** when a provider returns no `usage` block — cost is
-   `None` and reservations settle against 0 actual (`base.py:15-17`,
-   `runner.py:722`). A ceiling on a non-reporting provider is not a hard stop.
+3. **`--max-cost` did not bind at all — FIXED on `feat/budget-binds-and-fallback`.**
+   This was worse than first written here. No caller passes per-node estimates,
+   so every estimate was 0 and the runner never checked the ceiling before a
+   node ran; unreported cost also settled as $0. Measured: $0.50 ceiling, $0.40
+   nodes → $1.60 spent and the gate passed. Now an un-estimated node reserves the
+   largest cost measured so far and needs budget left; unmeasured paid spend
+   charges the reservation or marks the ceiling unenforceable (persisted across
+   resume). Same probe: $0.40 spent, next node BLOCKED, gate cannot pass. One node
+   can still overshoot by its own cost unless explicit estimates are given.
 4. **`integrations/strix-compat.json` is decorative** — version gating uses the
    hardcoded `STRIX_TESTED_VERSION`/`..._COMMIT` constants (`strix_adapter.py:49-50`),
    not the JSON. The file can silently drift from the code's real pins.
