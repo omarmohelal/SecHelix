@@ -374,7 +374,9 @@ class ReasoningExecutor:
                     prompt, timeout=self.timeout, response_schema=response_schema
                 )
         except ProviderError as exc:
-            return NodeOutcome(status=NodeStatus.FAILED, error=str(exc))
+            # The call may have been billed before it failed (a timeout after
+            # the model ran), so this is unmeasured spend, not free.
+            return NodeOutcome(status=NodeStatus.FAILED, error=str(exc), model_invoked=True)
 
         try:
             payload = extract_json(result.text)
@@ -387,6 +389,7 @@ class ReasoningExecutor:
                 input_tokens=result.input_tokens,
                 output_tokens=result.output_tokens,
                 cost_usd=result.cost_usd,
+                model_invoked=True,
             )
 
         problems = (
@@ -407,6 +410,7 @@ class ReasoningExecutor:
                 input_tokens=result.input_tokens,
                 output_tokens=result.output_tokens,
                 cost_usd=result.cost_usd,
+                model_invoked=True,
             )
 
         return NodeOutcome(
@@ -417,6 +421,7 @@ class ReasoningExecutor:
             input_tokens=result.input_tokens,
             output_tokens=result.output_tokens,
             cost_usd=result.cost_usd,
+            model_invoked=True,
         )
 
 

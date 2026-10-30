@@ -118,6 +118,71 @@ class BudgetFailClosedTests(unittest.TestCase):
         self.assertTrue(self.result.budget_snapshot["exhausted"])
 
 
+def _paid(cost: float | None) -> MockExecutor:
+    """Every node calls a paid provider that reports ``cost`` (or nothing)."""
+    return MockExecutor({
+        node: NodeOutcome(status=NodeStatus.SUCCEEDED, cost_usd=cost, model_invoked=True)
+        for node in ("map", "authz", "verify", "gate")
+    })
+
+
+class CostCeilingWithoutEstimatesTests(unittest.TestCase):
+    """The production path: ``--max-cost`` set, no per-node estimates supplied.
+
+    Before this was fixed, a $0.50 ceiling with $0.40 nodes spent $1.60 and the
+    gate still passed -- the ceiling was never checked before a node ran.
+    """
+
+    def run_with(self, executor: MockExecutor, limit: float = 0.50):
+        governor = BudgetGovernor(BudgetLimits(max_cost_usd=limit))
+        return runner(budget=governor, executor=executor).run(pipeline(), world()), governor
+
+    def test_measured_spend_stops_at_the_ceiling(self) -> None:
+        result, governor = self.run_with(_paid(0.40))
+        self.assertLessEqual(governor.actual("max_cost_usd"), 0.50)
+        self.assertIs(result.records["authz"].status, NodeStatus.BLOCKED)
+        self.assertIn("max_cost_usd", result.records["authz"].blocker)
+
+    def test_a_stopped_run_cannot_pass_its_gate(self) -> None:
+        result, _ = self.run_with(_paid(0.40))
+        self.assertIn("gate", result.unsatisfied_mandatory)
+        self.assertTrue(result.budget_snapshot["exhausted"])
+
+    def test_learned_estimate_admits_what_still_fits(self) -> None:
+        result, governor = self.run_with(_paid(0.10))
+        self.assertEqual(result.unsatisfied_mandatory, [])
+        self.assertAlmostEqual(governor.actual("max_cost_usd"), 0.40)
+
+    def test_unreported_cost_is_not_treated_as_free(self) -> None:
+        result, governor = self.run_with(_paid(None))
+        self.assertIsNotNone(governor.unenforceable("max_cost_usd"))
+        self.assertIs(result.records["authz"].status, NodeStatus.BLOCKED)
+        self.assertIn("unenforceable", result.records["authz"].blocker)
+        self.assertIn("gate", result.unsatisfied_mandatory)
+
+    def test_unreported_cost_after_a_measured_node_charges_the_learned_estimate(self) -> None:
+        executor = MockExecutor({
+            "map": NodeOutcome(status=NodeStatus.SUCCEEDED, cost_usd=0.10, model_invoked=True),
+            "authz": NodeOutcome(status=NodeStatus.SUCCEEDED, cost_usd=None, model_invoked=True),
+            "verify": NodeOutcome(status=NodeStatus.SUCCEEDED, cost_usd=0.10, model_invoked=True),
+            "gate": NodeOutcome(status=NodeStatus.SUCCEEDED, cost_usd=0.10, model_invoked=True),
+        })
+        result, governor = self.run_with(executor, limit=1.0)
+        self.assertEqual(result.unsatisfied_mandatory, [])
+        self.assertAlmostEqual(governor.actual("max_cost_usd"), 0.40)  # authz charged 0.10
+        self.assertIsNone(governor.unenforceable("max_cost_usd"))
+
+    def test_deterministic_nodes_with_no_cost_are_free(self) -> None:
+        # MockExecutor's default outcome did not call a model (model_invoked=False).
+        result, governor = self.run_with(MockExecutor())
+        self.assertEqual(result.unsatisfied_mandatory, [])
+        self.assertIsNone(governor.unenforceable("max_cost_usd"))
+
+    def test_no_ceiling_means_no_change(self) -> None:
+        result = runner(executor=_paid(None)).run(pipeline(), world())
+        self.assertEqual(result.unsatisfied_mandatory, [])
+
+
 class ContextIsolationTests(unittest.TestCase):
     def test_each_node_gets_only_its_own_slices(self) -> None:
         result = runner().run(pipeline(), world())
